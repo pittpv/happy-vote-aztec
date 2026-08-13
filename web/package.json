@@ -1,0 +1,38 @@
+{
+  "name": "happy-vote-aztec-web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "postinstall": "node scripts/patch-zkpassport-json-import.mjs && node scripts/patch-bb-ios.mjs"
+  },
+  "dependencies": {
+    "@aztec/accounts": "5.1.0",
+    "@aztec/aztec.js": "5.1.0",
+    "@aztec/foundation": "5.1.0",
+    "@aztec/kv-store": "^5.1.0",
+    "@aztec/noir-contracts.js": "5.1.0",
+    "@aztec/protocol-contracts": "^5.1.0",
+    "@aztec/standard-contracts": "^5.1.0",
+    "@aztec/stdlib": "5.1.0",
+    "@aztec/wallet-sdk": "5.1.0",
+    "@aztec/wallets": "5.1.0",
+    "@vercel/blob": "^1.1.1",
+    "@zkpassport/sdk": "^0.16.1",
+    "@zkpassport/ui": "^0.16.1",
+    "assert": "^2.1.0",
+    "buffer": "^6.0.3",
+    "i18n-iso-countries": "^7.14.0",
+    "process": "^0.11.10",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "vite": "^7.1.3",
+    "vite-plugin-node-polyfills": "^0.28.0"
+  }
+}

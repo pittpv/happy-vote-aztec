@@ -1,0 +1,51 @@
+{
+  "framework": "vite",
+  "buildCommand": "node scripts/patch-zkpassport-json-import.mjs && node scripts/patch-bb-ios.mjs && npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
+  "functions": {
+    "api/poll-state.js": {
+      "memory": 1024,
+      "maxDuration": 30
+    },
+    "api/zkpassport-verify.js": {
+      "memory": 2048,
+      "maxDuration": 60,
+      "includeFiles": "{api/bb-crs-env.js,node_modules/@zkpassport/**,node_modules/@aztec/bb.js/**,node_modules/@aztec/bb.js-v4/**,node_modules/i18n-iso-countries/**}"
+    },
+    "api/polls.js": {
+      "memory": 1024,
+      "maxDuration": 30
+    },
+    "api/client-error.js": {
+      "memory": 512,
+      "maxDuration": 10
+    }
+  },
+  "rewrites": [
+    { "source": "/((?!api/|robots\\.txt|sitemap\\.xml|favicon\\.svg).*)", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cross-Origin-Resource-Policy", "value": "same-origin" }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
+        { "key": "Cross-Origin-Embedder-Policy", "value": "credentialless" },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval'; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://*.zkpassport.id https://zkpassport.id; connect-src 'self' blob: data: https://v5.testnet.rpc.aztec-labs.com https://aztec-mainnet.drpc.org https://*.aztec-labs.com https://crs.aztec-cdn.foundation https://*.aztec-cdn.foundation https://aztec-faucet.nethermind.io https://demo-wallet.aztec-labs.com https://fonts.googleapis.com https://fonts.gstatic.com https://*.zkpassport.id https://zkpassport.id wss://bridge.zkpassport.id wss://*.zkpassport.id https://eth-sepolia.g.alchemy.com https://eth-mainnet.g.alchemy.com https://base-mainnet.g.alchemy.com; object-src 'none'"
+        },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+      ]
+    }
+  ]
+}

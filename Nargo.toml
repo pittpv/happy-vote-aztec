@@ -1,0 +1,8 @@
+[package]
+name = "happy_vote_aztec"
+type = "contract"
+authors = ["HappyVote"]
+compiler_version = ">=0.25.0"
+
+[dependencies]
+aztec = { git = "https://github.com/AztecProtocol/aztec-nr/", tag = "v5.1.0", directory = "aztec" }

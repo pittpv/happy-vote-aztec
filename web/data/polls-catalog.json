@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-13T00:00:00.000Z",
+  "polls": {
+    "1": {
+      "id": "1",
+      "title": "How are you feeling?",
+      "description": "Binary Happy/Sad poll on Aztec Testnet — open eligibility.",
+      "topics": ["demo", "mood"],
+      "countries": [],
+      "options": [
+        { "label": "Happy", "description": "Feeling good today." },
+        { "label": "Sad", "description": "Could be better." }
+      ],
+      "template": "binary",
+      "requiresZkPassport": false,
+      "eligibilityMode": 0,
+      "zkRequirements": null,
+      "sealed": false,
+      "metadataHash": null
+    },
+    "2": {
+      "id": "2",
+      "title": "Which demo feature should we ship next?",
+      "description": "Single-choice roadmap poll for the Aztec HappyVote demo.",
+      "topics": ["demo", "product"],
+      "countries": [],
+      "options": [
+        {
+          "label": "Sealed tallies",
+          "description": "Hide live results until the poll ends."
+        },
+        {
+          "label": "Share embeds",
+          "description": "Embeddable poll cards for other sites."
+        },
+        {
+          "label": "ZKPassport gates",
+          "description": "Personhood / age / nationality eligibility."
+        }
+      ],
+      "template": "single_choice",
+      "requiresZkPassport": false,
+      "eligibilityMode": 0,
+      "zkRequirements": null,
+      "sealed": false,
+      "metadataHash": null
+    }
+  }
+}

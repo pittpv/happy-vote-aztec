@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b1c1a" />
+    <meta name="robots" content="index, follow" />
+    <meta
+      name="description"
+      content="HappyVote on Aztec — private or open ballots with public tallies on Aztec Network. One person, one vote, without exposing who you are."
+    />
+    <title>HappyVote on Aztec</title>
+    <link rel="canonical" href="https://aztec.happyvote.xyz/" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/favicon.svg" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="HappyVote on Aztec" />
+    <meta property="og:title" content="HappyVote on Aztec" />
+    <meta
+      property="og:description"
+      content="HappyVote on Aztec — private or open ballots with public tallies on Aztec Network. One person, one vote, without exposing who you are."
+    />
+    <meta property="og:url" content="https://aztec.happyvote.xyz/" />
+    <meta property="og:locale" content="en_US" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="HappyVote on Aztec" />
+    <meta
+      name="twitter:description"
+      content="HappyVote on Aztec — private or open ballots with public tallies on Aztec Network. One person, one vote, without exposing who you are."
+    />
+    <script type="application/ld+json" id="seo-jsonld">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://aztec.happyvote.xyz/#org",
+            "name": "HappyVote on Aztec",
+            "url": "https://aztec.happyvote.xyz",
+            "logo": "https://aztec.happyvote.xyz/favicon.svg"
+          },
+          {
+            "@type": "Person",
+            "@id": "https://aztec.happyvote.xyz/#author",
+            "name": "Peter Ploskikh",
+            "sameAs": [
+              "https://x.com/pittpv",
+              "https://www.linkedin.com/in/peter-ploskikh/",
+              "https://github.com/pittpv/"
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://aztec.happyvote.xyz/#website",
+            "url": "https://aztec.happyvote.xyz",
+            "name": "HappyVote on Aztec",
+            "description": "HappyVote on Aztec — private or open ballots with public tallies on Aztec Network. One person, one vote, without exposing who you are.",
+            "inLanguage": "en",
+            "publisher": { "@id": "https://aztec.happyvote.xyz/#org" },
+            "author": { "@id": "https://aztec.happyvote.xyz/#author" }
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "https://aztec.happyvote.xyz/#app",
+            "name": "HappyVote on Aztec",
+            "url": "https://aztec.happyvote.xyz",
+            "description": "HappyVote on Aztec — private or open ballots with public tallies on Aztec Network. One person, one vote, without exposing who you are.",
+            "applicationCategory": "LifestyleApplication",
+            "operatingSystem": "Web",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "publisher": { "@id": "https://aztec.happyvote.xyz/#org" }
+          },
+          {
+            "@type": "WebPage",
+            "@id": "https://aztec.happyvote.xyz/#webpage",
+            "url": "https://aztec.happyvote.xyz",
+            "name": "HappyVote on Aztec",
+            "description": "HappyVote on Aztec — private or open ballots with public tallies on Aztec Network. One person, one vote, without exposing who you are.",
+            "isPartOf": { "@id": "https://aztec.happyvote.xyz/#website" },
+            "about": { "@id": "https://aztec.happyvote.xyz/#app" }
+          }
+        ]
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Sora:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      function showBootError(message) {
+        var root = document.getElementById("root");
+        if (!root) return;
+        var pre = document.createElement("pre");
+        pre.style.cssText =
+          "padding:1.5rem;color:#f87171;font-family:monospace;white-space:pre-wrap";
+        pre.textContent = String(message);
+        root.replaceChildren(pre);
+      }
+      window.addEventListener("error", function (event) {
+        showBootError(event.error && event.error.stack ? event.error.stack : event.message);
+      });
+      window.addEventListener("unhandledrejection", function (event) {
+        var reason = event.reason;
+        showBootError(reason && reason.stack ? reason.stack : reason && reason.message ? reason.message : String(reason));
+      });
+    </script>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
