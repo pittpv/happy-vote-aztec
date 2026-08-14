@@ -48,7 +48,7 @@ flowchart LR
   Prove --> Results[Live results]
 ```
 
-1. Guest: question, options, public tallies (`/api/poll-state`), plus schedule/countdown when dates are set.
+1. Guest: question, options, public tallies (`/api/poll-state`), plus schedule/countdown when dates are set. If the contract is paused or the poll is cancelled, Connect and Vote stay locked.
 2. Optional ZKPassport gate (only while the voting window is open).
 3. Connect Aztec wallet (prefer Browser session).
 4. Option + Private/Open → submit.
@@ -70,7 +70,7 @@ The **Ballot privacy** heading and the Private / Open controls have a clear gap 
 
 ## Schedule
 
-Poll cards and vote pages show **Upcoming / Live / Ended** when `startsAt` / `endsAt` are set (catalog ISO; vote page prefers on-chain unix seconds). Before start: countdown, Connect and Vote locked. After start: countdown to the end. Omit both dates for an always-open poll until `end_poll`.
+Poll cards and vote pages show **Upcoming / Live / Ended** when `startsAt` / `endsAt` are set (catalog ISO; vote page prefers on-chain unix seconds). Before start: countdown, Connect and Vote locked. After start: countdown to the end. Omit both dates for an always-open poll until `end_poll` or `cancel_poll`. On-chain pause also locks voting while guests can still read the question.
 
 ## Legal
 
@@ -88,7 +88,7 @@ Effective date: **13 August 2026**. Contact: **legal@happyvote.xyz**. See [13-LE
 
 ## SEO
 
-Per-route `document.title`, meta description, canonical, Open Graph, Twitter card, JSON-LD (`Organization`, `Person`, `WebSite`, `WebApplication`, `WebPage`). `robots.txt` allows indexing of public pages. `sitemap.xml` lists home, demo polls, and legal URLs.
+Per-route `document.title`, meta description, canonical, Open Graph, Twitter card, JSON-LD (`Organization`, `Person`, `WebSite`, `WebApplication`, `WebPage`). `robots.txt` allows indexing of public pages. `sitemap.xml` lists home, demo polls `/p/1` `/p/2` `/p/3`, and legal URLs.
 
 No third-party analytics counter on this subdomain.
 

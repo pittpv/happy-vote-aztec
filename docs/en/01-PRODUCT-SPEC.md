@@ -104,7 +104,7 @@ Important polls should require at least personhood. Details live in catalog JSON
 19. SEO (titles, Open Graph, JSON-LD, sitemap, robots).
 20. Shared catalog (`GET/POST /api/polls`).
 
-Still manual: real-device ZKPassport E2E; turn off Dev Mode; participation receipt note.
+Still manual: real-device ZKPassport E2E; participation receipt note.
 
 ### Iteration 2 — not started
 

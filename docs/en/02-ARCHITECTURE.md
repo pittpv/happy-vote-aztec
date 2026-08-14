@@ -206,7 +206,7 @@ happy-vote-aztec/
 ├── AGENTS.md
 ├── Nargo.toml                 # contract package happy_vote_aztec
 ├── src/main.nr                # HappyVote
-├── src/test/                  # Noir tests (24)
+├── src/test/                  # Noir tests (40)
 ├── scripts/                   # deploy, smoke, create_poll
 ├── config/                    # local-network + testnet
 ├── web/                       # Vite app + Vercel api/

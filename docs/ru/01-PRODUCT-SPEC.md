@@ -86,7 +86,7 @@ Private **не** скрывает вариант с live-табло: `option_id`
 
 ZKPassport + server re-verify + identity claim, sealed, шаринг `/p/:id`, Sponsored FPC, Aztecscan, юридические страницы, SEO, общий каталог.
 
-Осталось вручную: E2E ZKPassport на устройстве; выключить Dev Mode.
+Осталось вручную: E2E ZKPassport на устройстве.
 
 ### Итерация 2 — не начата
 

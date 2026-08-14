@@ -7,7 +7,7 @@ AI / CLI: https://docs.aztec.network/developers/ai_tooling
 
 **Status: done (2026-08-11)**
 
-WSL2 Ubuntu, Node 24.12, Aztec CLI 5.1.0, docs, `AGENTS.md`, bootstrap from aztec-starter.
+Node 24.12, Aztec CLI 5.1.0, docs, `AGENTS.md`, bootstrap from aztec-starter.
 
 **Exit:** `aztec compile` and `aztec test` green (40/40).
 
@@ -35,20 +35,20 @@ WSL2 Ubuntu, Node 24.12, Aztec CLI 5.1.0, docs, `AGENTS.md`, bootstrap from azte
 
 ## Phase 3 — Testnet
 
-**Status: deployed 2026-08-12**, current contract 2026-08-13  
+**Status: deployed 2026-08-12**, current contract 2026-08-14  
 Addresses: [10-TESTNET-ADDRESSES.md](./10-TESTNET-ADDRESSES.md)
 
 Remaining: manual private/open vote from an external account on production.
 
 ## Phase 4 — ZKPassport
 
-**Status: live on prod (Dev Mode)**
+**Status: live**
 
-SDK + QR gate + server re-verify + on-chain `identity_commitment`. Domain `aztec.happyvote.xyz`. Default policy `vote-identity-verification`. Remaining: real-device E2E; turn off Dev Mode.
+SDK + QR gate + server re-verify + on-chain `identity_commitment`. Domain `aztec.happyvote.xyz`. Default policy `vote-identity-verification`. Remaining: real-device E2E.
 
 ## Phase 5 — Product hardening
 
-**Status: hardening for Iteration 1 (2026-08-13)**
+**Status: hardening for Iteration 1 (2026-08-14)**
 
 | # | Task | Status |
 |---|------|--------|
@@ -92,4 +92,4 @@ Permissionless `create_poll` with limits, anti-spam, moderation, discovery, extr
 - [x] ZKPassport gate + server re-verify + identity claim
 - [x] `aztec compile` / `aztec test` green (40/40)
 - [x] User guide for connect + vote
-- [ ] Real-device ZKPassport E2E; disable Dev Mode
+- [ ] Real-device ZKPassport E2E

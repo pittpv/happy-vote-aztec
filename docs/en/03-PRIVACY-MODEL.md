@@ -103,4 +103,4 @@ Default ZKPassport scope: **per poll** (`poll:{id}`).
 - [x] Server re-verify ZKPassport for gated polls
 - [x] On-chain identity claim
 - [x] Sealed tallies
-- [ ] Real-device ZKPassport E2E; disable Dev Mode
+- [ ] Real-device ZKPassport E2E

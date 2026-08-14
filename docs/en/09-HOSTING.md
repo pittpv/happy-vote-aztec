@@ -38,7 +38,6 @@ VITE_PROVER_ENABLED=true
 VITE_REQUIRE_ZKPASSPORT=false
 VITE_ZKPASSPORT_ENABLED=true
 VITE_ZKPASSPORT_DOMAIN=aztec.happyvote.xyz
-VITE_ZKPASSPORT_DEV_MODE=true
 VITE_ZKPASSPORT_DEFAULT_POLICY=vote-identity-verification
 ```
 
@@ -74,7 +73,7 @@ Example:
 {"tallies":[1,0],"total":1,"policy":2,"sealed":false,"voteEnded":false,"cancelled":false,"paused":false,"startsAt":0,"endsAt":0,"votingOpen":true}
 ```
 
-While a poll is sealed and still active, tallies are returned as zeros.
+While a poll is sealed and still active, tallies are returned as zeros. `paused`, `cancelled`, `startsAt`, `endsAt`, and `votingOpen` reflect on-chain flags so guests can see a locked ballot without a wallet.
 
 Never put a freshly constructed `AztecAddress` in a React `useEffect` dependency array — use a stable address string.
 
@@ -105,7 +104,7 @@ Without Blob, everyone still sees the seed catalog.
 | `web/index.html` | Default title, description, Open Graph, JSON-LD |
 | `web/src/lib/seo.js` | Per-route title / canonical / WebPage schema |
 | `web/public/robots.txt` | Allow `/`, sitemap |
-| `web/public/sitemap.xml` | Home, polls `/p/1` `/p/2`, legal pages |
+| `web/public/sitemap.xml` | Home, polls `/p/1` `/p/2` `/p/3`, legal pages |
 
 ## Analytics
 

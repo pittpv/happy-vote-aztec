@@ -16,13 +16,14 @@ Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data
 - Browse the catalog and open any poll
 - See **start/end times** and a live countdown when a poll is scheduled
 - View **Live results** (public tallies; hidden while a poll is sealed and still open)
+- If the contract is paused or a poll is cancelled, the ballot stays locked; the question remains readable
 - Share a deep link: `/p/1` (Happy/Sad), `/p/2` (single-choice), `/p/3` (ZKPassport demo)
 - Read the contract on [Aztecscan](https://testnet.aztecscan.xyz)
 
 ## Vote (private or open)
 
 1. Open a poll from the home catalog (for example https://aztec.happyvote.xyz/p/1).
-2. If the poll is scheduled, wait for the countdown: Connect and Vote stay locked until the start time, then a countdown to the end runs while voting is open.
+2. If the poll is scheduled, wait for the countdown: Connect and Vote stay locked until the start time, then a countdown to the end runs while voting is open. The same lock applies if voting is paused or the poll is cancelled.
 3. Progress chips: **Ready/Verify → Connect → Vote**.
 4. If the poll requires ZKPassport, complete verification first (QR on desktop, ZKPassport app on the phone). After success the block collapses to **Identity verified**.
 5. Click **Connect Aztec wallet**.

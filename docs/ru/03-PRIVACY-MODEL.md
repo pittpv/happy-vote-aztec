@@ -69,4 +69,4 @@ Scope по умолчанию: **на опрос** (`poll:{id}`).
 - [x] Server re-verify ZKPassport
 - [x] On-chain identity claim
 - [x] Sealed tallies
-- [ ] E2E на реальном устройстве; выключить Dev Mode
+- [ ] E2E на реальном устройстве

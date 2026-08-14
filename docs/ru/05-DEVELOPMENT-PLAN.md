@@ -5,7 +5,7 @@ AI / CLI: https://docs.aztec.network/developers/ai_tooling
 
 ## Phase 0 — Foundation
 
-**Готово (2026-08-11)** — WSL2, Node 24.12, Aztec CLI 5.1.0, docs, каркас.
+**Готово (2026-08-11)** — Node 24.12, Aztec CLI 5.1.0, docs, каркас.
 
 ## Phase 1 — Контракты
 
@@ -17,11 +17,11 @@ AI / CLI: https://docs.aztec.network/developers/ai_tooling
 
 ## Phase 3 — Testnet
 
-**Задеплоено 2026-08-12**, актуальный контракт 2026-08-13. Адреса: [10-TESTNET-ADDRESSES.md](./10-TESTNET-ADDRESSES.md). Осталось: ручной private/open vote с внешнего аккаунта.
+**Задеплоено 2026-08-12**, актуальный контракт 2026-08-14. Адреса: [10-TESTNET-ADDRESSES.md](./10-TESTNET-ADDRESSES.md). Осталось: ручной private/open vote с внешнего аккаунта.
 
 ## Phase 4 — ZKPassport
 
-**Live (Dev Mode)** — SDK + QR + server re-verify + `identity_commitment`. Осталось: E2E на устройстве; выключить Dev Mode.
+**Live** — SDK + QR + server re-verify + `identity_commitment`. Осталось: E2E на устройстве.
 
 ## Phase 5 — Hardening
 
@@ -49,4 +49,4 @@ Permissionless `create_poll`, антиспам, модерация, discovery.
 
 ## DoD итерации 1
 
-Контракты на Testnet, UI на домене, три демо-опроса, private/open, double-vote невозможен, ZKPassport gate, тесты 40/40, гайд. Не закрыто: E2E на устройстве и Dev Mode off.
+Контракты на Testnet, UI на домене, три демо-опроса, private/open, double-vote невозможен, ZKPassport gate, тесты 40/40, гайд. Не закрыто: E2E на устройстве.
