@@ -600,11 +600,9 @@ function PollVoteRoute({ pollId: routePollId }) {
           setChainStartsAt(Number(asFieldBigInt(startsRaw)));
           setChainEndsAt(Number(asFieldBigInt(endsRaw)));
           setCancelled(Boolean(unwrap(cancelledRaw)));
-          try {
+          if (typeof activeContract.methods.get_paused === "function") {
             const pausedRaw = await activeContract.methods.get_paused().simulate({ from });
             setPaused(Boolean(unwrap(pausedRaw)));
-          } catch {
-            setPaused(false);
           }
         } catch {
           /* optional views on older deployments */

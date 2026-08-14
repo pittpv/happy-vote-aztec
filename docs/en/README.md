@@ -42,7 +42,7 @@ A minimal voting portal for **any topic**: binary sentiment (Happy/Sad), multi-o
 
 ## Live status (2026-08-14)
 
-Single contract `HappyVote` on **Aztec Testnet 5.1.0**: [`0x0c7ea71e9619ee7ae5285f8912bf566a7c4ce9a65ef089098289f589b4b4a55c`](https://testnet.aztecscan.xyz/address/0x0c7ea71e9619ee7ae5285f8912bf566a7c4ce9a65ef089098289f589b4b4a55c). Polls `/p/1` Happy/Sad, `/p/2` single-choice, `/p/3` ZKPassport personhood. Noir tests **40/40**. Frontend: https://aztec.happyvote.xyz.
+Single contract `HappyVote` on **Aztec Testnet 5.1.0**: [`0x0aa005e43bda26d68556ea21509c907f48a689bdb9ea5355363e695d08e5eea7`](https://testnet.aztecscan.xyz/address/0x0aa005e43bda26d68556ea21509c907f48a689bdb9ea5355363e695d08e5eea7). Polls `/p/1` Happy/Sad, `/p/2` single-choice, `/p/3` ZKPassport personhood. Noir tests **40/40**. Frontend: https://aztec.happyvote.xyz.
 
 ## Official sources
 

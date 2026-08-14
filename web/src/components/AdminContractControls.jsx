@@ -8,8 +8,13 @@ function unwrapBool(value) {
   return asFieldBigInt(inner) !== 0n;
 }
 
+function hasMethod(contract, name) {
+  return typeof contract?.methods?.[name] === "function";
+}
+
 /**
- * Contract-admin actions: pause, transfer, end/cancel a poll.
+ * Contract-admin actions. Pause / transfer / cancel are shown only when the
+ * connected artifact exposes those methods (older Testnet instances do not).
  */
 export function AdminContractControls({
   contract,
@@ -20,13 +25,18 @@ export function AdminContractControls({
   setStatus,
   onAdminTransferred,
 }) {
+  const canPause = hasMethod(contract, "set_paused") && hasMethod(contract, "get_paused");
+  const canTransfer = hasMethod(contract, "transfer_admin");
+  const canCancel = hasMethod(contract, "cancel_poll");
+  const canEnd = hasMethod(contract, "end_poll");
+
   const [paused, setPaused] = useState(false);
   const [successor, setSuccessor] = useState("");
   const [confirmTransfer, setConfirmTransfer] = useState(false);
   const [pollIdInput, setPollIdInput] = useState("");
 
   useEffect(() => {
-    if (!contract || !accountAddress) return;
+    if (!contract || !accountAddress || !canPause) return;
     let cancelled = false;
     (async () => {
       const raw = await contract.methods.get_paused().simulate({ from: accountAddress });
@@ -41,7 +51,7 @@ export function AdminContractControls({
     return () => {
       cancelled = true;
     };
-  }, [contract, accountAddress, setStatus]);
+  }, [contract, accountAddress, canPause, setStatus]);
 
   async function send(label, method) {
     if (!contract || !accountAddress || !paymentMethod) {
@@ -135,66 +145,85 @@ export function AdminContractControls({
     }
   }
 
+  if (!canEnd && !canPause && !canTransfer && !canCancel) {
+    return null;
+  }
+
   return (
     <section className="admin-form admin-controls">
       <h2>Contract controls</h2>
       <p className="meta">
-        Pause blocks create and vote. Transfer is immediate — only the successor can undo it.
-        Cancel works only if the poll has zero votes.
+        {canPause
+          ? "Pause blocks create and vote. Transfer is immediate — only the successor can undo it. Cancel works only if the poll has zero votes."
+          : "This Testnet instance supports ending a poll. Pause, transfer admin, and cancel need a later contract version."}
       </p>
 
-      <div className="admin-controls-row">
-        <button type="button" className="btn btn-ghost" disabled={busy} onClick={togglePause}>
-          {paused ? "Unpause voting" : "Pause voting"}
-        </button>
-        <span className="hint">{paused ? "Contract is paused." : "Contract is live."}</span>
-      </div>
+      {canPause ? (
+        <div className="admin-controls-row">
+          <button type="button" className="btn btn-ghost" disabled={busy} onClick={togglePause}>
+            {paused ? "Unpause voting" : "Pause voting"}
+          </button>
+          <span className="hint">{paused ? "Contract is paused." : "Contract is live."}</span>
+        </div>
+      ) : null}
 
-      <label>
-        New admin (Aztec address)
-        <input
-          type="text"
-          value={successor}
-          disabled={busy}
-          onChange={(e) => setSuccessor(e.target.value)}
-          placeholder="0x…"
-          autoComplete="off"
-          spellCheck={false}
-        />
-      </label>
-      <label className="admin-confirm">
-        <input
-          type="checkbox"
-          checked={confirmTransfer}
-          disabled={busy}
-          onChange={(e) => setConfirmTransfer(e.target.checked)}
-        />
-        I understand transfer is immediate and irreversible unless the successor transfers back.
-      </label>
-      <button type="button" className="btn btn-ghost" disabled={busy} onClick={transfer}>
-        Transfer admin
-      </button>
+      {canTransfer ? (
+        <>
+          <label>
+            New admin (Aztec address)
+            <input
+              type="text"
+              value={successor}
+              disabled={busy}
+              onChange={(e) => setSuccessor(e.target.value)}
+              placeholder="0x…"
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </label>
+          <label className="admin-confirm">
+            <input
+              type="checkbox"
+              checked={confirmTransfer}
+              disabled={busy}
+              onChange={(e) => setConfirmTransfer(e.target.checked)}
+            />
+            I understand transfer is immediate and irreversible unless the successor transfers back.
+          </label>
+          <button type="button" className="btn btn-ghost" disabled={busy} onClick={transfer}>
+            Transfer admin
+          </button>
+        </>
+      ) : null}
 
-      <label>
-        Poll id
-        <input
-          type="number"
-          min={1}
-          step={1}
-          value={pollIdInput}
-          disabled={busy}
-          onChange={(e) => setPollIdInput(e.target.value)}
-          placeholder="e.g. 4"
-        />
-      </label>
-      <div className="admin-controls-row">
-        <button type="button" className="btn btn-ghost" disabled={busy} onClick={endPoll}>
-          End poll
-        </button>
-        <button type="button" className="btn btn-ghost" disabled={busy} onClick={cancelPoll}>
-          Cancel poll
-        </button>
-      </div>
+      {canEnd || canCancel ? (
+        <>
+          <label>
+            Poll id
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={pollIdInput}
+              disabled={busy}
+              onChange={(e) => setPollIdInput(e.target.value)}
+              placeholder="e.g. 4"
+            />
+          </label>
+          <div className="admin-controls-row">
+            {canEnd ? (
+              <button type="button" className="btn btn-ghost" disabled={busy} onClick={endPoll}>
+                End poll
+              </button>
+            ) : null}
+            {canCancel ? (
+              <button type="button" className="btn btn-ghost" disabled={busy} onClick={cancelPoll}>
+                Cancel poll
+              </button>
+            ) : null}
+          </div>
+        </>
+      ) : null}
     </section>
   );
 }

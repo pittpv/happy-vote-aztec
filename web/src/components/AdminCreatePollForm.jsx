@@ -27,7 +27,7 @@ export function AdminCreatePollForm({
   setStatus,
   onCreated,
 }) {
-  const [pollIdInput, setPollIdInput] = useState("");
+  const [pollIdInput, setPollIdInput] = useState("4");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [topicsText, setTopicsText] = useState("governance");
@@ -95,6 +95,7 @@ export function AdminCreatePollForm({
 
   useEffect(() => {
     if (!contract || !accountAddress) return;
+    if (typeof contract.methods.get_next_poll_id !== "function") return;
     let cancelled = false;
     (async () => {
       const next = await contract.methods.get_next_poll_id().simulate({
@@ -251,18 +252,21 @@ export function AdminCreatePollForm({
     });
     try {
       const pollId = { id: Fr.fromString(String(pollIdNum)) };
-      await contract.methods
-        .create_poll(
-          pollId,
-          options.length,
-          privacyPolicy,
-          eligibilityMode,
-          metadataHash,
-          sealed,
+      const createArgs = [
+        pollId,
+        options.length,
+        privacyPolicy,
+        eligibilityMode,
+        metadataHash,
+        sealed,
+      ];
+      if (typeof contract.methods.get_starts_at === "function") {
+        createArgs.push(
           isoToUnixSeconds(scheduleWindow.startsAt),
           isoToUnixSeconds(scheduleWindow.endsAt),
-        )
-        .send({
+        );
+      }
+      await contract.methods.create_poll(...createArgs).send({
           from: accountAddress,
           fee: { paymentMethod },
           wait: { timeout: 600 },
@@ -337,6 +341,7 @@ export function AdminCreatePollForm({
           value={pollIdInput}
           disabled={busy}
           onChange={(e) => setPollIdInput(e.target.value)}
+          placeholder="Loading next id…"
           required
         />
       </label>

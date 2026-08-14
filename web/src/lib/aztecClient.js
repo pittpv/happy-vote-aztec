@@ -227,7 +227,11 @@ export async function getSponsoredPaymentMethod(wallet) {
   return new SponsoredFeePaymentMethod(sponsoredFPC.address);
 }
 
-/** Register HappyVote instance (from node) into the connected wallet's PXE. */
+/**
+ * Register HappyVote from the node's published instance.
+ * A reconstructed dummy instance (wrong salt / constructor args) makes PXE
+ * simulate against an unpublished address → "Contract … is not deployed".
+ */
 export async function registerHappyVote(wallet) {
   const address = getContractAddress();
   if (!address) {

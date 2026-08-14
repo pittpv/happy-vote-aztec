@@ -21,7 +21,9 @@ import { setupWallet } from "../src/utils/setup_wallet.js";
 import { getSponsoredFPCInstance } from "../src/utils/sponsored_fpc.js";
 import { SponsoredFPCContractArtifact } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { deploySchnorrAccount } from "../src/utils/deploy_account.js";
-import { getTimeouts } from "../config/config.js";
+import { createAztecNodeClient } from "@aztec/aztec.js/node";
+import { TxStatus } from "@aztec/stdlib/tx";
+import { getAztecNodeUrl, getTimeouts } from "../config/config.js";
 import { createHash } from "node:crypto";
 
 const PRIVACY_VOTER_CHOICE = 2;
@@ -85,11 +87,16 @@ async function main() {
   const accountManager = await deploySchnorrAccount(wallet);
   const from = accountManager.address;
 
-  const contract = await HappyVoteContract.at(
-    AztecAddress.fromStringUnsafe(contractAddress),
-    wallet,
-  );
+  const address = AztecAddress.fromStringUnsafe(contractAddress);
+  const node = createAztecNodeClient(getAztecNodeUrl());
+  const instance = await node.getContract(address);
+  if (!instance) {
+    throw new Error(`Contract not found on node: ${contractAddress}`);
+  }
+  await wallet.registerContract(instance, HappyVoteContract.artifact);
+  const contract = await HappyVoteContract.at(address, wallet);
 
+  const waitSeconds = timeouts.txTimeout > 10_000 ? Math.ceil(timeouts.txTimeout / 1000) : timeouts.txTimeout;
   logger.info(
     `Creating poll ${pollId.id} options=${optionsCount} privacy=${privacyPolicy} eligibility=${eligibility} sealed=${sealed} startsAt=${startsAt} endsAt=${endsAt} on ${contractAddress}`,
   );
@@ -107,7 +114,12 @@ async function main() {
     .send({
       from,
       fee: { paymentMethod: sponsoredPaymentMethod },
-      wait: { timeout: timeouts.txTimeout },
+      wait: {
+        timeout: waitSeconds,
+        interval: 8,
+        ignoreDroppedReceiptsFor: 180,
+        waitForStatus: TxStatus.PROPOSED,
+      },
     });
 
   const options = await contract.methods.get_options_count(pollId).simulate({ from });
