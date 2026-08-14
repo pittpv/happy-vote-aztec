@@ -13,10 +13,12 @@ flowchart TB
     ZKP["@zkpassport/sdk + @zkpassport/ui"]
   end
 
-  subgraph Edge["Vercel — web/"]
+  subgraph Edge["Vercel — aztec/web"]
     PollState["GET /api/poll-state"]
-    PollsAPI["GET /api/polls"]
+    PollsAPI["GET/POST /api/polls"]
     ZkAPI["POST /api/zkpassport-verify"]
+    ErrAPI["POST /api/client-error"]
+    Blob[(Vercel Blob catalog)]
     Seed[data/polls-catalog.json]
   end
 
@@ -42,6 +44,7 @@ flowchart TB
   ZKPApp --> Bridge
   ZKP --> ZkAPI
   PollsAPI --> Seed
+  PollsAPI --> Blob
   AZJS --> PrivateExec
   PrivateExec --> PublicExec
   AZJS --> FPC
@@ -56,19 +59,24 @@ Pattern: Aztec private voting — private function claims a nullifier, then enqu
 
 | Field | Type | Role |
 |-------|------|------|
-| `admin` | `PublicMutable<AztecAddress>` | Creator / `end_poll` |
-| `options_count` | `Map<PollId, u32>` | 2…32; `0` = poll missing |
-| `privacy_policy` | `Map<PollId, u8>` | 0 / 1 / 2 |
-| `eligibility_mode` | `Map<PollId, u8>` | 0 open / 1 personhood / 2 gated |
-| `metadata_hash` | `Map<PollId, Field>` | Integrity of off-chain JSON |
+| `admin` | `PublicMutable<AztecAddress>` | `create_poll` / `end_poll` / `cancel_poll` / pause / transfer |
+| `options_count` | `Map<PollId, PublicImmutable<u32>>` | 2…32; uninitialized = poll missing |
+| `privacy_policy` | `Map<PollId, PublicImmutable<u8>>` | 0 / 1 / 2 |
+| `eligibility_mode` | `Map<PollId, PublicImmutable<u8>>` | 0 open / 1 personhood / 2 gated |
+| `metadata_hash` | `Map<PollId, PublicImmutable<Field>>` | Integrity of off-chain JSON |
 | `tally` | `Map<PollId, Map<Field, Field>>` | Votes per option |
 | `total_votes` | `Map<PollId, Field>` | Ballot count |
-| `vote_ended` | `Map<PollId, bool>` | Closed |
+| `vote_ended` | `Map<PollId, bool>` | Admin close |
 | `active_at_block` | `Map<PollId, PublicImmutable<u32>>` | Created at block |
 | `vote_claims` | `Map<PollId, Owned<SingleUseClaim>>` | One vote per account per poll |
 | `open_ballots` | `Map<PollId, Map<AztecAddress, Field>>` | `option_id + 1` (0 = none) |
 | `identity_claims` | `Map<PollId, Map<Field, bool>>` | One ZKPassport UID per poll |
-| `sealed` | `Map<PollId, bool>` | Hide tallies until ended |
+| `sealed` | `Map<PollId, PublicImmutable<bool>>` | Hide tallies until closed |
+| `starts_at` | `Map<PollId, PublicImmutable<u64>>` | Unix seconds; `0` = unset |
+| `ends_at` | `Map<PollId, PublicImmutable<u64>>` | Unix seconds; `0` = unset |
+| `cancelled` | `Map<PollId, bool>` | Cancelled (no votes) |
+| `next_poll_id` | `PublicMutable<u64>` | Auto-assign when `poll_id.id == 0` |
+| `paused` | `PublicMutable<bool>` | Blocks create + vote |
 
 `PollId` is a struct `{ id: Field }` in Noir and `{ id: Fr }` in TypeScript.
 
@@ -76,13 +84,17 @@ Pattern: Aztec private voting — private function claims a nullifier, then enqu
 
 | Method | Visibility | Purpose |
 |--------|------------|---------|
-| `constructor(admin)` | public initializer | Non-zero admin |
-| `create_poll(poll_id, options_count, privacy_policy, eligibility_mode, metadata_hash, sealed)` | public | Contract admin only (Iteration 1 operators) |
+| `constructor(admin)` | public initializer | Non-zero admin; `next_poll_id = 1` |
+| `create_poll(..., sealed, starts_at, ends_at)` | public | Contract admin; returns assigned id (`0` = next) |
 | `cast_vote_private(poll_id, option_id, identity_commitment)` | private → enqueue public | Hidden address; public tally++ |
 | `cast_vote_open(poll_id, option_id, identity_commitment)` | private → enqueue public | Public ballot + tally++ |
 | `end_poll(poll_id)` | public | Admin close |
-| `get_tally` / `get_total_votes` | view | `0` if sealed and not ended |
-| `get_options_count` / `get_privacy_policy` / `get_eligibility_mode` / `get_metadata_hash` / `get_vote_ended` / `get_sealed` / `get_admin` | view | Config |
+| `cancel_poll(poll_id)` | public | Admin; only if `total_votes == 0` |
+| `transfer_admin(new_admin)` | public | Non-zero successor |
+| `set_paused(paused)` | public | Pause create + vote |
+| `get_tally` / `get_total_votes` | view | `0` if sealed and not closed |
+| `is_voting_open` | view | Exists, not paused, not closed, started |
+| Config views | view | options, policy, eligibility, metadata, sealed, starts/ends, cancelled, paused, next id, admin |
 | `get_open_ballot(poll_id, voter)` | view | Open receipt |
 | `has_identity_voted(poll_id, identity_commitment)` | view | ZKPassport reuse |
 
@@ -120,9 +132,14 @@ Application hashes in Aztec.nr use **Poseidon2**. Catalog `metadata_hash` uses S
 
 ### 2.5 Safety checks
 
-- `option_id` must equal `option_id as u32 as Field` (reject truncation).
+- `option_id` must equal `option_id as u32 as Field` (reject truncation). Invalid option and privacy/eligibility mismatches are checked in **private** (PublicImmutable config) **before** `SingleUseClaim`.
 - Open eligibility forbids non-zero identity; personhood/gated require non-zero and unused claim.
 - Private and open votes share the same `SingleUseClaim` domain.
+- Public vote path also checks pause, existence, `starts_at` / `ends_at`, and `poll_is_closed`.
+- Private votes with `ends_at != 0` set `expiration_timestamp = ends_at - 1` so a late inclusion cannot burn the nullifier after the window.
+- `starts_at` cannot be fully enforced in private (no inclusion time). The public kernel rejects early votes; do not submit a ballot before start.
+
+Honest limits: `identity_commitment` is supplied by the caller (ZKPassport is re-verified off-chain). Sealed is view-hiding, not MPC — raw public storage of tallies remains readable. `option_id` is public in the enqueue. Pause/`end_poll` after a private proof can still consume the nullifier (those flags are `PublicMutable`).
 
 ## 3. Off-chain
 
@@ -142,11 +159,13 @@ Guest tallies: same-origin `/api/poll-state` only (public Testnet RPC rate-limit
 
 | Endpoint | Role |
 |----------|------|
-| `GET /api/poll-state?pollId=&optionsCount=` | Guest public tallies (cached) |
-| `GET /api/polls` | Shared poll catalog |
+| `GET /api/poll-state?pollId=&optionsCount=` | Batch `node_getPublicStorageAt`, ~15s cache |
+| `GET /api/polls` | Seed JSON + optional Blob overlay |
+| `POST /api/polls` | Authenticated catalog publish (operator-only) |
 | `POST /api/zkpassport-verify` | Server re-verify `@zkpassport/sdk` |
+| `POST /api/client-error` | Boot / vote errors → Vercel logs |
 
-### 3.3 Catalog schema
+### 3.3 Catalog schema (seed / Blob)
 
 ```json
 {
@@ -157,6 +176,8 @@ Guest tallies: same-origin `/api/poll-state` only (public Testnet RPC rate-limit
   "eligibilityMode": 1,
   "privacyPolicy": 2,
   "sealed": false,
+  "startsAt": null,
+  "endsAt": null,
   "zkRequirements": {
     "personhood": true,
     "minAge": null,
@@ -186,7 +207,7 @@ happy-vote-aztec/
 ├── Nargo.toml                 # contract package happy_vote_aztec
 ├── src/main.nr                # HappyVote
 ├── src/test/                  # Noir tests (24)
-├── scripts/                   # deploy helpers
+├── scripts/                   # deploy, smoke, create_poll
 ├── config/                    # local-network + testnet
 ├── web/                       # Vite app + Vercel api/
 └── docs/                      # en/ + ru/

@@ -71,9 +71,11 @@ On-chain: `identity_commitment ≠ 0` for eligibility 1/2; `identity_claims` rej
 2. `uniqueIdentifier` is scoped to domain (+ query scope). Changing domain changes IDs.
 3. Do not log proofs with PII.
 
-## 6. Development vs production
+## 6. Dev Mode
 
-Mock passports are for local development only. Production uses real ZKPassport proofs and server-side re-verify.
+`VITE_ZKPASSPORT_DEV_MODE=true` for mock passports. Turn **off** for real ID proofs.
+
+Keep server re-verify enabled in production. Mock unlock is **DEV only**.
 
 ## 7. Product limits
 
@@ -131,3 +133,4 @@ After success:
 - [x] Portal-styled gate + collapse on success
 - [x] Noir: same identity, two accounts fails
 - [ ] Real-device E2E on Testnet
+- [ ] Disable Dev Mode

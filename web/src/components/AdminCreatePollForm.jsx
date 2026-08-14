@@ -11,6 +11,7 @@ import {
 import { DOCUMENT_TYPE_OPTIONS } from "../lib/countries.js";
 import { PRIVACY, Fr } from "../lib/aztecClient.js";
 import { savePollMeta, publishPollMeta, normalizePollOptions } from "../lib/polls.js";
+import { datetimeLocalToIso, isoToUnixSeconds, normalizePollWindow } from "../lib/pollSchedule.js";
 import { CountryPicker } from "./CountryPicker.jsx";
 
 /**
@@ -36,7 +37,10 @@ export function AdminCreatePollForm({
     { label: "Abstain", description: "" },
   ]);
   const [important, setImportant] = useState(true);
+  const [privacyPolicy, setPrivacyPolicy] = useState(PRIVACY.VOTER_CHOICE);
   const [sealed, setSealed] = useState(false);
+  const [startsAtLocal, setStartsAtLocal] = useState("");
+  const [endsAtLocal, setEndsAtLocal] = useState("");
   const [publishToken, setPublishToken] = useState(
     () =>
       (typeof sessionStorage !== "undefined" && sessionStorage.getItem("happyvote.publishToken")) ||
@@ -186,6 +190,17 @@ export function AdminCreatePollForm({
       return;
     }
 
+    let scheduleWindow;
+    try {
+      scheduleWindow = normalizePollWindow({
+        startsAt: datetimeLocalToIso(startsAtLocal),
+        endsAt: datetimeLocalToIso(endsAtLocal),
+      });
+    } catch (error) {
+      setStatus({ text: error.message || String(error), tone: "error" });
+      return;
+    }
+
     const topics = topicsText
       .split(/[,#\n]/)
       .map((t) => t.trim().toLowerCase())
@@ -206,7 +221,7 @@ export function AdminCreatePollForm({
 
     setBusy(true);
     setStatus({
-      text: `Creating poll #${pollIdNum} (eligibility ${eligibilityLabel(eligibilityMode)})…`,
+      text: `Creating poll #${pollIdNum} (${privacyLabel(privacyPolicy)}, eligibility ${eligibilityLabel(eligibilityMode)})…`,
       tone: "neutral",
     });
     try {
@@ -215,10 +230,12 @@ export function AdminCreatePollForm({
         .create_poll(
           pollId,
           options.length,
-          PRIVACY.VOTER_CHOICE,
+          privacyPolicy,
           eligibilityMode,
           metadataHash,
           sealed,
+          isoToUnixSeconds(scheduleWindow.startsAt),
+          isoToUnixSeconds(scheduleWindow.endsAt),
         )
         .send({
           from: accountAddress,
@@ -235,8 +252,11 @@ export function AdminCreatePollForm({
         template: options.length === 2 ? "binary" : "single_choice",
         requiresZkPassport: important,
         eligibilityMode,
+        privacyPolicy,
         zkRequirements: requirements,
         sealed,
+        startsAt: scheduleWindow.startsAt,
+        endsAt: scheduleWindow.endsAt,
         metadataHash: metadataHash.toString(),
       };
       savePollMeta(meta);
@@ -279,8 +299,8 @@ export function AdminCreatePollForm({
     <form className="admin-form" onSubmit={submit}>
       <h2>Create poll</h2>
       <p className="meta">
-        On-chain: options count, privacy, eligibility, sealed flag, metadata hash. Labels and
-        ZKPassport rules are published to the shared catalog when a publish token is set.
+        On-chain: options count, ballot privacy policy, eligibility, sealed flag, metadata hash.
+        Labels and ZKPassport rules are published to the shared catalog when a publish token is set.
       </p>
 
       <label>
@@ -385,16 +405,27 @@ export function AdminCreatePollForm({
       </fieldset>
 
       <fieldset className="zk-req">
-        <legend>Voter eligibility</legend>
-        <label className="check-row">
-          <input
-            type="checkbox"
-            checked={important}
-            disabled={busy}
-            onChange={(e) => setImportant(e.target.checked)}
-          />
-          Important poll — require ZKPassport
-        </label>
+        <legend>Voting type</legend>
+        <p className="meta">
+          Poll-level ballot policy. This is stored on-chain and cannot be changed after create.
+        </p>
+        <div className="privacy-row" role="radiogroup" aria-label="Ballot privacy policy">
+          {PRIVACY_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className="chip"
+              role="radio"
+              aria-checked={privacyPolicy === option.value}
+              aria-pressed={privacyPolicy === option.value}
+              disabled={busy}
+              onClick={() => setPrivacyPolicy(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <p className="meta">{privacyHint(privacyPolicy)}</p>
 
         <label className="check-row">
           <input
@@ -404,6 +435,58 @@ export function AdminCreatePollForm({
             onChange={(e) => setSealed(e.target.checked)}
           />
           Sealed tallies — hide results until the poll ends
+        </label>
+      </fieldset>
+
+      <fieldset className="zk-req">
+        <legend>Schedule</legend>
+        <p className="meta">
+          Optional local times. Leave both empty for an always-open poll. You can publish before
+          the start — connect and vote unlock automatically, then lock at the end.
+        </p>
+        <div className="schedule-grid">
+          <label>
+            Starts at
+            <input
+              type="datetime-local"
+              value={startsAtLocal}
+              disabled={busy}
+              onChange={(e) => setStartsAtLocal(e.target.value)}
+            />
+          </label>
+          <label>
+            Ends at
+            <input
+              type="datetime-local"
+              value={endsAtLocal}
+              disabled={busy}
+              onChange={(e) => setEndsAtLocal(e.target.value)}
+            />
+          </label>
+        </div>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          disabled={busy || (!startsAtLocal && !endsAtLocal)}
+          onClick={() => {
+            setStartsAtLocal("");
+            setEndsAtLocal("");
+          }}
+        >
+          Clear dates
+        </button>
+      </fieldset>
+
+      <fieldset className="zk-req">
+        <legend>Voter eligibility</legend>
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={important}
+            disabled={busy}
+            onChange={(e) => setImportant(e.target.checked)}
+          />
+          Important poll — require ZKPassport
         </label>
 
         <label>
@@ -751,4 +834,26 @@ function eligibilityLabel(mode) {
   if (mode === ELIGIBILITY_MODE.GATED) return "gated";
   if (mode === ELIGIBILITY_MODE.PERSONHOOD) return "personhood";
   return "open";
+}
+
+const PRIVACY_OPTIONS = [
+  { value: PRIVACY.VOTER_CHOICE, label: "Voter choice" },
+  { value: PRIVACY.PRIVATE_ONLY, label: "Private only" },
+  { value: PRIVACY.PUBLIC_ONLY, label: "Open only" },
+];
+
+function privacyLabel(policy) {
+  if (policy === PRIVACY.PRIVATE_ONLY) return "private only";
+  if (policy === PRIVACY.PUBLIC_ONLY) return "open only";
+  return "voter choice";
+}
+
+function privacyHint(policy) {
+  if (policy === PRIVACY.PRIVATE_ONLY) {
+    return "Private only: voters cannot publish their address. The chosen option still updates the live tally unless the poll is sealed.";
+  }
+  if (policy === PRIVACY.PUBLIC_ONLY) {
+    return "Open only: address and choice are published on-chain. Voters cannot hide who they are.";
+  }
+  return "Voter choice: each voter picks private or open on the ballot page.";
 }

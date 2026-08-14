@@ -98,6 +98,47 @@ export const POLLS = {
     zkRequirements: null,
     sealed: false,
   },
+  3: {
+    id: "3",
+    title: "ZKPassport personhood test",
+    description:
+      "Test poll for HappyVote + ZKPassport on Aztec Testnet. Verify once, then cast a private or open ballot.",
+    topics: ["demo", "zkpassport", "test"],
+    countries: [],
+    options: [
+      {
+        label: "Works for me",
+        description: "QR / app verification completed and I could vote.",
+      },
+      {
+        label: "Blocked / unclear",
+        description: "I hit an error, Dev Mode issue, or unclear UX.",
+      },
+    ],
+    template: "binary",
+    requiresZkPassport: true,
+    eligibilityMode: ELIGIBILITY_MODE.PERSONHOOD,
+    zkRequirements: {
+      personhood: true,
+      minAge: null,
+      maxAge: null,
+      bornAfter: null,
+      bornBefore: null,
+      nationalityIn: [],
+      nationalityOut: [],
+      documentTypes: [],
+      expiresAfter: null,
+      expiresBefore: null,
+      issuedBy: [],
+      notIssuedBy: [],
+      sanctions: false,
+      facematchStrict: false,
+      policyId: null,
+      purpose: "Prove personhood to test ZKPassport voting on HappyVote Aztec",
+    },
+    sealed: false,
+    metadataHash: "0x1aa6032787d3653250160ddb12a166c9e1fa38486ce9bb30afd96fafdc9f390c",
+  },
 };
 
 function readStoredPolls() {
@@ -277,6 +318,8 @@ function hydrateMeta(meta) {
       (requiresZk ? ELIGIBILITY_MODE.PERSONHOOD : ELIGIBILITY_MODE.OPEN),
     zkRequirements,
     sealed: Boolean(meta.sealed),
+    startsAt: meta.startsAt || null,
+    endsAt: meta.endsAt || null,
   };
 }
 

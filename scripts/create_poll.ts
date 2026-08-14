@@ -73,6 +73,8 @@ async function main() {
     process.env.SEALED === "1" ||
     process.env.SEALED === "true" ||
     process.env.SEALED === "TRUE";
+  const startsAt = asU32("STARTS_AT", process.env.STARTS_AT, 0);
+  const endsAt = asU32("ENDS_AT", process.env.ENDS_AT, 0);
   const timeouts = getTimeouts();
 
   const wallet = await setupWallet();
@@ -89,10 +91,19 @@ async function main() {
   );
 
   logger.info(
-    `Creating poll ${pollId.id} options=${optionsCount} privacy=${privacyPolicy} eligibility=${eligibility} on ${contractAddress}`,
+    `Creating poll ${pollId.id} options=${optionsCount} privacy=${privacyPolicy} eligibility=${eligibility} sealed=${sealed} startsAt=${startsAt} endsAt=${endsAt} on ${contractAddress}`,
   );
   await contract.methods
-    .create_poll(pollId, optionsCount, privacyPolicy, eligibility, metadataHash, sealed)
+    .create_poll(
+      pollId,
+      optionsCount,
+      privacyPolicy,
+      eligibility,
+      metadataHash,
+      sealed,
+      startsAt,
+      endsAt,
+    )
     .send({
       from,
       fee: { paymentMethod: sponsoredPaymentMethod },

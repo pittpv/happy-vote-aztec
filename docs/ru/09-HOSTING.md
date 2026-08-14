@@ -7,17 +7,28 @@
 | Хост | Vercel |
 | Сеть | Testnet **5.1.0** |
 
-CNAME `aztec` → хост, HTTPS. Тот же домен в ZKPassport Dashboard.
+В монорепозитории Root Directory Vercel = `aztec/web`. В публичном репозитории = `web`.
 
-Публичные `VITE_*` и адрес контракта: [10-TESTNET-ADDRESSES.md](./10-TESTNET-ADDRESSES.md). Секреты оператора только в окружении хоста, не в git.
+CNAME `aztec` → Vercel, HTTPS. Тот же домен в ZKPassport Dashboard.
 
-## Публичные API
+## Env (Production)
+
+См. английскую версию: актуальный `VITE_HAPPY_VOTE_CONTRACT_ADDRESS` в [10-TESTNET-ADDRESSES.md](./10-TESTNET-ADDRESSES.md). Секреты каталога не коммитить.
+
+## `vercel.json`
+
+COOP/COEP для WASM proving. CSP: RPC, CRS CDN, ZKPassport. SPA rewrite не глотает `/api/*`, `robots.txt`, `sitemap.xml`.
+
+## API
 
 | Endpoint | Роль |
 |----------|------|
-| `GET /api/poll-state` | Гостевые tallies (кэш); нули, если опрос sealed и ещё активен |
-| `GET /api/polls` | Каталог |
-| `POST /api/zkpassport-verify` | Server re-verify ZKPassport |
+| `GET /api/poll-state` | Гостевые tallies, кэш ~15с; нули если sealed и активен |
+| `GET/POST /api/polls` | Каталог (seed + Blob) |
+| `POST /api/zkpassport-verify` | Server re-verify |
+| `POST /api/client-error` | Логи ошибок |
+
+Не класть новый `AztecAddress` в зависимости `useEffect`.
 
 ## SEO и аналитика
 

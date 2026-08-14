@@ -18,6 +18,9 @@ const BASE = {
   total_votes: 7n,
   vote_ended: 8n,
   sealed: 13n,
+  starts_at: 14n,
+  ends_at: 15n,
+  cancelled: 16n,
 };
 const pollKey = { toField: () => Fr.fromString(String(pollId)) };
 const tallyRoot = await deriveStorageSlotInMap(new Fr(BASE.tally), pollKey);
@@ -37,6 +40,9 @@ const result = {
   policy: (await deriveStorageSlotInMap(new Fr(BASE.privacy_policy), pollKey)).toString(),
   voteEnded: (await deriveStorageSlotInMap(new Fr(BASE.vote_ended), pollKey)).toString(),
   sealed: (await deriveStorageSlotInMap(new Fr(BASE.sealed), pollKey)).toString(),
+  startsAt: (await deriveStorageSlotInMap(new Fr(BASE.starts_at), pollKey)).toString(),
+  endsAt: (await deriveStorageSlotInMap(new Fr(BASE.ends_at), pollKey)).toString(),
+  cancelled: (await deriveStorageSlotInMap(new Fr(BASE.cancelled), pollKey)).toString(),
 };
 
 console.log(JSON.stringify(result, null, 2));

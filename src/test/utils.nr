@@ -13,26 +13,40 @@ pub unconstrained fn setup() -> (TestEnvironment, AztecAddress, AztecAddress) {
     (env, contract_address, admin)
 }
 
-/// Happy/Sad binary poll with voter_choice privacy (policy = 2).
+pub unconstrained fn create_poll(
+    env: &mut TestEnvironment,
+    contract_address: AztecAddress,
+    admin: AztecAddress,
+    poll_id: HappyVote::PollId,
+    options_count: u32,
+    privacy_policy: u8,
+    eligibility_mode: u8,
+    metadata_hash: Field,
+    sealed: bool,
+    starts_at: u64,
+    ends_at: u64,
+) {
+    env.call_public(
+        admin,
+        HappyVote::at(contract_address).create_poll(
+            poll_id,
+            options_count,
+            privacy_policy,
+            eligibility_mode,
+            metadata_hash,
+            sealed,
+            starts_at,
+            ends_at,
+        ),
+    );
+}
+
+/// Happy/Sad binary poll with voter_choice privacy (policy = 2), open-ended window.
 pub unconstrained fn create_happy_sad_poll(
     env: &mut TestEnvironment,
     contract_address: AztecAddress,
     admin: AztecAddress,
     poll_id: HappyVote::PollId,
 ) {
-    let options_count: u32 = 2;
-    let privacy_voter_choice: u8 = 2;
-    let eligibility_open: u8 = 0;
-    let metadata_hash: Field = 1;
-    env.call_public(
-        admin,
-        HappyVote::at(contract_address).create_poll(
-            poll_id,
-            options_count,
-            privacy_voter_choice,
-            eligibility_open,
-            metadata_hash,
-            false,
-        ),
-    );
+    create_poll(env, contract_address, admin, poll_id, 2, 2, 0, 1, false, 0, 0);
 }

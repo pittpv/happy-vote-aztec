@@ -36,7 +36,7 @@ Combinations = poll policy + voter choice + sealed flag.
 
 Mechanics: `cast_vote_private` → `SingleUseClaim` → `add_to_tally_public(option_id, identity_commitment)`.
 
-Honest UX: live boards reveal **which option moved**, not **who** moved it. Sealed polls hide counts until `end_poll`.
+Honest UX: live boards reveal **which option moved**, not **who** moved it. Sealed polls hide counts until the poll is **closed** (`end_poll`, `cancel_poll`, or `now >= ends_at`).
 
 ### B. Open
 
@@ -56,8 +56,8 @@ UI: **Private** (default) / **Open**. Both increment the same tally map.
 
 Implemented on-chain (`sealed` storage):
 
-- While `sealed && !vote_ended`: views return `0`; UI hides live results.
-- After `end_poll`: true tallies are readable.
+- While `sealed && !closed`: views return `0`; UI hides live results. Closed = `vote_ended` or cancelled or scheduled `ends_at`.
+- After close: true tallies are readable.
 - Guest API zeros tallies in the same window.
 
 This is **view hiding**, not encrypted aggregate MPC.
@@ -97,10 +97,10 @@ Default ZKPassport scope: **per poll** (`poll:{id}`).
 - [x] Nullifier per poll (`SingleUseClaim`)
 - [x] Private and open share one claim domain
 - [x] `option_id` range + reject Field→u32 truncation
-- [x] No vote after `end_poll`
+- [x] No vote after `end_poll` / `ends_at` / cancel
 - [x] No zero-address fallbacks on required client paths
 - [x] `metadata_hash` ↔ off-chain JSON
 - [x] Server re-verify ZKPassport for gated polls
 - [x] On-chain identity claim
 - [x] Sealed tallies
-- [ ] Real-device ZKPassport E2E
+- [ ] Real-device ZKPassport E2E; disable Dev Mode

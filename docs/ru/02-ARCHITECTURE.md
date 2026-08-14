@@ -15,8 +15,10 @@ flowchart TB
 
   subgraph Edge["Vercel — web/"]
     PollState["GET /api/poll-state"]
-    PollsAPI["GET /api/polls"]
+    PollsAPI["GET/POST /api/polls"]
     ZkAPI["POST /api/zkpassport-verify"]
+    ErrAPI["POST /api/client-error"]
+    Blob[(Vercel Blob catalog)]
     Seed[data/polls-catalog.json]
   end
 
@@ -42,6 +44,7 @@ flowchart TB
   ZKPApp --> Bridge
   ZKP --> ZkAPI
   PollsAPI --> Seed
+  PollsAPI --> Blob
   AZJS --> PrivateExec
   PrivateExec --> PublicExec
   AZJS --> FPC
@@ -56,19 +59,24 @@ flowchart TB
 
 | Поле | Тип | Роль |
 |------|-----|------|
-| `admin` | `PublicMutable<AztecAddress>` | Контрактный admin: `create_poll` / `end_poll` |
-| `options_count` | `Map<PollId, u32>` | 2…32; `0` = опроса нет |
-| `privacy_policy` | `Map<PollId, u8>` | 0 / 1 / 2 |
-| `eligibility_mode` | `Map<PollId, u8>` | 0 open / 1 personhood / 2 gated |
-| `metadata_hash` | `Map<PollId, Field>` | Целостность off-chain JSON |
+| `admin` | `PublicMutable<AztecAddress>` | `create_poll` / `end_poll` / `cancel_poll` / pause / transfer |
+| `options_count` | `Map<PollId, PublicImmutable<u32>>` | 2…32; не инициализирован = опроса нет |
+| `privacy_policy` | `Map<PollId, PublicImmutable<u8>>` | 0 / 1 / 2 |
+| `eligibility_mode` | `Map<PollId, PublicImmutable<u8>>` | 0 open / 1 personhood / 2 gated |
+| `metadata_hash` | `Map<PollId, PublicImmutable<Field>>` | Целостность off-chain JSON |
 | `tally` | `Map<PollId, Map<Field, Field>>` | Голоса по вариантам |
 | `total_votes` | `Map<PollId, Field>` | Число бюллетеней |
-| `vote_ended` | `Map<PollId, bool>` | Закрыт |
+| `vote_ended` | `Map<PollId, bool>` | Закрытие admin |
 | `active_at_block` | `Map<PollId, PublicImmutable<u32>>` | Блок создания |
 | `vote_claims` | `Map<PollId, Owned<SingleUseClaim>>` | Один голос на аккаунт на опрос |
 | `open_ballots` | `Map<PollId, Map<AztecAddress, Field>>` | `option_id + 1` (0 = нет) |
 | `identity_claims` | `Map<PollId, Map<Field, bool>>` | Один ZKPassport UID на опрос |
-| `sealed` | `Map<PollId, bool>` | Скрыть tallies до закрытия |
+| `sealed` | `Map<PollId, PublicImmutable<bool>>` | Скрыть tallies до закрытия |
+| `starts_at` | `Map<PollId, PublicImmutable<u64>>` | Unix-секунды; `0` = не задано |
+| `ends_at` | `Map<PollId, PublicImmutable<u64>>` | Unix-секунды; `0` = не задано |
+| `cancelled` | `Map<PollId, bool>` | Отмена (без голосов) |
+| `next_poll_id` | `PublicMutable<u64>` | Авто-id при `poll_id.id == 0` |
+| `paused` | `PublicMutable<bool>` | Блокирует create + vote |
 
 `PollId`: `{ id: Field }` в Noir, `{ id: Fr }` в TypeScript.
 
@@ -76,13 +84,16 @@ flowchart TB
 
 | Метод | Видимость | Назначение |
 |-------|-----------|------------|
-| `constructor(admin)` | public initializer | Ненулевой admin контракта |
-| `create_poll(...)` | public | Только контрактный admin (операторы итерации 1) |
+| `constructor(admin)` | public initializer | Ненулевой admin; `next_poll_id = 1` |
+| `create_poll(..., sealed, starts_at, ends_at)` | public | Контрактный admin; возвращает id (`0` = следующий) |
 | `cast_vote_private(...)` | private → enqueue public | Адрес скрыт; публичный tally++ |
 | `cast_vote_open(...)` | private → enqueue public | Публичный бюллетень + tally++ |
 | `end_poll(poll_id)` | public | Закрытие (контрактный admin) |
+| `cancel_poll(poll_id)` | public | Отмена, только если `total_votes == 0` |
+| `transfer_admin` / `set_paused` | public | Смена admin / пауза |
 | `get_tally` / `get_total_votes` | view | `0` если sealed и не закрыт |
-| Прочие view | view | Конфиг, open ballot, identity claim |
+| `is_voting_open` | view | Существует, не на паузе, не закрыт, стартовал |
+| Прочие view | view | Конфиг, окно, cancel, pause, open ballot, identity claim |
 
 `identity_commitment`: `0` на open-опросах; иначе Field от ZKPassport `uniqueIdentifier`.
 
@@ -118,9 +129,14 @@ sequenceDiagram
 
 ### 2.5 Проверки
 
-- `option_id` равен `option_id as u32 as Field` (отсечь truncation).
+- `option_id` равен `option_id as u32 as Field` (отсечь truncation). Неверный option / privacy / eligibility проверяются **в private** (PublicImmutable) **до** `SingleUseClaim`.
 - Open eligibility запрещает ненулевой identity; personhood/gated требуют его и свободный claim.
 - Private и open делят один домен `SingleUseClaim`.
+- Публичный путь проверяет паузу, существование, `starts_at` / `ends_at` и закрытие.
+- При `ends_at != 0` private ставит `expiration_timestamp = ends_at - 1`, чтобы поздняя inclusion не сожгла nullifier.
+- `starts_at` в private полностью не проверить (нет времени включения). Публичный kernel отклоняет ранние голоса; не отправляйте бюллетень до старта.
+
+Честные ограничения: `identity_commitment` задаёт вызывающий (ZKPassport перепроверяется off-chain). Sealed — скрытие view, не MPC. `option_id` публичен в enqueue. Pause/`end_poll` после private proof могут всё равно потратить nullifier (`PublicMutable`).
 
 ## 3. Off-chain
 
@@ -140,9 +156,11 @@ Vite + React. Маршруты:
 
 | Endpoint | Роль |
 |----------|------|
-| `GET /api/poll-state` | Гостевые публичные tallies (кэш) |
-| `GET /api/polls` | Общий каталог опросов |
-| `POST /api/zkpassport-verify` | Server re-verify `@zkpassport/sdk` |
+| `GET /api/poll-state` | Batch `node_getPublicStorageAt`, кэш ~15с |
+| `GET /api/polls` | Seed JSON + опциональный Blob |
+| `POST /api/polls` | Публикация метаданных каталога (только оператор) |
+| `POST /api/zkpassport-verify` | Server re-verify |
+| `POST /api/client-error` | Ошибки в логи Vercel |
 
 ### 3.3 Схема каталога
 
@@ -155,6 +173,8 @@ Vite + React. Маршруты:
   "eligibilityMode": 1,
   "privacyPolicy": 2,
   "sealed": false,
+  "startsAt": null,
+  "endsAt": null,
   "zkRequirements": {
     "personhood": true,
     "minAge": null,

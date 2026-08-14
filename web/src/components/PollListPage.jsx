@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { listPolls, pollOptionLabels, refreshSharedCatalog } from "../lib/polls.js";
 import { countryLabel } from "../lib/countries.js";
 import { countriesFromRequirements, ELIGIBILITY_MODE } from "../lib/zkRequirements.js";
+import { getPollSchedule, scheduleBadge, scheduleSummary } from "../lib/pollSchedule.js";
+import { useNow } from "../hooks/useNow.js";
 import { navigate, pollPath } from "../lib/routing.js";
 import { SITE_DESCRIPTION, SITE_NAME } from "../lib/site.js";
 import { homeJsonLd } from "../lib/seo.js";
@@ -9,6 +11,7 @@ import { usePageSeo } from "../hooks/usePageSeo.js";
 import { SiteFooter } from "./SiteFooter.jsx";
 
 export function PollListPage() {
+  const now = useNow(1000);
   const [polls, setPolls] = useState(() => listPolls());
   const [catalogStatus, setCatalogStatus] = useState("Loading shared catalog…");
   const [topic, setTopic] = useState("all");
@@ -178,7 +181,7 @@ export function PollListPage() {
         ) : (
           <div className="poll-grid">
             {filtered.map((poll) => (
-              <PollCard key={poll.id} poll={poll} />
+              <PollCard key={poll.id} poll={poll} now={now} />
             ))}
           </div>
         )}
@@ -220,8 +223,11 @@ function optionKindLabel(poll) {
   return "Single choice";
 }
 
-function PollCard({ poll }) {
+function PollCard({ poll, now }) {
   const codes = poll.countries || countriesFromRequirements(poll.zkRequirements);
+  const schedule = getPollSchedule(poll, now);
+  const badge = scheduleBadge(schedule);
+  const summary = scheduleSummary(schedule);
   const modeLabel =
     poll.eligibilityMode === ELIGIBILITY_MODE.GATED
       ? "Gated"
@@ -237,11 +243,15 @@ function PollCard({ poll }) {
     >
       <div className="poll-card-top">
         <span className="poll-card-id">#{poll.id}</span>
-        <span className={`elig-badge${poll.requiresZkPassport ? " is-zk" : ""}`}>{modeLabel}</span>
-        {poll.sealed ? <span className="elig-badge">Sealed</span> : null}
+        <div className="poll-card-badges">
+          {badge ? <span className={`elig-badge is-${badge.kind}`}>{badge.label}</span> : null}
+          <span className={`elig-badge${poll.requiresZkPassport ? " is-zk" : ""}`}>{modeLabel}</span>
+          {poll.sealed ? <span className="elig-badge">Sealed</span> : null}
+        </div>
       </div>
       <h2 className="poll-card-title">{poll.title}</h2>
       {poll.description ? <p className="poll-card-desc">{poll.description}</p> : null}
+      {summary ? <p className="poll-card-schedule">{summary}</p> : null}
       <div className="poll-card-meta">
         <span>{(poll.options || []).length} options</span>
         <span>{optionKindLabel(poll)}</span>

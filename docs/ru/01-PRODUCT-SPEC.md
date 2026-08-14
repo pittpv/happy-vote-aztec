@@ -28,20 +28,23 @@
 | `approval` | Approve / Reject | Позже |
 | `ranked` | Ранжирование | После MVP |
 
-Off-chain метаданные (каталог): `title`, `description`, `locale`, `options[]`, `category`, `tags[]`, `cover`, `legal_notice`, JSON требований ZKPassport.
+Off-chain метаданные (каталог + опционально Vercel Blob): `title`, `description`, `locale`, `options[]`, `category`, `tags[]`, `cover`, `legal_notice`, опциональные `startsAt` / `endsAt`, JSON требований ZKPassport.
 
 On-chain целостность: `metadata_hash` (SHA-256 канонического JSON → Field).
 
 ## 4. Жизненный цикл
 
 ```
-created (active) → ended (`end_poll` оператора)
+created → (опциональное ожидание startsAt) → open → ended
 ```
 
-- Голос принимается, пока опрос существует и `vote_ended` = false.
-- **Sealed tally:** пока sealed **и** активен, `get_tally` / `get_total_votes` возвращают `0`; UI скрывает live results до закрытия.
+- В UI и **on-chain** голос принимается, пока опрос существует, контракт не на паузе, опрос не отменён, `vote_ended` = false и окно `starts_at` / `ends_at` открыто (`0` = не задано).
+- Опциональные unix-секунды on-chain; каталог хранит те же моменты как ISO-8601. Оба пустые → опрос открыт, пока его не закроют `end_poll` / `cancel_poll`.
+- Опрос можно **опубликовать до `starts_at`**. Вопрос виден сразу; Connect и Vote открываются автоматически в момент старта и закрываются в `ends_at`. Прямые `cast_vote_*` вне окна отклоняются контрактом.
+- После закрытия голоса отклоняются; tallies остаются читаемыми (если не sealed и ещё открыт).
+- **Sealed tally:** пока sealed **и** не закрыт (`vote_ended`, cancel или `now >= ends_at`), `get_tally` / `get_total_votes` возвращают `0`; UI скрывает live results.
 
-Абсолютные `start_at` / `end_at` пока не on-chain (`active_at_block` при создании).
+`end_poll` закрывает сразу. По `ends_at` опрос закрывается без отдельной tx. `cancel_poll` только при `total_votes == 0`.
 
 ## 5. Приватность
 
@@ -83,7 +86,7 @@ Private **не** скрывает вариант с live-табло: `option_id`
 
 ZKPassport + server re-verify + identity claim, sealed, шаринг `/p/:id`, Sponsored FPC, Aztecscan, юридические страницы, SEO, общий каталог.
 
-Осталось вручную: E2E ZKPassport на устройстве.
+Осталось вручную: E2E ZKPassport на устройстве; выключить Dev Mode.
 
 ### Итерация 2 — не начата
 

@@ -82,7 +82,7 @@ async function main() {
   const pollId = { id: Fr.fromString(process.env.POLL_ID ?? "1") };
   logger.info("Creating Happy/Sad poll (voter_choice)…");
   await contract.methods
-    .create_poll(pollId, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(1), false)
+    .create_poll(pollId, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(1), false, 0, 0)
     .send({ from: admin.address, fee, wait: txWait });
 
   const options = asBigInt(
@@ -93,7 +93,7 @@ async function main() {
   const poll2 = { id: Fr.fromString("2") };
   logger.info("Creating single-choice poll #2 (3 options, open eligibility)…");
   await contract.methods
-    .create_poll(poll2, 3, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(2), false)
+    .create_poll(poll2, 3, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(2), false, 0, 0)
     .send({ from: admin.address, fee, wait: txWait });
 
   const envBody = [
@@ -111,7 +111,7 @@ async function main() {
   writeFileSync(resolve(root, ".env"), envBody, "utf8");
   logger.info("Wrote aztec/.env (gitignored). If keys were generated this run, copy them from the logs into .env.");
 
-  const publicDoc = `# Testnet addresses — HappyVote Aztec
+  const publicDoc = `# Testnet addresses — HappyVote on Aztec
 
 Network: **Aztec Testnet 5.1.0**  
 RPC: \`https://v5.testnet.rpc.aztec-labs.com\`  
@@ -120,11 +120,10 @@ Deployed: ${new Date().toISOString()}
 
 | Item | Value |
 |------|-------|
-| HappyVote | \`${contract.address}\` |
-| Admin | \`${admin.address}\` |
+| HappyVote | [\`${contract.address}\`](https://testnet.aztecscan.xyz/address/${contract.address}) |
 | Sponsored FPC | \`${sponsoredFPC.address}\` |
-| Poll id | \`1\` Happy/Sad · \`2\` single-choice (3 opts) · voter_choice, eligibility open |
-| Eligibility modes | \`0\` open · \`1\` ZKPassport personhood · \`2\` gated (age/nationality/…) |
+| Poll id | \`1\` Happy/Sad · \`2\` single-choice (3 opts) · \`3\` ZKPassport personhood test · \`voter_choice\` |
+| Eligibility modes | \`0\` open · \`1\` ZKPassport personhood · \`2\` gated |
 
 ## Frontend env
 
@@ -137,10 +136,10 @@ VITE_PROVER_ENABLED=true
 VITE_REQUIRE_ZKPASSPORT=false
 \`\`\`
 
-Admin secret keys are in \`aztec/.env\` (gitignored), not in this file.
+Account keys stay in gitignored \`.env\`, not in this file.
 `;
-  writeFileSync(resolve(root, "../docs/aztec/10-TESTNET-ADDRESSES.md"), publicDoc, "utf8");
-  logger.info("Wrote docs/aztec/10-TESTNET-ADDRESSES.md");
+  writeFileSync(resolve(root, "../docs/aztec/en/10-TESTNET-ADDRESSES.md"), publicDoc, "utf8");
+  logger.info("Wrote docs/aztec/en/10-TESTNET-ADDRESSES.md");
   logger.info("TESTNET DEPLOY OK");
 }
 

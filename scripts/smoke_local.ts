@@ -77,7 +77,7 @@ async function main() {
   const pollId = { id: new Fr(1) };
   logger.info("Creating poll…");
   await contract.methods
-    .create_poll(pollId, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(1), false)
+    .create_poll(pollId, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(1), false, 0, 0)
     .send({ from: admin.address, fee, wait: { timeout: timeouts.txTimeout } });
 
   logger.info("Private vote (Happy)…");

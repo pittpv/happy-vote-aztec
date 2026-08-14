@@ -34,11 +34,21 @@ import { WalletConnectModal } from "./components/WalletConnectModal.jsx";
 import { AdminCreatePollForm } from "./components/AdminCreatePollForm.jsx";
 import { PollListPage } from "./components/PollListPage.jsx";
 import { useWalletConnect } from "./hooks/useWalletConnect.js";
+import { useNow } from "./hooks/useNow.js";
 import { LegalPage } from "./components/LegalPage.jsx";
 import { SiteFooter } from "./components/SiteFooter.jsx";
+import { PollScheduleBanner } from "./components/PollScheduleBanner.jsx";
 import { identityCommitmentFromUid } from "./lib/zkIdentity.js";
 import { isBbWasmAbort } from "./lib/browser.js";
 import { ELIGIBILITY_MODE } from "./lib/zkRequirements.js";
+import {
+  POLL_PHASE,
+  assertVotingOpen,
+  formatCountdown,
+  getPollSchedule,
+  isVotingOpen,
+  unixSecondsToIso,
+} from "./lib/pollSchedule.js";
 import { SITE_NAME } from "./lib/site.js";
 import { metaDescription, pageTitle, webPageJsonLd } from "./lib/seo.js";
 import { usePageSeo } from "./hooks/usePageSeo.js";
@@ -307,10 +317,24 @@ function PollVoteRoute({ pollId: routePollId }) {
   const [policy, setPolicy] = useState(PRIVACY.VOTER_CHOICE);
   const [voteEnded, setVoteEnded] = useState(false);
   const [onChainSealed, setOnChainSealed] = useState(Boolean(pollMeta.sealed));
+  const [chainStartsAt, setChainStartsAt] = useState(null);
+  const [chainEndsAt, setChainEndsAt] = useState(null);
+  const [cancelled, setCancelled] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [zkId, setZkId] = useState(null);
   const [zkServerVerified, setZkServerVerified] = useState(false);
   const [shareHint, setShareHint] = useState("");
   const [votedReceipt, setVotedReceipt] = useState(() => hasVotedReceipt(routePollId));
+  const now = useNow(1000);
+  const schedule = getPollSchedule(
+    {
+      startsAt: unixSecondsToIso(chainStartsAt) || pollMeta.startsAt,
+      endsAt: unixSecondsToIso(chainEndsAt) || pollMeta.endsAt,
+    },
+    now,
+  );
+  const closedOnChain = voteEnded || cancelled;
+  const votingOpen = !paused && isVotingOpen(schedule, closedOnChain);
 
   useEffect(() => {
     let cancelled = false;
@@ -334,6 +358,7 @@ function PollVoteRoute({ pollId: routePollId }) {
   const pollKnown = hasKnownPollMeta(routePollId);
   const identityOk = pollKnown && (!requiresZk || Boolean(zkId));
   const canVote =
+    votingOpen &&
     Boolean(accountAddress && contract && identityOk && !busy) &&
     (policy === PRIVACY.VOTER_CHOICE ||
       (policy === PRIVACY.PRIVATE_ONLY && privacyMode === "private") ||
@@ -349,6 +374,11 @@ function PollVoteRoute({ pollId: routePollId }) {
     setShareHint("");
     setVotedReceipt(hasVotedReceipt(routePollId));
     setOnChainSealed(Boolean(getPollMeta(routePollId).sealed));
+    setChainStartsAt(null);
+    setChainEndsAt(null);
+    setCancelled(false);
+    setPaused(false);
+    setVoteEnded(false);
     setPollMeta(getPollMeta(routePollId));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routePollId]);
@@ -373,6 +403,12 @@ function PollVoteRoute({ pollId: routePollId }) {
         setPolicy(result.policy);
         if (result.policy === PRIVACY.PRIVATE_ONLY) setPrivacyMode("private");
         if (result.policy === PRIVACY.PUBLIC_ONLY) setPrivacyMode("open");
+        if (result.sealed != null) setOnChainSealed(Boolean(result.sealed));
+        if (result.voteEnded != null) setVoteEnded(Boolean(result.voteEnded));
+        if (result.cancelled != null) setCancelled(Boolean(result.cancelled));
+        if (result.paused != null) setPaused(Boolean(result.paused));
+        if (result.startsAt != null) setChainStartsAt(result.startsAt);
+        if (result.endsAt != null) setChainEndsAt(result.endsAt);
         setStatus({
           text: "Public tallies · connect a wallet to vote",
           tone: "neutral",
@@ -541,6 +577,22 @@ function PollVoteRoute({ pollId: routePollId }) {
           v && typeof v === "object" && "result" in v ? v.result : v;
         setOnChainSealed(Boolean(unwrap(sealedRaw)));
         setVoteEnded(Boolean(unwrap(endedRaw)));
+        try {
+          const startsRaw = await activeContract.methods.get_starts_at(pollId).simulate({ from });
+          const endsRaw = await activeContract.methods.get_ends_at(pollId).simulate({ from });
+          const cancelledRaw = await activeContract.methods.get_cancelled(pollId).simulate({ from });
+          setChainStartsAt(Number(asFieldBigInt(startsRaw)));
+          setChainEndsAt(Number(asFieldBigInt(endsRaw)));
+          setCancelled(Boolean(unwrap(cancelledRaw)));
+          try {
+            const pausedRaw = await activeContract.methods.get_paused().simulate({ from });
+            setPaused(Boolean(unwrap(pausedRaw)));
+          } catch {
+            setPaused(false);
+          }
+        } catch {
+          /* optional views on older deployments */
+        }
       } catch {
         /* optional views on older deployments */
       }
@@ -553,7 +605,12 @@ function PollVoteRoute({ pollId: routePollId }) {
     setTallies(result.tallies);
     setTotal(result.total);
     setPolicy(result.policy);
-    setOnChainSealed(Boolean(pollMeta.sealed));
+    setOnChainSealed(Boolean(result.sealed ?? pollMeta.sealed));
+    if (result.voteEnded != null) setVoteEnded(Boolean(result.voteEnded));
+    if (result.cancelled != null) setCancelled(Boolean(result.cancelled));
+    if (result.paused != null) setPaused(Boolean(result.paused));
+    if (result.startsAt != null) setChainStartsAt(result.startsAt);
+    if (result.endsAt != null) setChainEndsAt(result.endsAt);
   }
 
   function extractTxHash(sendResult) {
@@ -570,6 +627,21 @@ function PollVoteRoute({ pollId: routePollId }) {
 
   async function vote() {
     if (!canVote) return;
+    try {
+      assertVotingOpen(
+        {
+          startsAt: unixSecondsToIso(chainStartsAt) || pollMeta.startsAt,
+          endsAt: unixSecondsToIso(chainEndsAt) || pollMeta.endsAt,
+        },
+      );
+    } catch (error) {
+      setStatus({ text: error.message || String(error), tone: "error" });
+      return;
+    }
+    if (closedOnChain) {
+      setStatus({ text: "This poll has ended.", tone: "error" });
+      return;
+    }
     if (selected < 0 || selected >= optionLabels.length) {
       setStatus({ text: "Invalid option selected.", tone: "error" });
       return;
@@ -639,7 +711,10 @@ function PollVoteRoute({ pollId: routePollId }) {
   }
 
   const faucetHref = FEE_JUICE_FAUCET_URL;
-  const resultsHidden = (onChainSealed || pollMeta.sealed) && !voteEnded;
+  const resultsHidden =
+    (onChainSealed || pollMeta.sealed) &&
+    !closedOnChain &&
+    schedule.phase !== POLL_PHASE.CLOSED;
   const maxTally = Math.max(1, ...tallies);
   const voteStep = !identityOk ? 1 : !accountAddress ? 2 : 3;
 
@@ -687,6 +762,7 @@ function PollVoteRoute({ pollId: routePollId }) {
               </span>
             ) : null}
           </div>
+          <PollScheduleBanner schedule={schedule} voteEnded={closedOnChain} />
           <div className="share-row">
             <button type="button" className="btn btn-ghost" disabled={busy} onClick={copyShareLink}>
               Copy share link
@@ -716,7 +792,7 @@ function PollVoteRoute({ pollId: routePollId }) {
         <li className={voteStep === 3 ? "is-current" : ""}>Vote</li>
       </ol>
 
-      {requiresZk ? (
+      {requiresZk && votingOpen ? (
         <div className="vote-zk">
           <ZkPassportGate
             pollId={routePollId}
@@ -752,7 +828,7 @@ function PollVoteRoute({ pollId: routePollId }) {
                   role="option"
                   aria-selected={selected === index}
                   aria-pressed={selected === index}
-                  disabled={busy}
+                  disabled={busy || !votingOpen}
                   onClick={() => setSelected(index)}
                 >
                   <span className="option-bar" style={{ width: `${barPct}%` }} aria-hidden="true" />
@@ -777,6 +853,7 @@ function PollVoteRoute({ pollId: routePollId }) {
                 <button
                   type="button"
                   className="chip"
+                  disabled={!votingOpen}
                   aria-pressed={privacyMode === "private"}
                   onClick={() => setPrivacyMode("private")}
                 >
@@ -785,6 +862,7 @@ function PollVoteRoute({ pollId: routePollId }) {
                 <button
                   type="button"
                   className="chip"
+                  disabled={!votingOpen}
                   aria-pressed={privacyMode === "open"}
                   onClick={() => setPrivacyMode("open")}
                 >
@@ -803,7 +881,15 @@ function PollVoteRoute({ pollId: routePollId }) {
 
           <div className="vote-cta">
             <div className="vote-cta-actions">
-              {!accountAddress ? (
+              {!votingOpen ? (
+                <button type="button" className="btn btn-primary" disabled>
+                  {paused
+                    ? "Voting paused"
+                    : schedule.phase === POLL_PHASE.UPCOMING && !closedOnChain
+                    ? `Opens in ${formatCountdown(schedule.remainingMs)}`
+                    : "Voting ended"}
+                </button>
+              ) : !accountAddress ? (
                 <button
                   type="button"
                   className="btn btn-primary"
@@ -849,7 +935,15 @@ function PollVoteRoute({ pollId: routePollId }) {
                   : "Open: your address and choice are published on-chain."}
               </p>
             ) : null}
-            {!accountAddress && !identityOk ? (
+            {!votingOpen ? (
+              <p className="hint">
+                {paused
+                  ? "Voting is temporarily paused on this contract."
+                  : schedule.phase === POLL_PHASE.UPCOMING && !closedOnChain
+                  ? "The poll is published. Connect and vote unlock automatically at the start time."
+                  : "This poll is no longer accepting votes."}
+              </p>
+            ) : !accountAddress && !identityOk ? (
               <p className="hint">
                 {requiresZk
                   ? "Verify identity above, then connect a wallet to vote."
@@ -883,7 +977,9 @@ function PollVoteRoute({ pollId: routePollId }) {
           ) : null}
           {resultsHidden ? (
             <p className="vote-results-note">
-              Tallies are sealed until the poll ends. Votes are still counted on-chain.
+              {votingOpen
+                ? "Tallies are sealed until the poll ends. Votes are still counted on-chain."
+                : "Voting has ended. Sealed tallies stay hidden until results are published."}
             </p>
           ) : (
             <>

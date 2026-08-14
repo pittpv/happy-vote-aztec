@@ -95,7 +95,7 @@ export class HappyVoteContract extends ContractBase {
   }
   
 
-  public static get storage(): ContractStorageLayout<'admin' | 'options_count' | 'privacy_policy' | 'eligibility_mode' | 'metadata_hash' | 'tally' | 'total_votes' | 'vote_ended' | 'active_at_block' | 'vote_claims' | 'open_ballots' | 'identity_claims' | 'sealed'> {
+  public static get storage(): ContractStorageLayout<'admin' | 'options_count' | 'privacy_policy' | 'eligibility_mode' | 'metadata_hash' | 'tally' | 'total_votes' | 'vote_ended' | 'active_at_block' | 'vote_claims' | 'open_ballots' | 'identity_claims' | 'sealed' | 'starts_at' | 'ends_at' | 'cancelled' | 'next_poll_id' | 'paused'> {
       return {
         admin: {
       slot: new Fr(1n),
@@ -135,14 +135,32 @@ identity_claims: {
     },
 sealed: {
       slot: new Fr(13n),
+    },
+starts_at: {
+      slot: new Fr(14n),
+    },
+ends_at: {
+      slot: new Fr(15n),
+    },
+cancelled: {
+      slot: new Fr(16n),
+    },
+next_poll_id: {
+      slot: new Fr(17n),
+    },
+paused: {
+      slot: new Fr(18n),
     }
-      } as ContractStorageLayout<'admin' | 'options_count' | 'privacy_policy' | 'eligibility_mode' | 'metadata_hash' | 'tally' | 'total_votes' | 'vote_ended' | 'active_at_block' | 'vote_claims' | 'open_ballots' | 'identity_claims' | 'sealed'>;
+      } as ContractStorageLayout<'admin' | 'options_count' | 'privacy_policy' | 'eligibility_mode' | 'metadata_hash' | 'tally' | 'total_votes' | 'vote_ended' | 'active_at_block' | 'vote_claims' | 'open_ballots' | 'identity_claims' | 'sealed' | 'starts_at' | 'ends_at' | 'cancelled' | 'next_poll_id' | 'paused'>;
     }
     
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public declare methods: {
     
+    /** cancel_poll(poll_id: struct) */
+    cancel_poll: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** cast_vote_open(poll_id: struct, option_id: field, identity_commitment: field) */
     cast_vote_open: ((poll_id: { id: FieldLike }, option_id: FieldLike, identity_commitment: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
@@ -152,8 +170,8 @@ sealed: {
     /** constructor(admin: struct) */
     constructor: ((admin: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** create_poll(poll_id: struct, options_count: integer, privacy_policy: integer, eligibility_mode: integer, metadata_hash: field, sealed: boolean) */
-    create_poll: ((poll_id: { id: FieldLike }, options_count: (bigint | number), privacy_policy: (bigint | number), eligibility_mode: (bigint | number), metadata_hash: FieldLike, sealed: boolean) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** create_poll(poll_id: struct, options_count: integer, privacy_policy: integer, eligibility_mode: integer, metadata_hash: field, sealed: boolean, starts_at: integer, ends_at: integer) */
+    create_poll: ((poll_id: { id: FieldLike }, options_count: (bigint | number), privacy_policy: (bigint | number), eligibility_mode: (bigint | number), metadata_hash: FieldLike, sealed: boolean, starts_at: (bigint | number), ends_at: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** end_poll(poll_id: struct) */
     end_poll: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -161,11 +179,20 @@ sealed: {
     /** get_admin() */
     get_admin: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** get_cancelled(poll_id: struct) */
+    get_cancelled: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** get_eligibility_mode(poll_id: struct) */
     get_eligibility_mode: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** get_ends_at(poll_id: struct) */
+    get_ends_at: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** get_metadata_hash(poll_id: struct) */
     get_metadata_hash: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_next_poll_id() */
+    get_next_poll_id: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_open_ballot(poll_id: struct, voter: struct) */
     get_open_ballot: ((poll_id: { id: FieldLike }, voter: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -173,11 +200,17 @@ sealed: {
     /** get_options_count(poll_id: struct) */
     get_options_count: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** get_paused() */
+    get_paused: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** get_privacy_policy(poll_id: struct) */
     get_privacy_policy: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_sealed(poll_id: struct) */
     get_sealed: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_starts_at(poll_id: struct) */
+    get_starts_at: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_tally(poll_id: struct, option_id: field) */
     get_tally: ((poll_id: { id: FieldLike }, option_id: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -191,14 +224,23 @@ sealed: {
     /** has_identity_voted(poll_id: struct, identity_commitment: field) */
     has_identity_voted: ((poll_id: { id: FieldLike }, identity_commitment: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** is_voting_open(poll_id: struct) */
+    is_voting_open: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** offchain_receive(messages: struct) */
     offchain_receive: ((messages: { ciphertext: FieldLike[], recipient: AztecAddressLike, tx_hash: OptionLike<FieldLike>, anchor_block_timestamp: (bigint | number) }[]) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** public_dispatch(selector: field) */
     public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** set_paused(paused: boolean) */
+    set_paused: ((paused: boolean) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** sync_state(scope: struct) */
     sync_state: ((scope: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** transfer_admin(new_admin: struct) */
+    transfer_admin: ((new_admin: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
   };
 
   

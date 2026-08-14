@@ -9,7 +9,7 @@ AI / CLI: https://docs.aztec.network/developers/ai_tooling
 
 ## Phase 1 — Контракты
 
-**Готово** — Noir **24/24**. Multi-poll `HappyVote`, private/open + `SingleUseClaim`, `create_poll` / `end_poll` (контрактный admin), truncation check.
+**Готово** — Noir тесты + local smoke. Multi-poll `HappyVote`, private/open + `SingleUseClaim`, `create_poll` / `end_poll` / `cancel_poll` / pause / transfer, on-chain окно, truncation check.
 
 ## Phase 2 — Frontend MVP
 
@@ -21,23 +21,27 @@ AI / CLI: https://docs.aztec.network/developers/ai_tooling
 
 ## Phase 4 — ZKPassport
 
-**Live** — SDK + QR + server re-verify + `identity_commitment`. Осталось: E2E на устройстве.
+**Live (Dev Mode)** — SDK + QR + server re-verify + `identity_commitment`. Осталось: E2E на устройстве; выключить Dev Mode.
 
 ## Phase 5 — Hardening
 
 | # | Задача | Статус |
 |---|--------|--------|
 | 5.1 | Sealed tally | Готово |
-| 5.2 | Метаданные + каталог | Готово — `GET /api/polls` |
+| 5.2 | Метаданные + каталог | Готово — `/api/polls` |
 | 5.3 | Юридические страницы | Готово |
 | 5.4 | Security review | Готово |
-| 5.5 | Production + SEO | Готово |
-| 5.6 | Mobile CTA + option bars | Готово |
-| 5.7 | ZKPassport в стиле портала | Готово |
+| 5.5 | Client errors | Готово |
+| 5.6 | Performance | Частично |
+| 5.7 | Production + SEO | Готово |
+| 5.8 | Mobile CTA + option bars | Готово |
+| 5.9 | ZKPassport в стиле портала | Готово |
+| 5.10 | Окно голосования | Готово — on-chain `starts_at` / `ends_at` + ISO в каталоге + обратный отсчёт |
+| 5.11 | Hardening контракта | Готово — PublicImmutable конфиг, проверки до nullifier, pause, cancel, transfer_admin, next_poll_id |
 
 ## Phase 6 — Alpha
 
-Pin версии, Fee Juice / FPC, redeploy.
+Pin версии, Fee Juice / FPC, redeploy, runbook.
 
 ## Phase 7 — Пользовательские опросы
 
@@ -45,4 +49,4 @@ Permissionless `create_poll`, антиспам, модерация, discovery.
 
 ## DoD итерации 1
 
-Контракты на Testnet, UI на домене, три демо-опроса, private/open, double-vote невозможен, ZKPassport gate, тесты 24/24, гайд. Не закрыто: E2E на устройстве.
+Контракты на Testnet, UI на домене, три демо-опроса, private/open, double-vote невозможен, ZKPassport gate, тесты 40/40, гайд. Не закрыто: E2E на устройстве и Dev Mode off.

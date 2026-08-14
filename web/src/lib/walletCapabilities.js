@@ -28,10 +28,19 @@ export function happyVoteCapabilities() {
         { contract: happyVote, function: "cast_vote_private" },
         { contract: happyVote, function: "cast_vote_open" },
         { contract: happyVote, function: "create_poll" },
+        { contract: happyVote, function: "end_poll" },
+        { contract: happyVote, function: "cancel_poll" },
+        { contract: happyVote, function: "transfer_admin" },
+        { contract: happyVote, function: "set_paused" },
         { contract: happyVote, function: "get_tally" },
         { contract: happyVote, function: "get_total_votes" },
         { contract: happyVote, function: "get_privacy_policy" },
         { contract: happyVote, function: "get_admin" },
+        { contract: happyVote, function: "get_starts_at" },
+        { contract: happyVote, function: "get_ends_at" },
+        { contract: happyVote, function: "get_cancelled" },
+        { contract: happyVote, function: "get_paused" },
+        { contract: happyVote, function: "is_voting_open" },
       ]
     : [];
 

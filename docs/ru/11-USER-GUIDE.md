@@ -14,6 +14,7 @@ UI: [12-UI-UX.md](./12-UI-UX.md)
 ## Без кошелька
 
 - Каталог и страница опроса
+- **Даты и обратный отсчёт**, если опрос с расписанием
 - **Live results** (скрыты, пока опрос sealed и ещё открыт)
 - Шаринг `/p/1`, `/p/2`, `/p/3`
 - Контракт на [Aztecscan](https://testnet.aztecscan.xyz)
@@ -21,13 +22,14 @@ UI: [12-UI-UX.md](./12-UI-UX.md)
 ## Голос (private или open)
 
 1. Откройте опрос, например https://aztec.happyvote.xyz/p/1.
-2. Чипы: **Ready/Verify → Connect → Vote**.
-3. Если нужен ZKPassport — QR на десктопе, приложение на телефоне. После успеха блок сжимается в **Identity verified**.
-4. **Connect Aztec wallet**. Предпочтительно **Browser session** (in-page PXE). Первый prove может занять несколько минут.
-5. В **Your ballot** выберите вариант. В **Ballot privacy** — **Private** (по умолчанию) или **Open**.
-6. Отправьте голос. Статус рядом с CTA; **Open tx**, когда появится.
-7. **Fees on testnet** — только при ошибке комиссии: https://aztec-faucet.nethermind.io
-8. **How to vote** — короткий чеклист.
+2. Если задано расписание — до старта Connect и Vote закрыты (обратный отсчёт); после старта идёт отсчёт до окончания.
+3. Чипы: **Ready/Verify → Connect → Vote**.
+4. Если нужен ZKPassport — QR на десктопе, приложение на телефоне. После успеха блок сжимается в **Identity verified**.
+5. **Connect Aztec wallet**. Предпочтительно **Browser session** (in-page PXE). Первый prove может занять несколько минут.
+6. В **Your ballot** выберите вариант. В **Ballot privacy** — **Private** (по умолчанию) или **Open**.
+7. Отправьте голос. Статус рядом с CTA; **Open tx**, когда появится.
+8. **Fees on testnet** — только при ошибке комиссии: https://aztec-faucet.nethermind.io
+9. **How to vote** — короткий чеклист.
 
 На широком экране **Live results** справа; на мобильном — ниже.
 

@@ -25,6 +25,15 @@ function unauthorized(res) {
   return res.status(401).json({ ok: false, error: "Unauthorized" });
 }
 
+function optionalIso(value) {
+  if (value == null || String(value).trim() === "") return null;
+  const ms = Date.parse(String(value));
+  if (!Number.isFinite(ms)) {
+    throw new Error("startsAt and endsAt must be ISO-8601 datetimes");
+  }
+  return new Date(ms).toISOString();
+}
+
 function getPublishToken() {
   return process.env.POLLS_PUBLISH_TOKEN || process.env.VITE_POLLS_PUBLISH_TOKEN || "";
 }
@@ -68,6 +77,12 @@ function normalizePoll(raw) {
     throw new Error("eligibilityMode must be 0, 1, or 2");
   }
 
+  const startsAt = optionalIso(raw.startsAt);
+  const endsAt = optionalIso(raw.endsAt);
+  if (startsAt && endsAt && Date.parse(endsAt) <= Date.parse(startsAt)) {
+    throw new Error("endsAt must be after startsAt");
+  }
+
   return {
     id,
     title,
@@ -80,8 +95,13 @@ function normalizePoll(raw) {
     template: options.length === 2 ? "binary" : String(raw.template || "single_choice"),
     requiresZkPassport: Boolean(raw.requiresZkPassport) || eligibilityMode > 0,
     eligibilityMode,
+    privacyPolicy: [0, 1, 2].includes(Number(raw.privacyPolicy))
+      ? Number(raw.privacyPolicy)
+      : 2,
     zkRequirements: raw.zkRequirements ?? null,
     sealed: Boolean(raw.sealed),
+    startsAt,
+    endsAt,
     metadataHash: raw.metadataHash != null ? String(raw.metadataHash) : null,
     publishedAt: raw.publishedAt || new Date().toISOString(),
   };

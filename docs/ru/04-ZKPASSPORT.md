@@ -53,9 +53,9 @@ On-chain: `identity_commitment ≠ 0` для eligibility 1/2; `identity_claims` 
 
 Зарегистрировать `aztec.happyvote.xyz` в Dashboard. `uniqueIdentifier` привязан к домену. Не логировать proofs с PII.
 
-## 6. Разработка и production
+## 6. Dev Mode
 
-Mock-паспорта только для локальной разработки. В production — реальные proofs и server re-verify.
+`VITE_ZKPASSPORT_DEV_MODE=true` для mock. Для реальных ID — **выключить**. Mock unlock только в DEV.
 
 ## 7. Ограничения
 
@@ -92,4 +92,4 @@ QR — drop-in `@zkpassport/ui`, обёртка в стиле портала. П
 - [x] `/api/zkpassport-verify`, identity claim
 - [x] Стилизация + сворачивание
 - [x] Noir: один identity, два аккаунта — fail
-- [ ] E2E на устройстве
+- [ ] E2E на устройстве; выключить Dev Mode

@@ -40,9 +40,9 @@
 - **Совместимость с Aztec** — только `aztec` CLI, Poseidon2, версия SDK = версия сети.
 - **Без custody identity** — данные документа не покидают устройство.
 
-## Статус (2026-08-13)
+## Статус (2026-08-14)
 
-Контракт `HappyVote` на **Aztec Testnet 5.1.0**: [`0x0c5dbc2f68bf8e25f8ddc5c547d0ccf010ad4ed0262c6c1e09dc35cb0cdb3ac0`](https://testnet.aztecscan.xyz/address/0x0c5dbc2f68bf8e25f8ddc5c547d0ccf010ad4ed0262c6c1e09dc35cb0cdb3ac0). Опросы `/p/1` Happy/Sad, `/p/2` single-choice, `/p/3` ZKPassport personhood. Noir-тесты **24/24**. Фронтенд: https://aztec.happyvote.xyz.
+Контракт `HappyVote` на **Aztec Testnet 5.1.0**: [`0x0c7ea71e9619ee7ae5285f8912bf566a7c4ce9a65ef089098289f589b4b4a55c`](https://testnet.aztecscan.xyz/address/0x0c7ea71e9619ee7ae5285f8912bf566a7c4ce9a65ef089098289f589b4b4a55c). Опросы `/p/1` Happy/Sad, `/p/2` single-choice, `/p/3` ZKPassport personhood. Noir-тесты **40/40**. Фронтенд: https://aztec.happyvote.xyz.
 
 ## Источники истины
 

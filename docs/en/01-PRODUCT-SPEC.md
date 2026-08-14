@@ -28,21 +28,23 @@ The platform is **not** limited to Happy/Sad.
 | `approval` | Approve / Reject | Later |
 | `ranked` | Ranking | After MVP |
 
-Off-chain metadata (catalog): `title`, `description`, `locale`, `options[]` (label + optional description), `category`, `tags[]`, `cover`, `legal_notice`, ZKPassport requirement JSON.
+Off-chain metadata (catalog + optional Vercel Blob): `title`, `description`, `locale`, `options[]` (label + optional description), `category`, `tags[]`, `cover`, `legal_notice`, optional `startsAt` / `endsAt`, ZKPassport requirement JSON.
 
 On-chain integrity: `metadata_hash` (SHA-256 of canonical JSON, reduced to a Field).
 
 ## 4. Poll lifecycle
 
 ```
-created (active) → ended (admin `end_poll`)
+created → (optional wait until startsAt) → open → ended
 ```
 
-- Voting is allowed only while the poll exists and `vote_ended` is false.
-- After close, votes are rejected; tallies stay readable.
-- **Sealed tally:** while sealed **and** active, `get_tally` / `get_total_votes` return `0`; UI hides live results until `end_poll`.
+- Voting is allowed while the poll exists, is not paused, is not cancelled, `vote_ended` is false, and the on-chain window is open (`starts_at` / `ends_at`; `0` = unset).
+- Optional `starts_at` / `ends_at` (unix seconds on-chain). The catalog stores the same instants as ISO-8601 for display. Omit both → the poll stays open until `end_poll` or `cancel_poll`.
+- A poll can be **published before `starts_at`**. Guests can read the question; Connect and Vote unlock automatically at start, then lock at `ends_at`. Direct `cast_vote_*` calls are rejected on-chain outside the window.
+- After close, votes are rejected; tallies stay readable (unless sealed and still open).
+- **Sealed tally:** while sealed **and** not closed (`vote_ended`, cancelled, or `now >= ends_at`), `get_tally` / `get_total_votes` return `0`; UI hides live results.
 
-Absolute `start_at` / `end_at` timestamps are not on-chain yet (`active_at_block` is set at create).
+`end_poll` still closes immediately. Scheduled `ends_at` auto-closes without an extra admin tx. `cancel_poll` is allowed only while `total_votes == 0`.
 
 ## 5. Privacy
 
@@ -100,9 +102,9 @@ Important polls should require at least personhood. Details live in catalog JSON
 17. Aztecscan links.
 18. Legal pages in the footer.
 19. SEO (titles, Open Graph, JSON-LD, sitemap, robots).
-20. Shared catalog (`GET /api/polls`).
+20. Shared catalog (`GET/POST /api/polls`).
 
-Still manual: real-device ZKPassport E2E; participation receipt note.
+Still manual: real-device ZKPassport E2E; turn off Dev Mode; participation receipt note.
 
 ### Iteration 2 — not started
 

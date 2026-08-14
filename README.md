@@ -23,7 +23,7 @@ Compile and test with the **`aztec` CLI** (not `nargo` or `bb` directly). Offici
 
 ## Testnet
 
-Contract: [`0x0c5dbc2f68bf8e25f8ddc5c547d0ccf010ad4ed0262c6c1e09dc35cb0cdb3ac0`](https://testnet.aztecscan.xyz/address/0x0c5dbc2f68bf8e25f8ddc5c547d0ccf010ad4ed0262c6c1e09dc35cb0cdb3ac0)  
+Contract: [`0x0c7ea71e9619ee7ae5285f8912bf566a7c4ce9a65ef089098289f589b4b4a55c`](https://testnet.aztecscan.xyz/address/0x0c7ea71e9619ee7ae5285f8912bf566a7c4ce9a65ef089098289f589b4b4a55c)  
 RPC: `https://v5.testnet.rpc.aztec-labs.com`  
 Details: [docs/en/10-TESTNET-ADDRESSES.md](./docs/en/10-TESTNET-ADDRESSES.md)
 

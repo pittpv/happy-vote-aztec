@@ -1,50 +1,168 @@
-{
-  "version": 1,
-  "updatedAt": "2026-08-13T00:00:00.000Z",
-  "polls": {
-    "1": {
-      "id": "1",
-      "title": "How are you feeling?",
-      "description": "Binary Happy/Sad poll on Aztec Testnet — open eligibility.",
-      "topics": ["demo", "mood"],
-      "countries": [],
-      "options": [
-        { "label": "Happy", "description": "Feeling good today." },
-        { "label": "Sad", "description": "Could be better." }
-      ],
-      "template": "binary",
-      "requiresZkPassport": false,
-      "eligibilityMode": 0,
-      "zkRequirements": null,
-      "sealed": false,
-      "metadataHash": null
-    },
-    "2": {
-      "id": "2",
-      "title": "Which demo feature should we ship next?",
-      "description": "Single-choice roadmap poll for the Aztec HappyVote demo.",
-      "topics": ["demo", "product"],
-      "countries": [],
-      "options": [
-        {
-          "label": "Sealed tallies",
-          "description": "Hide live results until the poll ends."
-        },
-        {
-          "label": "Share embeds",
-          "description": "Embeddable poll cards for other sites."
-        },
-        {
-          "label": "ZKPassport gates",
-          "description": "Personhood / age / nationality eligibility."
-        }
-      ],
-      "template": "single_choice",
-      "requiresZkPassport": false,
-      "eligibilityMode": 0,
-      "zkRequirements": null,
-      "sealed": false,
-      "metadataHash": null
-    }
-  }
-}
+{
+
+  "version": 1,
+
+  "updatedAt": "2026-08-13T00:00:00.000Z",
+
+  "polls": {
+
+    "1": {
+
+      "id": "1",
+
+      "title": "How are you feeling?",
+
+      "description": "Binary Happy/Sad poll on Aztec Testnet — open eligibility.",
+
+      "topics": ["demo", "mood"],
+
+      "countries": [],
+
+      "options": [
+
+        { "label": "Happy", "description": "Feeling good today." },
+
+        { "label": "Sad", "description": "Could be better." }
+
+      ],
+
+      "template": "binary",
+
+      "requiresZkPassport": false,
+
+      "eligibilityMode": 0,
+
+      "zkRequirements": null,
+
+      "sealed": false,
+
+      "metadataHash": null
+
+    },
+
+    "2": {
+
+      "id": "2",
+
+      "title": "Which demo feature should we ship next?",
+
+      "description": "Single-choice roadmap poll for the Aztec HappyVote demo.",
+
+      "topics": ["demo", "product"],
+
+      "countries": [],
+
+      "options": [
+
+        {
+
+          "label": "Sealed tallies",
+
+          "description": "Hide live results until the poll ends."
+
+        },
+
+        {
+
+          "label": "Share embeds",
+
+          "description": "Embeddable poll cards for other sites."
+
+        },
+
+        {
+
+          "label": "ZKPassport gates",
+
+          "description": "Personhood / age / nationality eligibility."
+
+        }
+
+      ],
+
+      "template": "single_choice",
+
+      "requiresZkPassport": false,
+
+      "eligibilityMode": 0,
+
+      "zkRequirements": null,
+
+      "sealed": false,
+
+      "metadataHash": null
+
+    },
+
+    "3": {
+
+      "id": "3",
+
+      "title": "ZKPassport personhood test",
+
+      "description": "Test poll for HappyVote + ZKPassport on Aztec Testnet. Verify once, then cast a private or open ballot.",
+
+      "topics": ["demo", "zkpassport", "test"],
+
+      "countries": [],
+
+      "options": [
+
+        { "label": "Works for me", "description": "QR / app verification completed and I could vote." },
+
+        { "label": "Blocked / unclear", "description": "I hit an error, Dev Mode issue, or unclear UX." }
+
+      ],
+
+      "template": "binary",
+
+      "requiresZkPassport": true,
+
+      "eligibilityMode": 1,
+
+      "zkRequirements": {
+
+        "personhood": true,
+
+        "minAge": null,
+
+        "maxAge": null,
+
+        "bornAfter": null,
+
+        "bornBefore": null,
+
+        "nationalityIn": [],
+
+        "nationalityOut": [],
+
+        "documentTypes": [],
+
+        "expiresAfter": null,
+
+        "expiresBefore": null,
+
+        "issuedBy": [],
+
+        "notIssuedBy": [],
+
+        "sanctions": false,
+
+        "facematchStrict": false,
+
+        "policyId": null,
+
+        "purpose": "Prove personhood to test ZKPassport voting on HappyVote Aztec"
+
+      },
+
+      "sealed": false,
+
+      "metadataHash": "0x1aa6032787d3653250160ddb12a166c9e1fa38486ce9bb30afd96fafdc9f390c"
+
+    }
+
+  }
+
+}
+

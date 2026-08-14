@@ -4,6 +4,8 @@
  */
 const DEFAULT_NODE = "https://v5.testnet.rpc.aztec-labs.com";
 const CACHE_TTL_MS = 15_000;
+/** Contract-level `paused` PublicMutable (codegen slot 18), not a per-poll map. */
+const PAUSED_SLOT = "0x12";
 
 /**
  * Precomputed slots for known polls (deriveStorageSlotInMap Poseidon2).
@@ -20,6 +22,9 @@ const PRECOMPUTED = {
     policy: "0x19d85eb93cdc773ceebf95f44d6135aceea42db777461ac3e29a1bb1249273d3",
     voteEnded: "0x0cf8ce2bc3b2b2ae03caaab0d8e620df5c780e2b09a43f0b9bd0458847308ca4",
     sealed: "0x1df69935b815bbd167efbd22f6f97d96f4a4be05c863c81c6d5359aa938024f5",
+    startsAt: "0x25a286df9dac8b0b04d1f0f8dff42cbade7a7c35ccde7b254357cb1386731ea0",
+    endsAt: "0x1a1b696e0bee39da8dac5f43ea0af379d9825d8131fcfe530f79cd29a795f5fd",
+    cancelled: "0x0a8900c8076d089c1e0853189795b9215ac1bcba5317d598b944f65dac44b1a8",
   },
   "2": {
     tallies: [
@@ -31,6 +36,9 @@ const PRECOMPUTED = {
     policy: "0x1b2a5d455cab4740e443147754809bb1c9659b71a2e190ccd46a96b43d61224e",
     voteEnded: "0x02f2f2c711b07c5b3e451652f95e973cd3fddc316ad99df65e9872ea652c5050",
     sealed: "0x25ad04948afa1d452b6982c6176e938eafd9df78e83be35082c1d08d18b8aae5",
+    startsAt: "0x2b5e79bc122b46322aa0aa5ebdf454610668fee02b8a96a897132982530a75a8",
+    endsAt: "0x29dd978dc8a1beac3ed29e5bae264bf837aede75c1ca1357474aa92be818fa6c",
+    cancelled: "0x23d7483264d96fcb229c072ecabef3faac70dfb6dbddcf490364ee5eb3c648e7",
   },
   "3": {
     tallies: [
@@ -41,6 +49,9 @@ const PRECOMPUTED = {
     policy: "0x1e0563e6101ac38fe9432cc18ef12325f5eed9c261a16afe76efebf100cd21da",
     voteEnded: "0x1ff113a83ed3e36ef00580b705cf6d26496d42ad7de586d222f15796dc43983c",
     sealed: "0x0a4695a7e02968b12a28fc63cf80bdb3f0a6fceea3006482e25209d1fc2cb4b6",
+    startsAt: "0x1a596808e4e53a32f0d6197881c45ce6b873c6a291526ce92c07e4fc21ce56d1",
+    endsAt: "0x2403a7add78c639009581e8a0774808a21e10394d1c23a13f69c8ed5a9d46344",
+    cancelled: "0x25bf2d54475ffd45cb075e412b026bb8a2ce37e7d02f17f419457d1b9660f88f",
   },
 };
 
@@ -166,6 +177,9 @@ function resolveSlots(pollId, optionsCount) {
     policy: entry.policy,
     voteEnded: entry.voteEnded,
     sealed: entry.sealed,
+    startsAt: entry.startsAt,
+    endsAt: entry.endsAt,
+    cancelled: entry.cancelled,
   };
 }
 
@@ -231,22 +245,52 @@ export default async function handler(req, res) {
         method: "node_getPublicStorageAt",
         params: ["latest", contract, padHex32(slots.sealed)],
       },
+      {
+        method: "node_getPublicStorageAt",
+        params: ["latest", contract, padHex32(slots.startsAt)],
+      },
+      {
+        method: "node_getPublicStorageAt",
+        params: ["latest", contract, padHex32(slots.endsAt)],
+      },
+      {
+        method: "node_getPublicStorageAt",
+        params: ["latest", contract, padHex32(slots.cancelled)],
+      },
+      {
+        method: "node_getPublicStorageAt",
+        params: ["latest", contract, padHex32(PAUSED_SLOT)],
+      },
     ];
 
     const results = await withRetry(() => rpcBatch(nodeUrl, calls));
     const tallyResults = results.slice(0, optionsCount);
     const totalValue = results[optionsCount];
     const policyValue = results[optionsCount + 1];
-    const voteEnded = fieldToNumber(results[optionsCount + 2]) !== 0;
+    const voteEndedFlag = fieldToNumber(results[optionsCount + 2]) !== 0;
     const sealed = fieldToNumber(results[optionsCount + 3]) !== 0;
-    const hideTallies = sealed && !voteEnded;
+    const startsAt = fieldToNumber(results[optionsCount + 4]);
+    const endsAt = fieldToNumber(results[optionsCount + 5]);
+    const cancelled = fieldToNumber(results[optionsCount + 6]) !== 0;
+    const paused = fieldToNumber(results[optionsCount + 7]) !== 0;
+    const nowSec = Math.floor(Date.now() / 1000);
+    const closed =
+      voteEndedFlag || cancelled || (endsAt !== 0 && nowSec >= endsAt);
+    const hideTallies = sealed && !closed;
+    const votingOpen =
+      !paused && !closed && (startsAt === 0 || nowSec >= startsAt);
 
     const data = {
       tallies: hideTallies ? tallyResults.map(() => 0) : tallyResults.map(fieldToNumber),
       total: hideTallies ? 0 : fieldToNumber(totalValue),
       policy: fieldToNumber(policyValue),
       sealed,
-      voteEnded,
+      voteEnded: closed,
+      cancelled,
+      paused,
+      startsAt,
+      endsAt,
+      votingOpen,
     };
 
     memoryCache = { key: cacheKey, at: now, data };

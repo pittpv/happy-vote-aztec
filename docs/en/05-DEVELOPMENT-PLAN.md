@@ -9,17 +9,18 @@ AI / CLI: https://docs.aztec.network/developers/ai_tooling
 
 WSL2 Ubuntu, Node 24.12, Aztec CLI 5.1.0, docs, `AGENTS.md`, bootstrap from aztec-starter.
 
-**Exit:** `aztec compile` and `aztec test` green.
+**Exit:** `aztec compile` and `aztec test` green (40/40).
 
 ## Phase 1 — Core voting contracts
 
-**Status: done** — Noir **24/24**
+**Status: done** — Noir tests + local smoke
 
 - Multi-poll `HappyVote` storage
 - `cast_vote_private` / `cast_vote_open` + shared `SingleUseClaim`
 - Public tally update + open ballots
-- `create_poll` / `end_poll` (contract admin)
-- Truncation checks on `option_id`
+- `create_poll` / `end_poll` / `cancel_poll` / `transfer_admin` / `set_paused` (contract admin)
+- On-chain `starts_at` / `ends_at`; `next_poll_id`
+- Truncation checks on `option_id` (private + public)
 
 ## Phase 2 — Frontend MVP
 
@@ -41,9 +42,9 @@ Remaining: manual private/open vote from an external account on production.
 
 ## Phase 4 — ZKPassport
 
-**Status: live**
+**Status: live on prod (Dev Mode)**
 
-SDK + QR gate + server re-verify + on-chain `identity_commitment`. Domain `aztec.happyvote.xyz`. Remaining: real-device E2E.
+SDK + QR gate + server re-verify + on-chain `identity_commitment`. Domain `aztec.happyvote.xyz`. Default policy `vote-identity-verification`. Remaining: real-device E2E; turn off Dev Mode.
 
 ## Phase 5 — Product hardening
 
@@ -52,16 +53,20 @@ SDK + QR gate + server re-verify + on-chain `identity_commitment`. Domain `aztec
 | # | Task | Status |
 |---|------|--------|
 | 5.1 | Sealed tally | Done — on-chain `sealed` + UI hide until `end_poll` |
-| 5.2 | Metadata + catalog | Done — `GET /api/polls` |
+| 5.2 | Metadata + catalog | Done — `GET/POST /api/polls` (seed + Vercel Blob) |
 | 5.3 | Legal pages | Done — Terms, Privacy, Data Safety, Cookies, GDPR |
 | 5.4 | Security review | Done — option_id truncation; XSS/boot; ZKPassport mock gated to DEV |
-| 5.5 | Production frontend | Done — APIs, SEO |
-| 5.6 | Mobile vote CTA + option bars | Done |
-| 5.7 | ZKPassport portal chrome | Done — collapse after success |
+| 5.5 | Client error ingest | Done — `POST /api/client-error` |
+| 5.6 | Performance | Partial — CRS CSP, IndexedDB PXE |
+| 5.7 | Production frontend | Done — CSP, APIs, SEO |
+| 5.8 | Mobile vote CTA + option bars | Done |
+| 5.9 | ZKPassport portal chrome | Done — collapse after success |
+| 5.10 | Catalog voting window | Done — on-chain `starts_at` / `ends_at` + catalog ISO + UI countdown |
+| 5.11 | Contract hardening | Done — PublicImmutable config, private checks before nullifier, pause, cancel, transfer_admin, next_poll_id |
 
 ## Phase 6 — Alpha mainnet
 
-Pin Alpha 5.1.0 (or current stable), Fee Juice / FPC, redeploy, public launch.
+Pin Alpha 5.1.0 (or current stable), Fee Juice / FPC, redeploy, incident runbook, public launch.
 
 ## Phase 7 — Iteration 2: user-created polls
 
@@ -85,6 +90,6 @@ Permissionless `create_poll` with limits, anti-spam, moderation, discovery, extr
 - [x] Private and public modes (`voter_choice`)
 - [x] Double-vote impossible (Noir + `SingleUseClaim`)
 - [x] ZKPassport gate + server re-verify + identity claim
-- [x] `aztec compile` / `aztec test` green (24/24)
+- [x] `aztec compile` / `aztec test` green (40/40)
 - [x] User guide for connect + vote
-- [ ] Real-device ZKPassport E2E
+- [ ] Real-device ZKPassport E2E; disable Dev Mode

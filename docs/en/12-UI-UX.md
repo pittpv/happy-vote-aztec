@@ -48,8 +48,8 @@ flowchart LR
   Prove --> Results[Live results]
 ```
 
-1. Guest: question, options, public tallies (`/api/poll-state`).
-2. Optional ZKPassport gate.
+1. Guest: question, options, public tallies (`/api/poll-state`), plus schedule/countdown when dates are set.
+2. Optional ZKPassport gate (only while the voting window is open).
 3. Connect Aztec wallet (prefer Browser session).
 4. Option + Private/Open → submit.
 5. Status + explorer link next to the CTA.
@@ -67,6 +67,10 @@ Desktop layout avoids large empty regions and awkward wrapping around the QR car
 ## Ballot privacy spacing
 
 The **Ballot privacy** heading and the Private / Open controls have a clear gap so the fieldset does not look cramped.
+
+## Schedule
+
+Poll cards and vote pages show **Upcoming / Live / Ended** when `startsAt` / `endsAt` are set (catalog ISO; vote page prefers on-chain unix seconds). Before start: countdown, Connect and Vote locked. After start: countdown to the end. Omit both dates for an always-open poll until `end_poll`.
 
 ## Legal
 

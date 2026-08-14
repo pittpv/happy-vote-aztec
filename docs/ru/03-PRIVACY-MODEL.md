@@ -37,7 +37,7 @@ UI: **Private** (default) / **Open**. Оба инкрементят одну к�
 
 ## 4. Sealed
 
-On-chain (`sealed`): пока `sealed && !vote_ended`, view возвращают `0`, UI скрывает результаты. После `end_poll` читаются истинные tallies. Гостевой API в том же окне отдаёт нули. Это **скрытие view**, не MPC-агрегат.
+On-chain (`sealed`): пока `sealed && !closed`, view возвращают `0`, UI скрывает результаты. Закрыт = `vote_ended`, cancel или `now >= ends_at`. После закрытия читаются истинные tallies. Гостевой API в том же окне отдаёт нули. Это **скрытие view**, не MPC-агрегат.
 
 ## 5. Eligibility без doxxing
 
@@ -64,9 +64,9 @@ Scope по умолчанию: **на опрос** (`poll:{id}`).
 - [x] Nullifier на опрос (`SingleUseClaim`)
 - [x] Private и open — один claim domain
 - [x] Range `option_id` + reject truncation
-- [x] Нет голоса после `end_poll`
+- [x] Нет голоса после `end_poll` / `ends_at` / cancel
 - [x] `metadata_hash` ↔ off-chain JSON
 - [x] Server re-verify ZKPassport
 - [x] On-chain identity claim
 - [x] Sealed tallies
-- [ ] E2E на реальном устройстве
+- [ ] E2E на реальном устройстве; выключить Dev Mode
