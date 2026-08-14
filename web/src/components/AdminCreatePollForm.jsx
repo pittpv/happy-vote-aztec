@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   defaultZkRequirements,
   describeZkRequirements,
@@ -9,7 +9,7 @@ import {
   ELIGIBILITY_MODE,
 } from "../lib/zkRequirements.js";
 import { DOCUMENT_TYPE_OPTIONS } from "../lib/countries.js";
-import { PRIVACY, Fr } from "../lib/aztecClient.js";
+import { PRIVACY, Fr, asFieldBigInt } from "../lib/aztecClient.js";
 import { savePollMeta, publishPollMeta, normalizePollOptions } from "../lib/polls.js";
 import { datetimeLocalToIso, isoToUnixSeconds, normalizePollWindow } from "../lib/pollSchedule.js";
 import { CountryPicker } from "./CountryPicker.jsx";
@@ -27,7 +27,7 @@ export function AdminCreatePollForm({
   setStatus,
   onCreated,
 }) {
-  const [pollIdInput, setPollIdInput] = useState("3");
+  const [pollIdInput, setPollIdInput] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [topicsText, setTopicsText] = useState("governance");
@@ -92,6 +92,31 @@ export function AdminCreatePollForm({
   const [openPolicy, setOpenPolicy] = useState(false);
 
   const policyLocks = Boolean(policyId.trim());
+
+  useEffect(() => {
+    if (!contract || !accountAddress) return;
+    let cancelled = false;
+    (async () => {
+      const next = await contract.methods.get_next_poll_id().simulate({
+        from: accountAddress,
+      });
+      if (cancelled) return;
+      const id = asFieldBigInt(next);
+      if (id < 1n) {
+        throw new Error("get_next_poll_id returned an invalid id");
+      }
+      setPollIdInput(id.toString());
+    })().catch((error) => {
+      if (cancelled) return;
+      setStatus({
+        text: `Could not load next poll id: ${error?.message || String(error)}`,
+        tone: "error",
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [contract, accountAddress, setStatus]);
 
   const draftRequirements = useMemo(() => {
     if (!important) return null;

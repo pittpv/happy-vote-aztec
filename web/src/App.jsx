@@ -32,6 +32,7 @@ import { parseRoute, navigate, homePath } from "./lib/routing.js";
 import { ZkPassportGate } from "./components/ZkPassportGate.jsx";
 import { WalletConnectModal } from "./components/WalletConnectModal.jsx";
 import { AdminCreatePollForm } from "./components/AdminCreatePollForm.jsx";
+import { AdminContractControls } from "./components/AdminContractControls.jsx";
 import { PollListPage } from "./components/PollListPage.jsx";
 import { useWalletConnect } from "./hooks/useWalletConnect.js";
 import { useNow } from "./hooks/useNow.js";
@@ -257,6 +258,21 @@ function AdminRoute() {
 
       {isAdmin && accountAddress && contract && paymentMethod ? (
         <section className="admin" aria-label="Admin">
+          <AdminContractControls
+            contract={contract}
+            accountAddress={accountAddress}
+            paymentMethod={paymentMethod}
+            busy={busy}
+            setBusy={setBusy}
+            setStatus={setStatus}
+            onAdminTransferred={() => {
+              setIsAdmin(false);
+              setStatus({
+                text: "Admin transferred. This account can no longer manage the contract.",
+                tone: "ok",
+              });
+            }}
+          />
           <AdminCreatePollForm
             contract={contract}
             accountAddress={accountAddress}

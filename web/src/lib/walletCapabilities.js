@@ -40,6 +40,7 @@ export function happyVoteCapabilities() {
         { contract: happyVote, function: "get_ends_at" },
         { contract: happyVote, function: "get_cancelled" },
         { contract: happyVote, function: "get_paused" },
+        { contract: happyVote, function: "get_next_poll_id" },
         { contract: happyVote, function: "is_voting_open" },
       ]
     : [];
