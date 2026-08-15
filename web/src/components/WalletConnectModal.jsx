@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { AZGUARD_STORE_URL } from "../lib/walletClient.js";
 import { parseAdminKeyMaterial } from "../lib/adminKeys.js";
+import { Notice } from "./Notice.jsx";
+import { explainError } from "../lib/userMessages.js";
 
 function ProviderIcon({ icon, name }) {
   const [broken, setBroken] = useState(false);
@@ -192,7 +194,11 @@ function ImportAdminKeysBody({ beginSessionWithKeys, onBack }) {
           data-lpignore="true"
         />
       </label>
-      {error ? <p className="wc-error">{error}</p> : null}
+      {error ? (
+        <Notice tone="error" title="Could not import keys">
+          {error}
+        </Notice>
+      ) : null}
       <div className="wc-row">
         <button type="button" className="btn btn-ghost" onClick={onBack}>
           Back
@@ -317,6 +323,12 @@ export function WalletConnectModal({
           )}
         </Modal>
       );
+    case "creating-session":
+      return (
+        <Modal title="Setting up wallet" onClose={reset}>
+          <p className="wc-hint">{phase.text || "Creating a browser wallet…"}</p>
+        </Modal>
+      );
     case "discovering":
       return (
         <Modal title="Choose a wallet" onClose={reset}>
@@ -379,15 +391,19 @@ export function WalletConnectModal({
           </div>
         </Modal>
       );
-    case "error":
+    case "error": {
+      const explained = explainError({ message: phase.message }, "connect");
       return (
         <Modal title="Couldn't connect" onClose={reset}>
-          <p className="wc-error">{phase.message}</p>
+          <Notice tone="error" title={phase.title || explained.title}>
+            {phase.message || explained.text}
+          </Notice>
           <button type="button" className="btn btn-ghost wc-full" onClick={reset}>
             Close
           </button>
         </Modal>
       );
+    }
     default:
       return null;
   }

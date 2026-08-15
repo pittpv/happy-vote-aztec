@@ -10,6 +10,7 @@ import {
 } from "../lib/walletClient.js";
 import { happyVoteCapabilities } from "../lib/walletCapabilities.js";
 import { isUserRejection, WalletUserRejectedError } from "../lib/walletErrors.js";
+import { explainError } from "../lib/userMessages.js";
 
 async function resolveGrantedAccounts(wallet) {
   try {
@@ -116,9 +117,11 @@ export function useWalletConnect() {
         );
       } catch (err) {
         if (discoveryGenRef.current !== gen) return;
+        const explained = explainError(err, "connect");
         setPhase({
           kind: "error",
-          message: err instanceof Error ? err.message : "Failed to start discovery",
+          title: explained.title,
+          message: explained.text,
         });
       }
     },
@@ -143,11 +146,14 @@ export function useWalletConnect() {
           lower.includes("window.open") ||
           lower.includes("not allowed") ||
           lower.includes("user gesture");
+        const explained = explainError(
+          new Error(looksLikePopupBlocked ? "The wallet popup was blocked by your browser." : raw),
+          "connect",
+        );
         setPhase({
           kind: "error",
-          message: looksLikePopupBlocked
-            ? "The wallet popup was blocked by your browser."
-            : raw,
+          title: explained.title,
+          message: explained.text,
         });
       }
     },
@@ -169,9 +175,16 @@ export function useWalletConnect() {
           /* ignore */
         }
         teardownConnection();
+        const explained = explainError(
+          new Error(
+            `Your wallet connected but has no account on the current testnet${version ? ` (rollup ${version})` : ""}. Switch network or create an account, then reconnect.`,
+          ),
+          "connect",
+        );
         setPhase({
           kind: "error",
-          message: `Your wallet connected but has no account on the current testnet${version ? ` (rollup ${version})` : ""}. Switch network or create an account, then reconnect.`,
+          title: explained.title,
+          message: explained.text,
         });
         return;
       }
@@ -182,7 +195,11 @@ export function useWalletConnect() {
 
       if (addresses.length === 0) {
         teardownConnection();
-        setPhase({ kind: "error", message: "Could not parse account address from wallet" });
+        setPhase({
+          kind: "error",
+          title: "Could not read wallet",
+          message: "The wallet did not return a usable Aztec address. Reconnect and try another account.",
+        });
         return;
       }
 
@@ -195,15 +212,19 @@ export function useWalletConnect() {
     } catch (err) {
       teardownConnection();
       if (isUserRejection(err)) {
+        const explained = explainError(new Error("Connection cancelled. Connect again to retry."), "connect");
         setPhase({
           kind: "error",
-          message: "Connection cancelled. Connect again to retry.",
+          title: explained.title,
+          message: explained.text,
         });
         return;
       }
+      const explained = explainError(err, "connect");
       setPhase({
         kind: "error",
-        message: err instanceof Error ? err.message : "Failed to confirm",
+        title: explained.title,
+        message: explained.text,
       });
     }
   }, [teardownConnection, armDisconnectWatch]);
@@ -242,6 +263,26 @@ export function useWalletConnect() {
     setPhase({ kind: "idle" });
   }, [cleanup, teardownConnection]);
 
+  const fail = useCallback((err) => {
+    const explained = explainError(err, "connect");
+    setPhase({
+      kind: "error",
+      title: explained.title,
+      message: explained.text,
+    });
+  }, []);
+
+  const setProgress = useCallback((text) => {
+    setPhase({ kind: "creating-session", text: String(text || "Working…") });
+  }, []);
+
+  const adoptSession = useCallback((wallet, address) => {
+    disconnectUnsubRef.current?.();
+    disconnectUnsubRef.current = null;
+    panelProviderRef.current = null;
+    setPhase({ kind: "connected", wallet, address: String(address) });
+  }, []);
+
   return {
     phase,
     start,
@@ -252,5 +293,8 @@ export function useWalletConnect() {
     reset,
     disconnectWallet,
     pickAccount,
+    adoptSession,
+    fail,
+    setProgress,
   };
 }

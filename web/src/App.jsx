@@ -28,19 +28,24 @@ import {
   reportClientError,
   pollOptionLabels,
 } from "./lib/polls.js";
-import { parseRoute, navigate, homePath } from "./lib/routing.js";
+import { parseRoute, navigate, pollsPath } from "./lib/routing.js";
 import { ZkPassportGate } from "./components/ZkPassportGate.jsx";
 import { WalletConnectModal } from "./components/WalletConnectModal.jsx";
 import { AdminCreatePollForm } from "./components/AdminCreatePollForm.jsx";
 import { AdminContractControls } from "./components/AdminContractControls.jsx";
+import { AdminSiteStats } from "./components/AdminSiteStats.jsx";
+import { AdminHomePolls } from "./components/AdminHomePolls.jsx";
+import { AdminPanel, AdminTabs, parseAdminTab } from "./components/AdminTabs.jsx";
+import { trackPageview } from "./lib/siteStats.js";
 import { PollListPage } from "./components/PollListPage.jsx";
+import { HomePage } from "./components/HomePage.jsx";
+import { SiteHeader } from "./components/SiteHeader.jsx";
 import { useWalletConnect } from "./hooks/useWalletConnect.js";
 import { useNow } from "./hooks/useNow.js";
 import { LegalPage } from "./components/LegalPage.jsx";
 import { SiteFooter } from "./components/SiteFooter.jsx";
 import { PollScheduleBanner } from "./components/PollScheduleBanner.jsx";
 import { identityCommitmentFromUid } from "./lib/zkIdentity.js";
-import { isBbWasmAbort } from "./lib/browser.js";
 import { ELIGIBILITY_MODE } from "./lib/zkRequirements.js";
 import {
   POLL_PHASE,
@@ -53,6 +58,15 @@ import {
 import { SITE_NAME } from "./lib/site.js";
 import { metaDescription, pageTitle, webPageJsonLd } from "./lib/seo.js";
 import { usePageSeo } from "./hooks/usePageSeo.js";
+import { Notice } from "./components/Notice.jsx";
+import { explainError } from "./lib/userMessages.js";
+import { shortAddr } from "./lib/format.js";
+import {
+  VOTE_FREQUENCY,
+  isDailyVote,
+  msUntilNextUtcDay,
+  utcDayIndex,
+} from "./lib/voteFrequency.js";
 
 function envRequiresZkPassport() {
   return import.meta.env.VITE_REQUIRE_ZKPASSPORT === "true";
@@ -60,6 +74,7 @@ function envRequiresZkPassport() {
 
 export default function App() {
   const [route, setRoute] = useState(() => parseRoute());
+  const walletConnect = useWalletConnect();
 
   useEffect(() => {
     function onPopState() {
@@ -69,22 +84,88 @@ export default function App() {
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
 
+  useEffect(() => {
+    trackPageview(window.location.pathname);
+  }, [route]);
+
   if (route.kind === "home") {
-    return <PollListPage />;
+    return (
+      <>
+        <HomePage walletConnect={walletConnect} />
+        <AppWalletModal walletConnect={walletConnect} allowAdminImport={false} />
+      </>
+    );
+  }
+
+  if (route.kind === "polls") {
+    return (
+      <>
+        <PollListPage walletConnect={walletConnect} />
+        <AppWalletModal walletConnect={walletConnect} allowAdminImport={false} />
+      </>
+    );
   }
 
   if (route.kind === "admin") {
-    return <AdminRoute />;
+    return (
+      <>
+        <AdminRoute walletConnect={walletConnect} />
+        <AppWalletModal walletConnect={walletConnect} allowAdminImport />
+      </>
+    );
   }
 
   if (route.kind === "legal") {
-    return <LegalPage slug={route.slug} />;
+    return (
+      <>
+        <LegalPage slug={route.slug} walletConnect={walletConnect} />
+        <AppWalletModal walletConnect={walletConnect} allowAdminImport={false} />
+      </>
+    );
   }
 
-  return <PollVoteRoute pollId={route.pollId} />;
+  return (
+    <>
+      <PollVoteRoute pollId={route.pollId} walletConnect={walletConnect} />
+      <AppWalletModal walletConnect={walletConnect} allowAdminImport={false} />
+    </>
+  );
 }
 
-function AdminRoute() {
+function AppWalletModal({ walletConnect, allowAdminImport }) {
+  async function connectSession(importedKeys) {
+    walletConnect.setProgress("Creating browser wallet…");
+    const onProgress = (text) => walletConnect.setProgress(text);
+    try {
+      const proverEnabled = import.meta.env.VITE_PROVER_ENABLED === "true";
+      const nextWallet = await createWallet({ proverEnabled, onProgress });
+      const { account: nextAccount } = importedKeys
+        ? await importAccount(nextWallet, importedKeys, { onProgress })
+        : await deployAccount(nextWallet, { onProgress });
+      walletConnect.adoptSession(nextWallet, nextAccount.address.toString());
+    } catch (error) {
+      console.error(error);
+      walletConnect.fail(error);
+    }
+  }
+
+  return (
+    <WalletConnectModal
+      phase={walletConnect.phase}
+      pickProvider={walletConnect.pickProvider}
+      confirm={walletConnect.confirm}
+      reject={walletConnect.reject}
+      reset={walletConnect.reset}
+      pickAccount={walletConnect.pickAccount}
+      beginDiscovery={walletConnect.beginDiscovery}
+      beginSession={() => connectSession()}
+      beginSessionWithKeys={(keys) => connectSession(keys)}
+      allowAdminImport={allowAdminImport}
+    />
+  );
+}
+
+function AdminRoute({ walletConnect }) {
   const [status, setStatus] = useState({
     text: "Import admin keys to create polls",
     tone: "neutral",
@@ -94,7 +175,7 @@ function AdminRoute() {
   const [paymentMethod, setPaymentMethod] = useState(null);
   const [contract, setContract] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const walletConnect = useWalletConnect();
+  const [adminTab, setAdminTab] = useState(() => parseAdminTab());
   const contractAddressStr = import.meta.env.VITE_HAPPY_VOTE_CONTRACT_ADDRESS
     ? String(import.meta.env.VITE_HAPPY_VOTE_CONTRACT_ADDRESS)
     : "";
@@ -132,15 +213,16 @@ function AdminRoute() {
         setContract(nextContract);
         setIsAdmin(ok);
         setStatus({
+          title: ok ? undefined : "Not the contract admin",
           text: ok
             ? `Admin connected · ${shortAddr(from.toString())}`
-            : `Connected ${shortAddr(from.toString())} is not contract admin`,
+            : `Connected ${shortAddr(from.toString())} cannot manage polls. Import the deploy admin keys.`,
           tone: ok ? "ok" : "error",
         });
       } catch (error) {
         if (cancelled) return;
         console.error(error);
-        setStatus({ text: formatConnectError(error), tone: "error" });
+        setStatus({ tone: "error", ...explainError(error, "connect") });
         walletConnect.disconnectWallet();
       } finally {
         if (!cancelled) setBusy(false);
@@ -162,6 +244,20 @@ function AdminRoute() {
     }
   }, [walletConnect.phase.kind]);
 
+  useEffect(() => {
+    function onHash() {
+      setAdminTab(parseAdminTab());
+    }
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  function selectAdminTab(id) {
+    setAdminTab(id);
+    const next = `${window.location.pathname}${window.location.search}#${id}`;
+    window.history.replaceState({}, "", next);
+  }
+
   usePageSeo({
     title: pageTitle("Admin"),
     description: "Import deploy keys and create polls on HappyVote on Aztec.",
@@ -169,119 +265,105 @@ function AdminRoute() {
     noindex: true,
   });
 
-  async function connectSession(importedKeys) {
-    walletConnect.reset();
-    setBusy(true);
-    const onProgress = (text) => setStatus({ text, tone: "neutral" });
-    try {
-      const proverEnabled = import.meta.env.VITE_PROVER_ENABLED === "true";
-      const nextWallet = await createWallet({ proverEnabled, onProgress });
-      const { account: nextAccount } = importedKeys
-        ? await importAccount(nextWallet, importedKeys, { onProgress })
-        : await deployAccount(nextWallet, { onProgress });
-      // Trigger finish via fake connected phase path: call register inline
-      setStatus({ text: "Registering contracts…", tone: "neutral" });
-      await registerStandardContracts(nextWallet);
-      const nextPayment = await getSponsoredPaymentMethod(nextWallet);
-      if (!contractAddress) {
-        setAccountAddress(nextAccount.address);
-        setPaymentMethod(nextPayment);
-        setStatus({ text: "Set contract address env.", tone: "error" });
-        return;
-      }
-      const nextContract = await registerHappyVote(nextWallet);
-      const from = nextAccount.address;
-      const adminRaw = await nextContract.methods.get_admin().simulate({ from });
-      const adminAddr = unwrapAztecAddress(adminRaw);
-      const ok = addressesEqual(from, adminAddr);
-      setAccountAddress(from);
-      setPaymentMethod(nextPayment);
-      setContract(nextContract);
-      setIsAdmin(ok);
-      setStatus({
-        text: ok
-          ? `Admin connected · ${shortAddr(from.toString())}`
-          : `Connected ${shortAddr(from.toString())} is not contract admin`,
-        tone: ok ? "ok" : "error",
-      });
-    } catch (error) {
-      console.error(error);
-      setStatus({ text: formatConnectError(error), tone: "error" });
-    } finally {
-      setBusy(false);
-    }
-  }
-
   return (
     <main className="app app-wide">
-      <nav className="page-nav">
-        <button type="button" className="btn btn-ghost" onClick={() => navigate(homePath())}>
-          ← Polls
-        </button>
-      </nav>
-      <h1 className="brand">
-        HappyVote <span>Admin</span>
-      </h1>
-      <p className="lede">Import deploy keys, then create polls with ZKPassport eligibility rules.</p>
+      <SiteHeader walletConnect={walletConnect} current="admin" />
 
-      <div className="actions">
-        {!accountAddress ? (
-          <button
-            type="button"
-            className="btn btn-primary"
-            disabled={busy}
-            onClick={walletConnect.start}
-          >
-            Connect admin
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="btn btn-ghost"
-            disabled={busy}
-            onClick={() => {
-              walletConnect.disconnectWallet();
-              setAccountAddress(null);
-              setPaymentMethod(null);
-              setContract(null);
-              setIsAdmin(false);
-            }}
-          >
-            Disconnect
-          </button>
-        )}
-      </div>
-
-      <p className="status" data-tone={status.tone === "neutral" ? undefined : status.tone}>
-        {status.text}
-      </p>
+      <header className="admin-top">
+        <div className="admin-hero">
+          <p className="vote-kicker">Operator</p>
+          <h1 className="question">Admin</h1>
+          <p className="lede">
+            {isAdmin
+              ? "One section at a time: create a poll, choose homepage polls, review visits, or manage the contract."
+              : "Connect the contract admin to create polls, review visits, and manage this instance."}
+          </p>
+          <div className="admin-hero-row">
+            {!accountAddress ? (
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={busy}
+                onClick={walletConnect.start}
+              >
+                Connect admin
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={busy}
+                onClick={() => {
+                  walletConnect.disconnectWallet();
+                  setAccountAddress(null);
+                  setPaymentMethod(null);
+                  setContract(null);
+                  setIsAdmin(false);
+                }}
+              >
+                Disconnect
+              </button>
+            )}
+            {accountAddress ? (
+              <span className="admin-pill" data-ok={isAdmin || undefined}>
+                {isAdmin ? "Admin" : "Not admin"} · {shortAddr(accountAddress.toString())}
+              </span>
+            ) : null}
+          </div>
+          {status.tone === "error" || status.title ? (
+            <Notice tone={status.tone} title={status.title}>
+              {status.text}
+            </Notice>
+          ) : (
+            <p className="status" data-tone={status.tone === "neutral" ? undefined : status.tone}>
+              {status.text}
+            </p>
+          )}
+        </div>
+      </header>
 
       {isAdmin && accountAddress && contract && paymentMethod ? (
         <section className="admin" aria-label="Admin">
-          <AdminContractControls
-            contract={contract}
-            accountAddress={accountAddress}
-            paymentMethod={paymentMethod}
-            busy={busy}
-            setBusy={setBusy}
-            setStatus={setStatus}
-            onAdminTransferred={() => {
-              setIsAdmin(false);
-              setStatus({
-                text: "Admin transferred. This account can no longer manage the contract.",
-                tone: "ok",
-              });
-            }}
-          />
-          <AdminCreatePollForm
-            contract={contract}
-            accountAddress={accountAddress}
-            paymentMethod={paymentMethod}
-            busy={busy}
-            setBusy={setBusy}
-            setStatus={setStatus}
-            onCreated={(meta) => navigate(pollPath(meta.id))}
-          />
+          <AdminTabs value={adminTab} onChange={selectAdminTab} />
+          <AdminPanel id="create" active={adminTab}>
+            <AdminCreatePollForm
+              contract={contract}
+              accountAddress={accountAddress}
+              paymentMethod={paymentMethod}
+              busy={busy}
+              setBusy={setBusy}
+              setStatus={setStatus}
+              onCreated={(meta) => navigate(pollPath(meta.id))}
+            />
+          </AdminPanel>
+          <AdminPanel id="home" active={adminTab}>
+            <AdminHomePolls
+              active={adminTab === "home"}
+              busy={busy}
+              setBusy={setBusy}
+              setStatus={setStatus}
+            />
+          </AdminPanel>
+          <AdminPanel id="visits" active={adminTab}>
+            <AdminSiteStats />
+          </AdminPanel>
+          <AdminPanel id="contract" active={adminTab}>
+            <AdminContractControls
+              contract={contract}
+              accountAddress={accountAddress}
+              paymentMethod={paymentMethod}
+              busy={busy}
+              setBusy={setBusy}
+              setStatus={setStatus}
+              onAdminTransferred={() => {
+                setIsAdmin(false);
+                setStatus({
+                  text: "Admin transferred. This account can no longer manage the contract.",
+                  tone: "ok",
+                });
+              }}
+            />
+          </AdminPanel>
         </section>
       ) : accountAddress && !isAdmin ? (
         <p className="meta">
@@ -290,19 +372,6 @@ function AdminRoute() {
         </p>
       ) : null}
 
-      <WalletConnectModal
-        phase={walletConnect.phase}
-        pickProvider={walletConnect.pickProvider}
-        confirm={walletConnect.confirm}
-        reject={walletConnect.reject}
-        reset={walletConnect.reset}
-        pickAccount={walletConnect.pickAccount}
-        beginDiscovery={walletConnect.beginDiscovery}
-        beginSession={() => connectSession()}
-        beginSessionWithKeys={(keys) => connectSession(keys)}
-        allowAdminImport
-      />
-
       <SiteFooter
         disclaimer="HappyVote is a technology layer on Aztec Network. It is not an official electoral authority."
       />
@@ -310,17 +379,18 @@ function AdminRoute() {
   );
 }
 
-function PollVoteRoute({ pollId: routePollId }) {
+function PollVoteRoute({ pollId: routePollId, walletConnect }) {
   const [pollMeta, setPollMeta] = useState(() => getPollMeta(routePollId));
   const options = pollMeta.options;
   const optionLabels = pollOptionLabels(options);
   const requiresZk =
     Boolean(pollMeta.requiresZkPassport) || envRequiresZkPassport();
 
-  const [status, setStatus] = useState({
-    text: "Read-only mode · connect a wallet to vote",
-    tone: "neutral",
-  });
+  const [status, setStatus] = useState(() =>
+    walletConnect.phase.kind === "connected"
+      ? { text: "Restoring wallet session…", tone: "neutral" }
+      : { text: "Read-only mode · connect a wallet to vote", tone: "neutral" },
+  );
   const [lastTxHash, setLastTxHash] = useState(null);
   const [accountAddress, setAccountAddress] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState(null);
@@ -337,11 +407,17 @@ function PollVoteRoute({ pollId: routePollId }) {
   const [chainEndsAt, setChainEndsAt] = useState(null);
   const [cancelled, setCancelled] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [voteFrequency, setVoteFrequency] = useState(
+    () => Number(getPollMeta(routePollId).voteFrequency) || VOTE_FREQUENCY.ONCE,
+  );
+  const [receiptNonce, setReceiptNonce] = useState(0);
   const [zkId, setZkId] = useState(null);
   const [zkServerVerified, setZkServerVerified] = useState(false);
   const [shareHint, setShareHint] = useState("");
-  const [votedReceipt, setVotedReceipt] = useState(() => hasVotedReceipt(routePollId));
   const now = useNow(1000);
+  const dailyVote = isDailyVote(voteFrequency);
+  const votedReceipt = hasVotedReceipt(routePollId, { frequency: voteFrequency, now });
+  void receiptNonce;
   const schedule = getPollSchedule(
     {
       startsAt: unixSecondsToIso(chainStartsAt) || pollMeta.startsAt,
@@ -363,7 +439,6 @@ function PollVoteRoute({ pollId: routePollId }) {
     };
   }, [routePollId]);
 
-  const walletConnect = useWalletConnect();
   const contractAddressStr = import.meta.env.VITE_HAPPY_VOTE_CONTRACT_ADDRESS
     ? String(import.meta.env.VITE_HAPPY_VOTE_CONTRACT_ADDRESS)
     : "";
@@ -375,6 +450,7 @@ function PollVoteRoute({ pollId: routePollId }) {
   const identityOk = pollKnown && (!requiresZk || Boolean(zkId));
   const canVote =
     votingOpen &&
+    !votedReceipt &&
     Boolean(accountAddress && contract && identityOk && !busy) &&
     (policy === PRIVACY.VOTER_CHOICE ||
       (policy === PRIVACY.PRIVATE_ONLY && privacyMode === "private") ||
@@ -388,7 +464,8 @@ function PollVoteRoute({ pollId: routePollId }) {
     setZkId(null);
     setZkServerVerified(false);
     setShareHint("");
-    setVotedReceipt(hasVotedReceipt(routePollId));
+    setReceiptNonce(0);
+    setVoteFrequency(Number(getPollMeta(routePollId).voteFrequency) || VOTE_FREQUENCY.ONCE);
     setOnChainSealed(Boolean(getPollMeta(routePollId).sealed));
     setChainStartsAt(null);
     setChainEndsAt(null);
@@ -425,17 +502,18 @@ function PollVoteRoute({ pollId: routePollId }) {
         if (result.paused != null) setPaused(Boolean(result.paused));
         if (result.startsAt != null) setChainStartsAt(result.startsAt);
         if (result.endsAt != null) setChainEndsAt(result.endsAt);
+        if (result.voteFrequency != null) setVoteFrequency(Number(result.voteFrequency));
         setStatus({
-          text: "Public tallies · connect a wallet to vote",
-          tone: "neutral",
+          text:
+            walletConnect.phase.kind === "connected"
+              ? `Connected · ${shortAddr(String(walletConnect.phase.address))} · this poll`
+              : "Public tallies · connect a wallet to vote",
+          tone: walletConnect.phase.kind === "connected" ? "ok" : "neutral",
         });
       } catch (error) {
         if (cancelled) return;
         console.error(error);
-        setStatus({
-          text: `Could not load tallies: ${error?.message || String(error)}`,
-          tone: "error",
-        });
+        setStatus({ tone: "error", ...explainError(error, "generic") });
       }
     })();
 
@@ -458,10 +536,7 @@ function PollVoteRoute({ pollId: routePollId }) {
       } catch (error) {
         if (cancelled) return;
         console.error(error);
-        setStatus({
-          text: formatConnectError(error),
-          tone: "error",
-        });
+        setStatus({ tone: "error", ...explainError(error, "connect") });
         walletConnect.disconnectWallet();
       }
     })();
@@ -499,6 +574,7 @@ function PollVoteRoute({ pollId: routePollId }) {
       path: pollSeoPath,
       breadcrumbs: [
         { name: SITE_NAME, path: "/" },
+        { name: "All polls", path: "/polls" },
         { name: pollMeta.title, path: pollSeoPath },
       ],
     }),
@@ -566,24 +642,6 @@ function PollVoteRoute({ pollId: routePollId }) {
     }
   }
 
-  async function connectSession(importedKeys) {
-    walletConnect.reset();
-    setBusy(true);
-    const onProgress = (text) => setStatus({ text, tone: "neutral" });
-    try {
-      const proverEnabled = import.meta.env.VITE_PROVER_ENABLED === "true";
-      const nextWallet = await createWallet({ proverEnabled, onProgress });
-      const { account: nextAccount } = importedKeys
-        ? await importAccount(nextWallet, importedKeys, { onProgress })
-        : await deployAccount(nextWallet, { onProgress });
-      await finishConnect(nextWallet, nextAccount.address);
-    } catch (error) {
-      console.error(error);
-      setStatus({ text: formatConnectError(error), tone: "error" });
-      setBusy(false);
-    }
-  }
-
   async function refreshTallies(activeContract, from) {
     if (activeContract && from) {
       try {
@@ -603,6 +661,12 @@ function PollVoteRoute({ pollId: routePollId }) {
           if (typeof activeContract.methods.get_paused === "function") {
             const pausedRaw = await activeContract.methods.get_paused().simulate({ from });
             setPaused(Boolean(unwrap(pausedRaw)));
+          }
+          if (typeof activeContract.methods.get_vote_frequency === "function") {
+            const freqRaw = await activeContract.methods.get_vote_frequency(pollId).simulate({
+              from,
+            });
+            setVoteFrequency(Number(asFieldBigInt(freqRaw)));
           }
         } catch {
           /* optional views on older deployments */
@@ -625,6 +689,7 @@ function PollVoteRoute({ pollId: routePollId }) {
     if (result.paused != null) setPaused(Boolean(result.paused));
     if (result.startsAt != null) setChainStartsAt(result.startsAt);
     if (result.endsAt != null) setChainEndsAt(result.endsAt);
+    if (result.voteFrequency != null) setVoteFrequency(Number(result.voteFrequency));
   }
 
   function extractTxHash(sendResult) {
@@ -649,15 +714,27 @@ function PollVoteRoute({ pollId: routePollId }) {
         },
       );
     } catch (error) {
-      setStatus({ text: error.message || String(error), tone: "error" });
+      setStatus({
+        title: "Voting not open",
+        text: error.message || "This poll is not accepting votes right now.",
+        tone: "error",
+      });
       return;
     }
     if (closedOnChain) {
-      setStatus({ text: "This poll has ended.", tone: "error" });
+      setStatus({
+        title: "Voting closed",
+        text: "This poll has ended and no longer accepts ballots.",
+        tone: "error",
+      });
       return;
     }
     if (selected < 0 || selected >= optionLabels.length) {
-      setStatus({ text: "Invalid option selected.", tone: "error" });
+      setStatus({
+        title: "Pick an option",
+        text: "Choose one option before casting your ballot.",
+        tone: "error",
+      });
       return;
     }
     setBusy(true);
@@ -684,10 +761,21 @@ function PollVoteRoute({ pollId: routePollId }) {
         identityCommitment = await identityCommitmentFromUid(zkId, Fr);
       }
 
+      const period = new Fr(dailyVote ? utcDayIndex() : 0);
+      const supportsPeriod = typeof contract.methods.get_vote_frequency === "function";
       const method =
         privacyMode === "private"
-          ? contract.methods.cast_vote_private(pollId, new Fr(selected), identityCommitment)
-          : contract.methods.cast_vote_open(pollId, new Fr(selected), identityCommitment);
+          ? supportsPeriod
+            ? contract.methods.cast_vote_private(
+                pollId,
+                new Fr(selected),
+                identityCommitment,
+                period,
+              )
+            : contract.methods.cast_vote_private(pollId, new Fr(selected), identityCommitment)
+          : supportsPeriod
+            ? contract.methods.cast_vote_open(pollId, new Fr(selected), identityCommitment, period)
+            : contract.methods.cast_vote_open(pollId, new Fr(selected), identityCommitment);
 
       await method.simulate({ from: accountAddress });
       const receipt = await method.send({
@@ -697,13 +785,14 @@ function PollVoteRoute({ pollId: routePollId }) {
       });
       const txHash = extractTxHash(receipt);
       if (txHash) setLastTxHash(txHash);
-      markVoted(routePollId);
-      setVotedReceipt(true);
+      markVoted(routePollId, { frequency: voteFrequency });
+      setReceiptNonce((n) => n + 1);
       await refreshTallies(contract, accountAddress);
       setStatus({
-        text: txHash
-          ? "Vote recorded · receipt saved in this browser · view on explorer."
-          : "Vote recorded · receipt saved in this browser.",
+        title: "Vote recorded",
+        text: dailyVote
+          ? "You can cast another ballot after 00:00 UTC."
+          : "A participation receipt is saved in this browser.",
         tone: "ok",
       });
     } catch (error) {
@@ -713,7 +802,20 @@ function PollVoteRoute({ pollId: routePollId }) {
         stack: error?.stack,
         pollId: routePollId,
       });
-      setStatus({ text: formatVoteError(error), tone: "error" });
+      const explained = explainError(error, "vote");
+      if (explained.code === "already_voted") {
+        markVoted(routePollId, { frequency: voteFrequency });
+        setReceiptNonce((n) => n + 1);
+        setStatus({
+          tone: "error",
+          title: dailyVote ? "Already voted today" : explained.title,
+          text: dailyVote
+            ? `You can vote again in ${formatCountdown(msUntilNextUtcDay())}.`
+            : explained.text,
+        });
+      } else {
+        setStatus({ tone: "error", ...explained });
+      }
     } finally {
       setBusy(false);
     }
@@ -734,14 +836,13 @@ function PollVoteRoute({ pollId: routePollId }) {
 
   return (
     <main className="app app-wide">
+      <SiteHeader walletConnect={walletConnect} current="poll" />
+
       <header className="vote-top">
         <nav className="page-nav vote-nav">
-          <button type="button" className="btn btn-ghost" onClick={() => navigate(homePath())}>
+          <button type="button" className="btn btn-ghost" onClick={() => navigate(pollsPath())}>
             ← All polls
           </button>
-          <p className="vote-brand-mark" aria-hidden="true">
-            HappyVote <span className="brand-on">on</span> <span>Aztec</span>
-          </p>
         </nav>
 
         <div className="vote-hero">
@@ -913,8 +1014,21 @@ function PollVoteRoute({ pollId: routePollId }) {
                   Connect Aztec wallet
                 </button>
               ) : (
-                <button type="button" className="btn btn-primary" disabled={!canVote} onClick={vote}>
-                  {busy ? "Working…" : privacyMode === "private" ? "Vote privately" : "Vote openly"}
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={!canVote || votedReceipt}
+                  onClick={vote}
+                >
+                  {busy
+                    ? "Working…"
+                    : votedReceipt
+                      ? dailyVote
+                        ? "Already voted today"
+                        : "Already voted"
+                      : privacyMode === "private"
+                        ? "Vote privately"
+                        : "Vote openly"}
                 </button>
               )}
               {accountAddress ? (
@@ -949,6 +1063,12 @@ function PollVoteRoute({ pollId: routePollId }) {
                   : "Open: your address and choice are published on-chain."}
               </p>
             ) : null}
+            {dailyVote && votingOpen && !votedReceipt ? (
+              <p className="hint">
+                One ballot per UTC day (00:00–24:00), private or open. After today you can vote
+                again in {formatCountdown(msUntilNextUtcDay(now))}.
+              </p>
+            ) : null}
             {!votingOpen ? (
               <p className="hint">
                 {paused
@@ -964,21 +1084,33 @@ function PollVoteRoute({ pollId: routePollId }) {
                   : "Loading poll…"}
               </p>
             ) : null}
-            <p className="status" data-tone={status.tone === "neutral" ? undefined : status.tone}>
-              {status.text}
-              {lastTxHash ? (
-                <>
-                  {" "}
-                  <a
-                    href={explorerTxUrl(lastTxHash)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Open tx
-                  </a>
-                </>
-              ) : null}
-            </p>
+            {status.tone === "error" || status.title || lastTxHash ? (
+              <Notice tone={status.tone === "error" ? "error" : "ok"} title={status.title}>
+                {status.text}
+                {lastTxHash ? (
+                  <>
+                    {" "}
+                    <a
+                      href={explorerTxUrl(lastTxHash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open tx
+                    </a>
+                  </>
+                ) : null}
+              </Notice>
+            ) : votedReceipt ? (
+              <Notice tone="ok" title={dailyVote ? "Already voted today" : "Already voted"}>
+                {dailyVote
+                  ? `You can vote again in ${formatCountdown(msUntilNextUtcDay(now))}.`
+                  : "This device already has a participation receipt for this poll. One account can vote once."}
+              </Notice>
+            ) : (
+              <p className="status" data-tone={status.tone === "neutral" ? undefined : status.tone}>
+                {status.text}
+              </p>
+            )}
           </div>
         </div>
 
@@ -986,7 +1118,9 @@ function PollVoteRoute({ pollId: routePollId }) {
           <h2 className="vote-panel-title">Live results</h2>
           {votedReceipt ? (
             <p className="hint" data-tone="ok">
-              Participation receipt: you voted on this device.
+              {dailyVote
+                ? `Participation receipt: you voted today. Next ballot in ${formatCountdown(msUntilNextUtcDay(now))}.`
+                : "Participation receipt: you voted on this device."}
             </p>
           ) : null}
           {resultsHidden ? (
@@ -1066,27 +1200,8 @@ function PollVoteRoute({ pollId: routePollId }) {
       <SiteFooter
         disclaimer="HappyVote is a technology layer on Aztec Network. It is not an official electoral authority. Private ballots hide your address; open ballots publish your address and selection."
       />
-
-      <WalletConnectModal
-        phase={walletConnect.phase}
-        pickProvider={walletConnect.pickProvider}
-        confirm={walletConnect.confirm}
-        reject={walletConnect.reject}
-        reset={walletConnect.reset}
-        pickAccount={walletConnect.pickAccount}
-        beginDiscovery={walletConnect.beginDiscovery}
-        beginSession={() => connectSession()}
-        beginSessionWithKeys={(keys) => connectSession(keys)}
-        allowAdminImport={false}
-      />
     </main>
   );
-}
-
-function shortAddr(value) {
-  if (!value) return "";
-  const s = String(value);
-  return s.length <= 12 ? s : `${s.slice(0, 6)}…${s.slice(-4)}`;
 }
 
 function unwrapAztecAddress(value) {
@@ -1103,46 +1218,4 @@ function unwrapAztecAddress(value) {
 
 function addressesEqual(a, b) {
   return a.toString().toLowerCase() === b.toString().toLowerCase();
-}
-
-function formatConnectError(error) {
-  const msg = error?.message || String(error);
-  const stack = error?.stack || "";
-  if (isBbWasmAbort(msg) || isBbWasmAbort(stack)) {
-    return "Aztec prover ran out of memory in this browser (common on iPhone). Close other tabs, retry Browser session, or use a desktop browser.";
-  }
-  if (/Existing nullifier/i.test(msg)) {
-    return `${msg} — admin account is already on-chain; refresh and import keys again (deploy is skipped).`;
-  }
-  if (/Failed to fetch/i.test(msg)) {
-    return `${msg} — check network / adblock, and that CRS CDN (crs.aztec-cdn.foundation) is reachable. Retry Browser session.`;
-  }
-  if (/authorizeUtilityCall|Cross-contract utility/i.test(msg)) {
-    return `${msg} — try “Browser session” instead of Demo Wallet / Azguard for voting.`;
-  }
-  return msg;
-}
-
-function formatVoteError(error) {
-  const msg = error?.message || String(error);
-  const stack = error?.stack || "";
-  if (isBbWasmAbort(msg) || isBbWasmAbort(stack)) {
-    return "Aztec prover ran out of memory in this browser (common on iPhone). Close other tabs and retry, or vote from a desktop browser.";
-  }
-  if (/authorizeUtilityCall|Cross-contract utility/i.test(msg)) {
-    return `${msg} — reconnect with “Browser session” (in-page PXE). External wallets need an authorizeUtilityCall hook for HandshakeRegistry.`;
-  }
-  if (/Identity already voted/i.test(msg)) {
-    return "This ZKPassport identity already voted on this poll (one ID → one vote).";
-  }
-  if (/ZKPassport identity required/i.test(msg)) {
-    return "This poll requires ZKPassport — verify identity before voting.";
-  }
-  if (/Identity not allowed for open polls/i.test(msg)) {
-    return "Open-eligibility polls do not accept an identity commitment.";
-  }
-  if (/Existing nullifier/i.test(msg)) {
-    return "You already voted from this account on this poll.";
-  }
-  return msg;
 }

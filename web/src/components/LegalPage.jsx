@@ -1,12 +1,13 @@
 import { useEffect } from "react";
 import { LEGAL_DOCUMENTS, LEGAL_EFFECTIVE_DATE, LEGAL_NAV } from "../lib/legalDocs.js";
-import { homePath, legalPath, navigate } from "../lib/routing.js";
+import { legalPath, navigate } from "../lib/routing.js";
 import { SITE_NAME } from "../lib/site.js";
 import { metaDescription, pageTitle, webPageJsonLd } from "../lib/seo.js";
 import { usePageSeo } from "../hooks/usePageSeo.js";
 import { SiteFooter } from "./SiteFooter.jsx";
+import { SiteHeader } from "./SiteHeader.jsx";
 
-export function LegalPage({ slug }) {
+export function LegalPage({ slug, walletConnect }) {
   const doc = LEGAL_DOCUMENTS[slug];
   const path = `/legal/${slug}`;
   const title = doc ? pageTitle(doc.title) : pageTitle("Legal");
@@ -34,11 +35,7 @@ export function LegalPage({ slug }) {
   if (!doc) {
     return (
       <main className="app">
-        <nav className="page-nav">
-          <button type="button" className="btn btn-ghost" onClick={() => navigate(homePath())}>
-            ← All polls
-          </button>
-        </nav>
+        <SiteHeader walletConnect={walletConnect} current="legal" />
         <p className="meta">Document not found.</p>
         <SiteFooter />
       </main>
@@ -47,11 +44,7 @@ export function LegalPage({ slug }) {
 
   return (
     <main className="app app-wide">
-      <nav className="page-nav">
-        <button type="button" className="btn btn-ghost" onClick={() => navigate(homePath())}>
-          ← All polls
-        </button>
-      </nav>
+      <SiteHeader walletConnect={walletConnect} current="legal" />
 
       <header className="legal-hero">
         <p className="legal-kicker">HappyVote on Aztec · Legal</p>

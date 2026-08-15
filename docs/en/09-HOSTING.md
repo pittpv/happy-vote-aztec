@@ -31,7 +31,7 @@ Build (inside `web/`): `npm install` then `npm run build` → `dist`.
 
 ```
 VITE_AZTEC_NODE_URL=https://v5.testnet.rpc.aztec-labs.com
-VITE_HAPPY_VOTE_CONTRACT_ADDRESS=0x0aa005e43bda26d68556ea21509c907f48a689bdb9ea5355363e695d08e5eea7
+VITE_HAPPY_VOTE_CONTRACT_ADDRESS=0x2e10858cf6750c003489a62f570535966fb940bb10d18a0c146a36cac64713b6
 VITE_SPONSORED_FPC_ADDRESS=0x130925fbd734a252e3d8ddff87f6c346052dd5c13314eb96026b32baa1923296
 VITE_DEFAULT_POLL_ID=1
 VITE_PROVER_ENABLED=true
@@ -83,9 +83,10 @@ Never put a freshly constructed `AztecAddress` in a React `useEffect` dependency
 |------|-------|
 | List | `GET /api/polls` |
 | One | `GET /api/polls?id=3` |
-| Publish | Authenticated `POST /api/polls` (operator-only) |
+| Publish | Authenticated `POST /api/polls` (operator-only; poll body or `homepage` flags) |
 | Seed | `web/data/polls-catalog.json` |
 | Overlay | Optional object storage overlay on the host |
+| Home | Catalog fields `showOnHome` and `homeRank` select cards on `/`; `/polls` lists every poll |
 
 Without Blob, everyone still sees the seed catalog.
 
@@ -104,11 +105,11 @@ Without Blob, everyone still sees the seed catalog.
 | `web/index.html` | Default title, description, Open Graph, JSON-LD |
 | `web/src/lib/seo.js` | Per-route title / canonical / WebPage schema |
 | `web/public/robots.txt` | Allow `/`, sitemap |
-| `web/public/sitemap.xml` | Home, polls `/p/1` `/p/2` `/p/3`, legal pages |
+| `web/public/sitemap.xml` | Home, `/polls`, demo polls `/p/1` `/p/2` `/p/3`, legal pages |
 
 ## Analytics
 
-No third-party analytics counter. Privacy Policy and Cookie Policy describe hosting logs, localStorage, and third-party wallets / ZKPassport only.
+No third-party analytics counter. A first-party cookieless endpoint `POST /api/site-stats` records daily aggregates only (pageviews, approximate uniques, country, coarse section, device class, browser family, referrer host). IP is used ephemerally and not stored. Poll IDs are not recorded. Operator-only `GET /api/site-stats` returns those aggregates. Privacy Policy and Cookie Policy describe this counter, hosting logs, localStorage, and third-party wallets / ZKPassport.
 
 ## Status
 

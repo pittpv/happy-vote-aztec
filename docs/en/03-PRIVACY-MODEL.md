@@ -46,7 +46,7 @@ Honest UX: live boards reveal **which option moved**, not **who** moved it. Seal
 | Option | Public |
 | Tally | Public (unless sealed) |
 
-Same nullifier domain as private — you cannot vote twice by switching modes.
+Same nullifier domain as private — you cannot vote twice by switching modes. On daily polls the shared domain is per UTC day.
 
 ### C. Voter choice
 
@@ -69,8 +69,8 @@ ZKPassport proves personhood / age / nationality / sanctions **on device**. Happ
 Binding:
 
 1. Server re-verify (`POST /api/zkpassport-verify`) before unlocking the ballot.
-2. `identity_commitment` from `uniqueIdentifier` claimed in `identity_claims[poll][commitment]`.
-3. Account nullifier still applies — two accounts, one ID → second vote fails.
+2. `identity_commitment` from `uniqueIdentifier` claimed in `identity_claims` (Poseidon2 of poll, vote period, commitment).
+3. Account nullifier still applies — two accounts, one ID → second vote fails. Daily polls reuse the same identity the next UTC day.
 
 Default ZKPassport scope: **per poll** (`poll:{id}`).
 
@@ -86,6 +86,8 @@ Default ZKPassport scope: **per poll** (`poll:{id}`).
 2. Fee-metadata privacy beyond Sponsored FPC patterns.
 3. Official election-commission status.
 
+Site visit totals are a separate first-party counter (no cookies, IP not stored, no poll IDs). They are not linked to ballots.
+
 ## 7. Required UI copy
 
 - **Private:** address hidden; the chosen option still updates the public tally (unless sealed).
@@ -94,7 +96,7 @@ Default ZKPassport scope: **per poll** (`poll:{id}`).
 
 ## 8. Privacy checklist
 
-- [x] Nullifier per poll (`SingleUseClaim`)
+- [x] Nullifier per poll (`SingleUseClaim`), optionally per UTC day
 - [x] Private and open share one claim domain
 - [x] `option_id` range + reject Field→u32 truncation
 - [x] No vote after `end_poll` / `ends_at` / cancel
@@ -103,4 +105,5 @@ Default ZKPassport scope: **per poll** (`poll:{id}`).
 - [x] Server re-verify ZKPassport for gated polls
 - [x] On-chain identity claim
 - [x] Sealed tallies
+- [x] Site visit aggregates isolated from ballots (no cookies, no stored IP, no poll id)
 - [ ] Real-device ZKPassport E2E

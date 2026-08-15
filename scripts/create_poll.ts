@@ -8,7 +8,7 @@
  *   PRIVACY_POLICY (default 2 = voter_choice)
  *   ELIGIBILITY (default 0 = open; 1 = personhood; 2 = gated)
  *   REQUIREMENTS_JSON — optional JSON string; hashed (sha256) into metadata_hash
- *   METADATA_HASH — used when REQUIREMENTS_JSON unset (default 1)
+ *   VOTE_FREQUENCY — 0 once per poll (default), 1 once per UTC day
  *   SECRET_KEY / SIGNING_KEY / SALT — reuse admin (SKIP_ACCOUNT_DEPLOY auto when set)
  */
 import "dotenv/config";
@@ -77,6 +77,10 @@ async function main() {
     process.env.SEALED === "TRUE";
   const startsAt = asU32("STARTS_AT", process.env.STARTS_AT, 0);
   const endsAt = asU32("ENDS_AT", process.env.ENDS_AT, 0);
+  const voteFrequency = asU32("VOTE_FREQUENCY", process.env.VOTE_FREQUENCY, 0);
+  if (voteFrequency > 1) {
+    throw new Error(`VOTE_FREQUENCY must be 0 (once) or 1 (daily), got ${voteFrequency}`);
+  }
   const timeouts = getTimeouts();
 
   const wallet = await setupWallet();
@@ -98,7 +102,7 @@ async function main() {
 
   const waitSeconds = timeouts.txTimeout > 10_000 ? Math.ceil(timeouts.txTimeout / 1000) : timeouts.txTimeout;
   logger.info(
-    `Creating poll ${pollId.id} options=${optionsCount} privacy=${privacyPolicy} eligibility=${eligibility} sealed=${sealed} startsAt=${startsAt} endsAt=${endsAt} on ${contractAddress}`,
+    `Creating poll ${pollId.id} options=${optionsCount} privacy=${privacyPolicy} eligibility=${eligibility} sealed=${sealed} startsAt=${startsAt} endsAt=${endsAt} voteFrequency=${voteFrequency} on ${contractAddress}`,
   );
   await contract.methods
     .create_poll(
@@ -110,6 +114,7 @@ async function main() {
       sealed,
       startsAt,
       endsAt,
+      voteFrequency,
     )
     .send({
       from,

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AztecAddress, Fr, asFieldBigInt } from "../lib/aztecClient.js";
+import { explainError } from "../lib/userMessages.js";
 
 function unwrapBool(value) {
   const inner =
@@ -43,10 +44,7 @@ export function AdminContractControls({
       if (!cancelled) setPaused(unwrapBool(raw));
     })().catch((error) => {
       if (cancelled) return;
-      setStatus({
-        text: `Could not read paused: ${error?.message || String(error)}`,
-        tone: "error",
-      });
+      setStatus({ tone: "error", ...explainError(error, "generic") });
     });
     return () => {
       cancelled = true;
@@ -68,7 +66,7 @@ export function AdminContractControls({
       setStatus({ text: `${label} confirmed.`, tone: "ok" });
     } catch (error) {
       console.error(error);
-      setStatus({ text: error?.message || String(error), tone: "error" });
+      setStatus({ tone: "error", ...explainError(error, "generic") });
       throw error;
     } finally {
       setBusy(false);
@@ -99,7 +97,11 @@ export function AdminContractControls({
     try {
       nextAdmin = AztecAddress.fromStringUnsafe(raw);
     } catch (error) {
-      setStatus({ text: error?.message || "Invalid Aztec address.", tone: "error" });
+      setStatus({
+        title: "Invalid address",
+        text: "Enter a full Aztec address for the successor admin.",
+        tone: "error",
+      });
       return;
     }
     if (/^0+$/.test(nextAdmin.toString().replace(/^0x/i, ""))) {
@@ -146,58 +148,37 @@ export function AdminContractControls({
   }
 
   if (!canEnd && !canPause && !canTransfer && !canCancel) {
-    return null;
+    return (
+      <section className="admin-form admin-controls">
+        <h2>Contract</h2>
+        <p className="meta">This connected artifact has no pause, end, cancel, or transfer methods.</p>
+      </section>
+    );
   }
 
   return (
     <section className="admin-form admin-controls">
-      <h2>Contract controls</h2>
+      <h2>Contract</h2>
       <p className="meta">
-        {canPause
-          ? "Pause blocks create and vote. Transfer is immediate — only the successor can undo it. Cancel works only if the poll has zero votes."
-          : "This Testnet instance supports ending a poll. Pause, transfer admin, and cancel need a later contract version."}
+        Rare actions. Pause blocks create and vote. End closes a poll. Cancel works only with zero
+        votes. Transfer is immediate — only the successor can undo it.
       </p>
 
       {canPause ? (
-        <div className="admin-controls-row">
-          <button type="button" className="btn btn-ghost" disabled={busy} onClick={togglePause}>
-            {paused ? "Unpause voting" : "Pause voting"}
-          </button>
-          <span className="hint">{paused ? "Contract is paused." : "Contract is live."}</span>
-        </div>
-      ) : null}
-
-      {canTransfer ? (
-        <>
-          <label>
-            New admin (Aztec address)
-            <input
-              type="text"
-              value={successor}
-              disabled={busy}
-              onChange={(e) => setSuccessor(e.target.value)}
-              placeholder="0x…"
-              autoComplete="off"
-              spellCheck={false}
-            />
-          </label>
-          <label className="admin-confirm">
-            <input
-              type="checkbox"
-              checked={confirmTransfer}
-              disabled={busy}
-              onChange={(e) => setConfirmTransfer(e.target.checked)}
-            />
-            I understand transfer is immediate and irreversible unless the successor transfers back.
-          </label>
-          <button type="button" className="btn btn-ghost" disabled={busy} onClick={transfer}>
-            Transfer admin
-          </button>
-        </>
+        <fieldset className="zk-req">
+          <legend>Live status</legend>
+          <div className="admin-controls-row">
+            <button type="button" className="btn btn-ghost" disabled={busy} onClick={togglePause}>
+              {paused ? "Unpause voting" : "Pause voting"}
+            </button>
+            <span className="hint">{paused ? "Contract is paused." : "Contract is live."}</span>
+          </div>
+        </fieldset>
       ) : null}
 
       {canEnd || canCancel ? (
-        <>
+        <fieldset className="zk-req">
+          <legend>Close a poll</legend>
           <label>
             Poll id
             <input
@@ -222,7 +203,44 @@ export function AdminContractControls({
               </button>
             ) : null}
           </div>
-        </>
+        </fieldset>
+      ) : null}
+
+      {canTransfer ? (
+        <fieldset className="zk-req admin-danger">
+          <legend>Transfer admin</legend>
+          <label>
+            New admin (Aztec address)
+            <input
+              type="text"
+              value={successor}
+              disabled={busy}
+              onChange={(e) => setSuccessor(e.target.value)}
+              placeholder="0x…"
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </label>
+          <label className="admin-confirm">
+            <input
+              type="checkbox"
+              checked={confirmTransfer}
+              disabled={busy}
+              onChange={(e) => setConfirmTransfer(e.target.checked)}
+            />
+            I understand transfer is immediate and irreversible unless the successor transfers back.
+          </label>
+          <button type="button" className="btn btn-ghost" disabled={busy} onClick={transfer}>
+            Transfer admin
+          </button>
+        </fieldset>
+      ) : null}
+
+      {!canPause && !canTransfer && !canCancel && canEnd ? (
+        <p className="hint">
+          This Testnet instance supports ending a poll. Pause, transfer admin, and cancel need a
+          later contract version.
+        </p>
       ) : null}
     </section>
   );

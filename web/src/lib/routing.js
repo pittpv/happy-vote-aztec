@@ -1,6 +1,7 @@
 /**
  * Client routes:
- *   /                 — poll catalog
+ *   /                 — home (featured polls)
+ *   /polls            — full poll catalog
  *   /p/:id            — poll detail / vote
  *   /admin            — admin import + create poll
  *   /legal/:slug      — Terms, Privacy, Cookies, Data Safety, GDPR
@@ -11,6 +12,7 @@ import { getLegalNavItem } from "./legalDocs.js";
 export function parseRoute(pathname = window.location.pathname) {
   const path = String(pathname || "/").replace(/\/+$/, "") || "/";
   if (path === "/admin") return { kind: "admin" };
+  if (path === "/polls") return { kind: "polls" };
   const legal = path.match(/^\/legal\/([a-z0-9-]+)$/);
   if (legal) {
     const slug = legal[1];
@@ -23,6 +25,10 @@ export function parseRoute(pathname = window.location.pathname) {
 
 export function homePath() {
   return "/";
+}
+
+export function pollsPath() {
+  return "/polls";
 }
 
 export function pollPath(pollId) {

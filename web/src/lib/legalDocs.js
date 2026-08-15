@@ -3,7 +3,7 @@
  * Content reflects current product behaviour; not a substitute for counsel review.
  */
 
-export const LEGAL_EFFECTIVE_DATE = "13 August 2026";
+export const LEGAL_EFFECTIVE_DATE = "15 August 2026";
 export const LEGAL_CONTACT = "legal@happyvote.xyz";
 export const SERVICE_NAME = "HappyVote on Aztec";
 export const SERVICE_URL = "https://aztec.happyvote.xyz";
@@ -125,6 +125,7 @@ export const LEGAL_DOCUMENTS = {
           "Optional ZKPassport proofs: cryptographic personhood / eligibility signals (for example a scoped unique identifier). We do not receive your raw passport document through the HappyVote UI.",
           "Local browser storage: poll catalog metadata you or admins persist in this browser (key happyvote.aztec.polls.v1).",
           "Server logs / edge requests: when you load the site or call our guest tallies API (/api/poll-state), our host may process standard request metadata (IP, user agent, path, time) to deliver and secure the Service.",
+          "First-party visit aggregates: we count pageviews without cookies. The server may read IP and user-agent only to derive a country code and a same-day uniqueness hash, then discard those inputs. We store daily totals (pageviews, approximate uniques, country, coarse site section, device class, browser family, referrer hostname). We do not store IP addresses, do not use analytics cookies, do not keep a cross-day visitor id, and do not record poll IDs in this counter. Small country/referrer counts are grouped so a single visit is not shown as a precise location.",
           "We do not require an email/password account to browse or vote.",
         ],
       },
@@ -132,6 +133,7 @@ export const LEGAL_DOCUMENTS = {
         heading: "3. Purposes and legal bases (EEA/UK summary)",
         bullets: [
           "Provide the voting UI, wallet connection, and public tallies — legitimate interests / performance of a requested service.",
+          "Understand coarse, non-identifying site usage (daily visit totals) — legitimate interests. This processing does not use cookies and is not used to profile you or to link a visit to a ballot.",
           "Security, abuse prevention, and rate limiting on APIs — legitimate interests.",
           "Comply with law where applicable — legal obligation.",
           "Where consent is required for non-essential cookies or similar tech, we rely on consent (see Cookie Policy).",
@@ -154,6 +156,8 @@ export const LEGAL_DOCUMENTS = {
         bullets: [
           "Browser localStorage: until you clear site data or we change storage keys.",
           "Session wallet material: until you disconnect or close the tab (as described in the UI).",
+          "Visit aggregates: daily totals for a limited rolling window (on the order of months), without IP addresses or cookies.",
+          "Same-day uniqueness hashes used only to approximate unique visits: dropped within about two days.",
           "Hosting/API logs: according to the host’s retention (often days to weeks) unless needed longer for security.",
           "On-chain data: indefinite, per network rules.",
         ],
@@ -161,7 +165,7 @@ export const LEGAL_DOCUMENTS = {
       {
         heading: "7. Your choices",
         paragraphs: [
-          "You can browse tallies without connecting a wallet. You can disconnect your wallet, clear site storage, use a tracker blocker, use private voting where offered, and decline ZKPassport-gated polls. For GDPR rights, see the GDPR page.",
+          "You can browse tallies without connecting a wallet. You can disconnect your wallet, clear site storage, use a tracker blocker, send a Global Privacy Control or Do Not Track signal (we skip the visit counter), use private voting where offered, and decline ZKPassport-gated polls. For GDPR rights, see the GDPR page.",
         ],
       },
       {
@@ -187,7 +191,7 @@ export const LEGAL_DOCUMENTS = {
       {
         heading: "1. Do we use traditional cookies?",
         paragraphs: [
-          "HappyVote on Aztec does not set first-party analytics cookies. We use local browser storage and session memory for the app. Hosting, fonts, ZKPassport, and wallets may set additional cookies or storage when you use those features. We do not set advertising cookies or run cross-site marketing trackers on this subdomain.",
+          "HappyVote on Aztec does not set first-party analytics cookies. Visit counting is cookieless: a same-origin request records an aggregated pageview. We use local browser storage and session memory for the app. Hosting, fonts, ZKPassport, and wallets may set additional cookies or storage when you use those features. We do not set advertising cookies or run cross-site marketing trackers on this subdomain.",
         ],
       },
       {
@@ -204,7 +208,7 @@ export const LEGAL_DOCUMENTS = {
         bullets: [
           "Strictly necessary — load the app, SPA routing, security headers, API delivery.",
           "Functional — remember poll metadata locally; keep a wallet session while you vote.",
-          "We do not run analytics, marketing, or cross-site advertising trackers on this subdomain.",
+          "We do not set analytics or marketing cookies and do not run third-party analytics or cross-site advertising trackers on this subdomain. First-party visit totals (see Privacy Policy) do not use cookies.",
         ],
       },
       {
@@ -216,7 +220,7 @@ export const LEGAL_DOCUMENTS = {
       {
         heading: "5. Updates",
         paragraphs: [
-          "If we add analytics or other non-essential cookies, we will update this Policy and, where required, request consent before setting them.",
+          "If we add analytics cookies or other non-essential cookies, we will update this Policy and, where required, request consent before setting them.",
         ],
       },
     ],
@@ -230,7 +234,7 @@ export const LEGAL_DOCUMENTS = {
       {
         heading: "Data collected",
         bullets: [
-          "App activity: poll IDs requested from our tallies API, connection errors shown in the UI. We do not run a third-party analytics counter on this subdomain.",
+          "App activity: poll IDs requested from our tallies API, connection errors shown in the UI. We do not run a third-party analytics counter on this subdomain. A first-party cookieless counter stores only daily aggregates (not IP, cookies, or poll IDs).",
           "App info & performance: basic request logs via hosting (IP, user agent) for delivery and abuse prevention.",
           "Financial info: not collected by HappyVote (on-chain fee payments are handled by your wallet / network).",
           "Personal info: wallet addresses you choose to connect; optional ZKPassport unique identifier / eligibility signals — not government ID images.",
@@ -285,7 +289,7 @@ export const LEGAL_DOCUMENTS = {
       {
         heading: "2. Categories of personal data",
         paragraphs: [
-          "Depending on how you use the Service: IP address and request metadata; wallet address; on-chain activity linked to an open vote; ZKPassport-derived identifiers/proofs; and any data you put in poll metadata fields.",
+          "Depending on how you use the Service: IP address and request metadata processed by the host (and, for visit totals, used ephemerally to derive a country and a same-day uniqueness hash, then discarded); aggregated visit statistics that we do not treat as identifying; wallet address; on-chain activity linked to an open vote; ZKPassport-derived identifiers/proofs; and any data you put in poll metadata fields.",
         ],
       },
       {

@@ -268,11 +268,13 @@ export default async function handler(req, res) {
     const totalValue = results[optionsCount];
     const policyValue = results[optionsCount + 1];
     const voteEndedFlag = fieldToNumber(results[optionsCount + 2]) !== 0;
-    const sealed = fieldToNumber(results[optionsCount + 3]) !== 0;
+    const sealedFlags = fieldToNumber(results[optionsCount + 3]);
+    const sealed = (sealedFlags & 1) !== 0;
     const startsAt = fieldToNumber(results[optionsCount + 4]);
     const endsAt = fieldToNumber(results[optionsCount + 5]);
     const cancelled = fieldToNumber(results[optionsCount + 6]) !== 0;
     const paused = fieldToNumber(results[optionsCount + 7]) !== 0;
+    const voteFrequency = (sealedFlags >> 1) & 1;
     const nowSec = Math.floor(Date.now() / 1000);
     const closed =
       voteEndedFlag || cancelled || (endsAt !== 0 && nowSec >= endsAt);
@@ -290,6 +292,7 @@ export default async function handler(req, res) {
       paused,
       startsAt,
       endsAt,
+      voteFrequency,
       votingOpen,
     };
 

@@ -7,13 +7,15 @@ UI notes: [12-UI-UX.md](./12-UI-UX.md)
 
 1. Open https://aztec.happyvote.xyz.
 2. Read the short mission / privacy pillars (optional).
-3. Under **Open polls**, search or filter, then open a card.
+3. Under **Featured polls**, open a card, or go to **All polls** (`/polls`) to search and filter the full catalog.
+
+The header menu (desktop and mobile) has Home, All polls, and wallet connect / connected address.
 
 Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data Safety, Cookies, GDPR).
 
 ## Without a wallet
 
-- Browse the catalog and open any poll
+- Browse featured polls on home, or the full catalog at `/polls`, then open any poll
 - See **start/end times** and a live countdown when a poll is scheduled
 - View **Live results** (public tallies; hidden while a poll is sealed and still open)
 - If the contract is paused or a poll is cancelled, the ballot stays locked; the question remains readable
@@ -22,7 +24,7 @@ Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data
 
 ## Vote (private or open)
 
-1. Open a poll from the home catalog (for example https://aztec.happyvote.xyz/p/1).
+1. Open a poll from home or https://aztec.happyvote.xyz/polls (for example https://aztec.happyvote.xyz/p/1).
 2. If the poll is scheduled, wait for the countdown: Connect and Vote stay locked until the start time, then a countdown to the end runs while voting is open. The same lock applies if voting is paused or the poll is cancelled.
 3. Progress chips: **Ready/Verify → Connect → Vote**.
 4. If the poll requires ZKPassport, complete verification first (QR on desktop, ZKPassport app on the phone). After success the block collapses to **Identity verified**.
@@ -38,10 +40,11 @@ On wide screens, **Live results** sit beside the ballot; on mobile they stack be
 
 ## Rules
 
-- **One vote per Aztec account per poll** (nullifier / `SingleUseClaim`).
+- **One vote per Aztec account per poll**, or **one vote per UTC day** when the poll is created with daily frequency. Private and open share that limit.
+- Daily polls reset at **00:00 UTC**. Each new day adds to the tally; the previous choice is not removed.
 - Private mode hides your **address**; the chosen option still increments the **public** tally (unless the poll is sealed).
 - Open mode publishes address + choice.
-- Important polls may also bind **one ZKPassport identity per poll**.
+- Important polls may also bind **one ZKPassport identity per poll** (or per UTC day on daily polls).
 - Guest tallies come from same-origin `/api/poll-state`.
 
 ## ZKPassport

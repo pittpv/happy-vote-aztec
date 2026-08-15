@@ -4,9 +4,11 @@
 // - Admin creates polls (any topic / N options)
 // - Private ballot + public tally (default)
 // - Optional open (public) ballot when poll policy allows
-// - One vote per account per poll via SingleUseClaim nullifiers
-// - ZKPassport polls: one vote per uniqueIdentifier via public identity claim
+// - One vote per account per poll via SingleUseClaim nullifiers (or once per UTC day)
+// - ZKPassport polls: one uniqueIdentifier claim per poll (or per UTC day)
 // - Optional on-chain starts_at / ends_at (unix seconds; 0 = unset)
+// - vote_frequency at create: 0 = once per poll, 1 = once per UTC day (private and open)
+//   Packed into `sealed` flags (bit1) so Noir type-complexity stays under the compiler cap.
 //
 // Pattern: Aztec private_voting_contract (v5.1.0) — private claim + public tally.
 //
@@ -27,7 +29,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract HappyVote {
     use aztec::macros::{functions::{external, initializer, internal, only_self, view}, storage::storage};
-    use aztec::protocol::{address::AztecAddress, traits::{Deserialize, Serialize, ToField}};
+    use aztec::protocol::{address::AztecAddress, hash::poseidon2_hash, traits::{Deserialize, Serialize, ToField}};
     use aztec::state_vars::{Map, Owned, PublicImmutable, PublicMutable, SingleUseClaim};
 
     global MAX_OPTIONS: u32 = 32;
@@ -41,6 +43,17 @@ pub contract HappyVote {
     global ELIGIBILITY_PERSONHOOD: u8 = 1;
     /// ZKPassport gated: age / nationality / sanctions / facematch predicates in metadata.
     global ELIGIBILITY_GATED: u8 = 2;
+
+    /// One ballot per account (and identity) for the life of the poll.
+    global VOTE_ONCE: u8 = 0;
+    /// One ballot per account (and identity) per UTC calendar day.
+    global VOTE_DAILY: u8 = 1;
+    global SECONDS_PER_DAY: u64 = 86400;
+    global PERIOD_KEY_SHIFT: Field = 4294967296;
+    /// Packed into `sealed` storage: bit 0 = hide tallies until close.
+    global FLAG_SEALED: u8 = 1;
+    /// Packed into `sealed` storage: bit 1 = UTC-day vote frequency.
+    global FLAG_DAILY: u8 = 2;
 
     #[derive(Serialize, Deserialize)]
     pub struct PollId {
@@ -71,13 +84,14 @@ pub contract HappyVote {
         total_votes: Map<PollId, PublicMutable<Field, Context>, Context>,
         vote_ended: Map<PollId, PublicMutable<bool, Context>, Context>,
         active_at_block: Map<PollId, PublicImmutable<u32, Context>, Context>,
-        vote_claims: Map<PollId, Owned<SingleUseClaim<Context>, Context>, Context>,
-        /// Open ballot value = option_id + 1 (0 means none).
+        /// Claim domain: packed (poll, period) → account. Period is 0 if once-only.
+        vote_claims: Map<Field, Owned<SingleUseClaim<Context>, Context>, Context>,
+        /// Open ballot value = option_id + 1 (0 means none). Latest open choice for this account.
         open_ballots: Map<PollId, Map<AztecAddress, PublicMutable<Field, Context>, Context>, Context>,
-        /// ZKPassport uniqueIdentifier commitment claimed per poll (anti double-vote across accounts).
-        identity_claims: Map<PollId, Map<Field, PublicMutable<bool, Context>, Context>, Context>,
-        /// When true, get_tally / get_total_votes return 0 until the poll is closed.
-        sealed: Map<PollId, PublicImmutable<bool, Context>, Context>,
+        /// ZKPassport uniqueIdentifier claimed per Poseidon(poll, period, identity).
+        identity_claims: Map<Field, PublicMutable<bool, Context>, Context>,
+        /// Packed flags: bit0 sealed tallies, bit1 UTC-day frequency (slot 13).
+        sealed: Map<PollId, PublicImmutable<u8, Context>, Context>,
         /// Unix seconds. 0 = no scheduled start.
         starts_at: Map<PollId, PublicImmutable<u64, Context>, Context>,
         /// Unix seconds. 0 = no scheduled end (until end_poll / cancel).
@@ -129,13 +143,15 @@ pub contract HappyVote {
     }
 
     /// Reject invalid option / privacy / eligibility before spending the nullifier.
-    /// Sets tx expiration to ends_at - 1 so a late inclusion cannot burn the claim.
+    /// Sets tx expiration to ends_at - 1 and/or end of the UTC day so a late inclusion
+    /// cannot burn a claim after the window.
     #[internal("private")]
     fn assert_ballot_private(
         poll_id: PollId,
         option_id: Field,
         identity_commitment: Field,
         open_vote: bool,
+        vote_period: Field,
     ) {
         let count = self.storage.options_count.at(poll_id).read();
         let truncated = option_id as u32;
@@ -157,9 +173,32 @@ pub contract HappyVote {
             assert(identity_commitment != 0, "ZKPassport identity required");
         }
 
+        let flags = self.storage.sealed.at(poll_id).read();
+        let freq = if (flags & FLAG_DAILY) != (0 as u8) { VOTE_DAILY } else { VOTE_ONCE };
+        assert(freq <= VOTE_DAILY, "Unsupported vote frequency");
+        if freq == VOTE_ONCE {
+            assert(vote_period == 0, "Wrong vote period");
+        } else {
+            let period_u64 = vote_period as u64;
+            assert(vote_period == period_u64 as Field, "Wrong vote period");
+        }
+
+        let mut expiry: u64 = 0;
         let ends_at = self.storage.ends_at.at(poll_id).read();
         if ends_at != (0 as u64) {
-            self.context.set_expiration_timestamp(ends_at - 1);
+            expiry = ends_at - 1;
+        }
+        if freq == VOTE_DAILY {
+            let period_u64 = vote_period as u64;
+            let day_end = (period_u64 + 1) * SECONDS_PER_DAY - 1;
+            if expiry == (0 as u64) {
+                expiry = day_end;
+            } else if day_end < expiry {
+                expiry = day_end;
+            }
+        }
+        if expiry != (0 as u64) {
+            self.context.set_expiration_timestamp(expiry);
         }
     }
 
@@ -173,6 +212,7 @@ pub contract HappyVote {
         sealed: bool,
         starts_at: u64,
         ends_at: u64,
+        vote_frequency: u8,
     ) -> Field {
         self.internal.assert_admin();
         self.internal.assert_not_paused();
@@ -180,6 +220,7 @@ pub contract HappyVote {
         assert(options_count <= MAX_OPTIONS, "Too many options");
         assert(privacy_policy <= PRIVACY_VOTER_CHOICE, "Invalid privacy policy");
         assert(eligibility_mode <= ELIGIBILITY_GATED, "Unsupported eligibility mode");
+        assert(vote_frequency <= VOTE_DAILY, "Unsupported vote frequency");
 
         let mut resolved_u64 = poll_id.id as u64;
         assert(poll_id.id == resolved_u64 as Field, "poll_id overflow");
@@ -203,9 +244,16 @@ pub contract HappyVote {
         self.storage.privacy_policy.at(resolved).initialize(privacy_policy);
         self.storage.eligibility_mode.at(resolved).initialize(eligibility_mode);
         self.storage.metadata_hash.at(resolved).initialize(metadata_hash);
-        self.storage.sealed.at(resolved).initialize(sealed);
         self.storage.starts_at.at(resolved).initialize(starts_at);
         self.storage.ends_at.at(resolved).initialize(ends_at);
+        let mut flags: u8 = 0;
+        if sealed {
+            flags = flags + FLAG_SEALED;
+        }
+        if vote_frequency == VOTE_DAILY {
+            flags = flags + FLAG_DAILY;
+        }
+        self.storage.sealed.at(resolved).initialize(flags);
         self.storage.vote_ended.at(resolved).write(false);
         self.storage.cancelled.at(resolved).write(false);
         self.storage.total_votes.at(resolved).write(0);
@@ -222,27 +270,61 @@ pub contract HappyVote {
     /// Private ballot — voter address stays hidden; option_id is public in the
     /// enqueued tally update (live public tallies). Same nullifier domain as open votes.
     /// `identity_commitment`: 0 for open eligibility; ZKPassport UID field otherwise.
+    /// `vote_period`: 0 if once-only; UTC day index (`timestamp / 86400`) if daily.
     #[external("private")]
-    fn cast_vote_private(poll_id: PollId, option_id: Field, identity_commitment: Field) {
-        self.internal.assert_ballot_private(poll_id, option_id, identity_commitment, false);
-        self.storage.vote_claims.at(poll_id).at(self.msg_sender()).claim();
-        self.enqueue_self.add_to_tally_public(poll_id, option_id, identity_commitment);
+    fn cast_vote_private(
+        poll_id: PollId,
+        option_id: Field,
+        identity_commitment: Field,
+        vote_period: Field,
+    ) {
+        self.internal.assert_ballot_private(
+            poll_id,
+            option_id,
+            identity_commitment,
+            false,
+            vote_period,
+        );
+        self.storage.vote_claims.at(poll_id.id + vote_period * PERIOD_KEY_SHIFT).at(self.msg_sender()).claim();
+        self.enqueue_self.add_to_tally_public(poll_id, option_id, identity_commitment, vote_period);
     }
 
     /// Open ballot — voter + choice recorded publicly.
     /// Uses the same claim domain as private votes (no double voting across modes).
     #[external("private")]
-    fn cast_vote_open(poll_id: PollId, option_id: Field, identity_commitment: Field) {
-        self.internal.assert_ballot_private(poll_id, option_id, identity_commitment, true);
+    fn cast_vote_open(
+        poll_id: PollId,
+        option_id: Field,
+        identity_commitment: Field,
+        vote_period: Field,
+    ) {
+        self.internal.assert_ballot_private(
+            poll_id,
+            option_id,
+            identity_commitment,
+            true,
+            vote_period,
+        );
         let voter = self.msg_sender();
-        self.storage.vote_claims.at(poll_id).at(voter).claim();
-        self.enqueue_self.record_open_vote_public(poll_id, voter, option_id, identity_commitment);
+        self.storage.vote_claims.at(poll_id.id + vote_period * PERIOD_KEY_SHIFT).at(voter).claim();
+        self.enqueue_self.record_open_vote_public(
+            poll_id,
+            voter,
+            option_id,
+            identity_commitment,
+            vote_period,
+        );
     }
 
     #[external("public")]
     #[only_self]
-    fn add_to_tally_public(poll_id: PollId, option_id: Field, identity_commitment: Field) {
-        self.internal.assert_vote_allowed(poll_id, identity_commitment);
+    fn add_to_tally_public(
+        poll_id: PollId,
+        option_id: Field,
+        identity_commitment: Field,
+        vote_period: Field,
+    ) {
+        self.internal.assert_vote_allowed(poll_id, identity_commitment, vote_period);
         assert(
             self.storage.privacy_policy.at(poll_id).read() != PRIVACY_PUBLIC_ONLY,
             "Poll requires open votes",
@@ -267,8 +349,9 @@ pub contract HappyVote {
         voter: AztecAddress,
         option_id: Field,
         identity_commitment: Field,
+        vote_period: Field,
     ) {
-        self.internal.assert_vote_allowed(poll_id, identity_commitment);
+        self.internal.assert_vote_allowed(poll_id, identity_commitment, vote_period);
         assert(
             self.storage.privacy_policy.at(poll_id).read() != PRIVACY_PRIVATE_ONLY,
             "Poll requires private votes",
@@ -288,10 +371,18 @@ pub contract HappyVote {
 
     /// Enforce window + eligibility + claim ZKPassport identity when required.
     #[internal("public")]
-    fn assert_vote_allowed(poll_id: PollId, identity_commitment: Field) {
+    fn assert_vote_allowed(poll_id: PollId, identity_commitment: Field, vote_period: Field) {
         self.internal.assert_not_paused();
         self.internal.assert_poll_exists(poll_id);
         assert(self.internal.poll_is_closed(poll_id) == false, "Vote has ended");
+        let flags = self.storage.sealed.at(poll_id).read();
+        let freq = if (flags & FLAG_DAILY) != (0 as u8) { VOTE_DAILY } else { VOTE_ONCE };
+        let expected_period = if freq == VOTE_ONCE {
+            0
+        } else {
+            (self.context.timestamp() / SECONDS_PER_DAY) as Field
+        };
+        assert(vote_period == expected_period, "Wrong vote period");
 
         let starts_at = self.storage.starts_at.at(poll_id).read();
         if starts_at != (0 as u64) {
@@ -303,11 +394,9 @@ pub contract HappyVote {
             assert(identity_commitment == 0, "Identity not allowed for open polls");
         } else {
             assert(identity_commitment != 0, "ZKPassport identity required");
-            assert(
-                self.storage.identity_claims.at(poll_id).at(identity_commitment).read() == false,
-                "Identity already voted",
-            );
-            self.storage.identity_claims.at(poll_id).at(identity_commitment).write(true);
+            let key = poseidon2_hash([poll_id.id, vote_period, identity_commitment]);
+            assert(self.storage.identity_claims.at(key).read() == false, "Identity already voted");
+            self.storage.identity_claims.at(key).write(true);
         }
     }
 
@@ -401,13 +490,41 @@ pub contract HappyVote {
     #[external("public")]
     #[view]
     fn has_identity_voted(poll_id: PollId, identity_commitment: Field) -> bool {
-        self.storage.identity_claims.at(poll_id).at(identity_commitment).read()
+        let flags = self.storage.sealed.at(poll_id).read();
+        let freq = if (flags & FLAG_DAILY) != (0 as u8) { VOTE_DAILY } else { VOTE_ONCE };
+        let period = if freq == VOTE_ONCE {
+            0
+        } else {
+            (self.context.timestamp() / SECONDS_PER_DAY) as Field
+        };
+        self.storage.identity_claims.at(poseidon2_hash([poll_id.id, period, identity_commitment])).read()
+    }
+
+    #[external("public")]
+    #[view]
+    fn get_vote_frequency(poll_id: PollId) -> u8 {
+        if (self.storage.sealed.at(poll_id).read() & FLAG_DAILY) != (0 as u8) {
+            VOTE_DAILY
+        } else {
+            VOTE_ONCE
+        }
+    }
+
+    #[external("public")]
+    #[view]
+    fn get_current_vote_period(poll_id: PollId) -> Field {
+        let flags = self.storage.sealed.at(poll_id).read();
+        if (flags & FLAG_DAILY) != (0 as u8) {
+            (self.context.timestamp() / SECONDS_PER_DAY) as Field
+        } else {
+            0
+        }
     }
 
     #[external("public")]
     #[view]
     fn get_sealed(poll_id: PollId) -> bool {
-        self.storage.sealed.at(poll_id).read()
+        (self.storage.sealed.at(poll_id).read() & FLAG_SEALED) != (0 as u8)
     }
 
     #[external("public")]
@@ -467,7 +584,7 @@ pub contract HappyVote {
 
     #[internal("public")]
     fn tallies_hidden(poll_id: PollId) -> bool {
-        if self.storage.sealed.at(poll_id).read() {
+        if (self.storage.sealed.at(poll_id).read() & FLAG_SEALED) != (0 as u8) {
             self.internal.poll_is_closed(poll_id) == false
         } else {
             false

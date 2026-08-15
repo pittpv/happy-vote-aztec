@@ -18,7 +18,9 @@ flowchart TB
     PollsAPI["GET/POST /api/polls"]
     ZkAPI["POST /api/zkpassport-verify"]
     ErrAPI["POST /api/client-error"]
+    StatsAPI["POST /api/site-stats"]
     Blob[(Vercel Blob catalog)]
+    StatsBlob[(private visit aggregates)]
     Seed[data/polls-catalog.json]
   end
 
@@ -39,12 +41,14 @@ flowchart TB
   UI --> ZKP
   UI --> PollState
   UI --> PollsAPI
+  UI --> StatsAPI
   ZKP --> Bridge
   Phone --> ZKPApp
   ZKPApp --> Bridge
   ZKP --> ZkAPI
   PollsAPI --> Seed
   PollsAPI --> Blob
+  StatsAPI --> StatsBlob
   AZJS --> PrivateExec
   PrivateExec --> PublicExec
   AZJS --> FPC
@@ -68,10 +72,10 @@ flowchart TB
 | `total_votes` | `Map<PollId, Field>` | Число бюллетеней |
 | `vote_ended` | `Map<PollId, bool>` | Закрытие admin |
 | `active_at_block` | `Map<PollId, PublicImmutable<u32>>` | Блок создания |
-| `vote_claims` | `Map<PollId, Owned<SingleUseClaim>>` | Один голос на аккаунт на опрос |
-| `open_ballots` | `Map<PollId, Map<AztecAddress, Field>>` | `option_id + 1` (0 = нет) |
-| `identity_claims` | `Map<PollId, Map<Field, bool>>` | Один ZKPassport UID на опрос |
-| `sealed` | `Map<PollId, PublicImmutable<bool>>` | Скрыть tallies до закрытия |
+| `vote_claims` | `Map<Field, Owned<SingleUseClaim>>` | Упакованный `(poll, period)` → аккаунт |
+| `open_ballots` | `Map<PollId, Map<AztecAddress, Field>>` | `option_id + 1` (0 = нет); последний open-выбор |
+| `identity_claims` | `Map<Field, bool>` | Poseidon2(`poll`, `period`, ZKPassport UID) |
+| `sealed` | `Map<PollId, PublicImmutable<u8>>` | Слот 13: bit0 скрыть tallies · bit1 сутки UTC |
 | `starts_at` | `Map<PollId, PublicImmutable<u64>>` | Unix-секунды; `0` = не задано |
 | `ends_at` | `Map<PollId, PublicImmutable<u64>>` | Unix-секунды; `0` = не задано |
 | `cancelled` | `Map<PollId, bool>` | Отмена (без голосов) |
@@ -85,9 +89,9 @@ flowchart TB
 | Метод | Видимость | Назначение |
 |-------|-----------|------------|
 | `constructor(admin)` | public initializer | Ненулевой admin; `next_poll_id = 1` |
-| `create_poll(..., sealed, starts_at, ends_at)` | public | Контрактный admin; возвращает id (`0` = следующий) |
-| `cast_vote_private(...)` | private → enqueue public | Адрес скрыт; публичный tally++ |
-| `cast_vote_open(...)` | private → enqueue public | Публичный бюллетень + tally++ |
+| `create_poll(..., sealed, starts_at, ends_at, vote_frequency)` | public | Контрактный admin; возвращает id (`0` = следующий) |
+| `cast_vote_private(..., vote_period)` | private → enqueue public | Адрес скрыт; публичный tally++ |
+| `cast_vote_open(..., vote_period)` | private → enqueue public | Публичный бюллетень + tally++ |
 | `end_poll(poll_id)` | public | Закрытие (контрактный admin) |
 | `cancel_poll(poll_id)` | public | Отмена, только если `total_votes == 0` |
 | `transfer_admin` / `set_paused` | public | Смена admin / пауза |
@@ -157,10 +161,12 @@ Vite + React. Маршруты:
 | Endpoint | Роль |
 |----------|------|
 | `GET /api/poll-state` | Batch `node_getPublicStorageAt`, кэш ~15с |
-| `GET /api/polls` | Seed JSON + опциональный Blob |
+| `GET /api/polls` | Seed JSON + опциональный Blob (`showOnHome` / `homeRank` для `/`) |
 | `POST /api/polls` | Публикация метаданных каталога (только оператор) |
 | `POST /api/zkpassport-verify` | Server re-verify |
 | `POST /api/client-error` | Ошибки в логи Vercel |
+| `POST /api/site-stats` | Cookieless ingest просмотров; только дневные агрегаты |
+| `GET /api/site-stats` | Агрегаты посещений (только оператор) |
 
 ### 3.3 Схема каталога
 
@@ -221,7 +227,7 @@ happy-vote-aztec/
 | Атрибуты ZKPassport | Proof на устройстве; HappyVote не видит паспорт |
 | Off-chain title/options | Каталог; `metadata_hash` on-chain |
 | Ключи деплоя | Секрет оператора (gitignore `.env`) |
-| Аналитика сайта | Нет стороннего счётчика; хост может логировать запросы |
+| Аналитика сайта | Свои дневные агрегаты (без cookies, IP не хранится); стороннего счётчика нет |
 
 ## 7. Связь с EVM HappyVote
 

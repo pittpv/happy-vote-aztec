@@ -9,13 +9,19 @@ Production: **https://aztec.happyvote.xyz**
 
 ## Главная (`/`)
 
-Убрана бессмысленная **Browse polls**. Миссия → pillars → **Open polls** → блок доверия. В подвале автор (X / LinkedIn / GitHub) и legal.
+Лендинг: бренд, миссия, pillars, **featured polls** (поле каталога `showOnHome`), блок доверия, подвал. Полный каталог — **All polls** (`/polls`) с поиском и фильтрами.
+
+Шапка (десктоп и мобильный): логотип, короткие ссылки на десктопе, гамбургер-меню с Home / All polls, подключением кошелька или адресом, и местом под язык / тему позже.
 
 Pillars: Private by design · Verified, not doxed · Safer where votes are risky.
 
+## Все опросы (`/polls`)
+
+Та же сетка карточек, что на главной, плюс поиск и фильтры. Нужна, когда опросов больше, чем короткий featured-список.
+
 ## Голосование (`/p/:id`)
 
-Ширина **1080px**. Компактная марка **HappyVote on Aztec**, вопрос — `h1`. Две колонки на десктопе. Комиссии и how-to в `<details>`. Чипы Ready/Verify → Connect → Vote.
+Ширина **1080px**. Общая шапка сайта, ссылка **← All polls** на `/polls`, вопрос — `h1`. Две колонки на десктопе. Комиссии и how-to в `<details>`. Чипы Ready/Verify → Connect → Vote. На дневных опросах бейдж **Daily** и отсчёт до следующих суток UTC.
 
 ```mermaid
 flowchart LR
@@ -51,8 +57,8 @@ flowchart LR
 | Cookie Policy | `/legal/cookies` |
 | GDPR | `/legal/gdpr` |
 
-Дата: **13 August 2026**. Контакт: **legal@happyvote.xyz**. [13-LEGAL.md](./13-LEGAL.md).
+Дата: **15 August 2026**. Контакт: **legal@happyvote.xyz**. [13-LEGAL.md](./13-LEGAL.md).
 
 ## SEO
 
-Title, description, canonical, OG, JSON-LD, `robots.txt`, `sitemap.xml`. Стороннего счётчика нет.
+Title, description, canonical, OG, JSON-LD, `robots.txt`, `sitemap.xml` (включая `/polls`). Стороннего счётчика нет. Есть свои cookieless дневные агрегаты (`POST /api/site-stats`).

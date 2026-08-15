@@ -10,6 +10,7 @@ import {
   normalizeZkRequirements,
 } from "./zkRequirements.js";
 import { pollPath as routePollPath } from "./routing.js";
+import { isDailyVote, utcDayIndex, VOTE_FREQUENCY } from "./voteFrequency.js";
 
 export const EXPLORER_TX_BASE = "https://testnet.aztecscan.xyz/txns";
 export const EXPLORER_ADDR_BASE = "https://testnet.aztecscan.xyz/address";
@@ -69,8 +70,11 @@ export const POLLS = {
     template: "binary",
     requiresZkPassport: false,
     eligibilityMode: ELIGIBILITY_MODE.OPEN,
+    voteFrequency: VOTE_FREQUENCY.DAILY,
     zkRequirements: null,
     sealed: false,
+    showOnHome: true,
+    homeRank: 1,
   },
   2: {
     id: "2",
@@ -97,6 +101,8 @@ export const POLLS = {
     eligibilityMode: ELIGIBILITY_MODE.OPEN,
     zkRequirements: null,
     sealed: false,
+    showOnHome: true,
+    homeRank: 2,
   },
   3: {
     id: "3",
@@ -137,6 +143,8 @@ export const POLLS = {
       purpose: "Prove personhood to test ZKPassport voting on HappyVote Aztec",
     },
     sealed: false,
+    showOnHome: true,
+    homeRank: 3,
     metadataHash: "0x1aa6032787d3653250160ddb12a166c9e1fa38486ce9bb30afd96fafdc9f390c",
   },
 };
@@ -171,6 +179,23 @@ function mergedMap() {
 
 export function listPolls() {
   return Object.values(mergedMap()).sort((a, b) => Number(a.id) - Number(b.id));
+}
+
+function homeRankValue(meta) {
+  const rank = Number(meta?.homeRank);
+  if (Number.isFinite(rank)) return rank;
+  return Number(meta?.id) || 0;
+}
+
+export function listHomePolls() {
+  return listPolls()
+    .map((poll) => hydrateMeta(poll))
+    .filter((poll) => poll.showOnHome)
+    .sort((a, b) => {
+      const byRank = homeRankValue(a) - homeRankValue(b);
+      if (byRank !== 0) return byRank;
+      return Number(a.id) - Number(b.id);
+    });
 }
 
 export function hasKnownPollMeta(pollId) {
@@ -254,27 +279,91 @@ export async function publishPollMeta(meta, publishToken) {
   };
 }
 
-export function markVoted(pollId) {
+/**
+ * Update homepage featured flags without rewriting on-chain poll data.
+ * @param {{ id: string, showOnHome: boolean, homeRank: number }[]} entries
+ */
+export async function publishHomepage(entries, publishToken) {
+  const token =
+    publishToken ||
+    import.meta.env.VITE_POLLS_PUBLISH_TOKEN ||
+    (typeof sessionStorage !== "undefined" ? sessionStorage.getItem("happyvote.publishToken") : null);
+  if (!token) {
+    return {
+      ok: false,
+      persisted: false,
+      error: "Missing publish token (set VITE_POLLS_PUBLISH_TOKEN or paste token in Admin).",
+    };
+  }
+  if (!Array.isArray(entries) || entries.length === 0) {
+    throw new Error("homepage entries are required");
+  }
+  const response = await fetch("/api/polls", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ homepage: entries }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (response.ok && data.ok && data.persisted) {
+    await refreshSharedCatalog();
+  }
+  return {
+    ok: Boolean(data.ok),
+    persisted: Boolean(data.persisted),
+    error: data.error || (!response.ok ? `HTTP ${response.status}` : null),
+    blobUrl: data.blobUrl || null,
+  };
+}
+
+export function markVoted(pollId, { frequency } = {}) {
   if (typeof localStorage === "undefined") return;
   try {
     const raw = localStorage.getItem(VOTED_KEY);
     const map = raw ? JSON.parse(raw) : {};
-    map[String(pollId)] = { at: new Date().toISOString() };
+    map[String(pollId)] = {
+      at: new Date().toISOString(),
+      period: utcDayIndex(),
+      frequency: Number(frequency) || VOTE_FREQUENCY.ONCE,
+    };
     localStorage.setItem(VOTED_KEY, JSON.stringify(map));
   } catch {
     /* ignore */
   }
 }
 
-export function hasVotedReceipt(pollId) {
+/**
+ * @param {string|number} pollId
+ * @param {{ frequency?: number, now?: number }} [opts]
+ */
+export function hasVotedReceipt(pollId, { frequency, now } = {}) {
   if (typeof localStorage === "undefined") return false;
   try {
     const raw = localStorage.getItem(VOTED_KEY);
     if (!raw) return false;
-    const map = JSON.parse(raw);
-    return Boolean(map[String(pollId)]);
+    const rec = JSON.parse(raw)[String(pollId)];
+    if (!rec) return false;
+    if (isDailyVote(frequency)) {
+      const period = rec.period ?? utcDayIndex(Date.parse(rec.at) || now || Date.now());
+      return period === utcDayIndex(now);
+    }
+    return true;
   } catch {
     return false;
+  }
+}
+
+export function votedReceiptAt(pollId) {
+  if (typeof localStorage === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(VOTED_KEY);
+    if (!raw) return null;
+    const rec = JSON.parse(raw)[String(pollId)];
+    return rec?.at || null;
+  } catch {
+    return null;
   }
 }
 
@@ -318,8 +407,13 @@ function hydrateMeta(meta) {
       (requiresZk ? ELIGIBILITY_MODE.PERSONHOOD : ELIGIBILITY_MODE.OPEN),
     zkRequirements,
     sealed: Boolean(meta.sealed),
+    voteFrequency: isDailyVote(meta.voteFrequency)
+      ? VOTE_FREQUENCY.DAILY
+      : VOTE_FREQUENCY.ONCE,
     startsAt: meta.startsAt || null,
     endsAt: meta.endsAt || null,
+    showOnHome: meta.showOnHome !== false,
+    homeRank: Number.isFinite(Number(meta.homeRank)) ? Number(meta.homeRank) : Number(meta.id) || 0,
   };
 }
 

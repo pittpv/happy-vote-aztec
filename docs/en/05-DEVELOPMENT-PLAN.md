@@ -9,7 +9,7 @@ AI / CLI: https://docs.aztec.network/developers/ai_tooling
 
 Node 24.12, Aztec CLI 5.1.0, docs, `AGENTS.md`, bootstrap from aztec-starter.
 
-**Exit:** `aztec compile` and `aztec test` green (40/40).
+**Exit:** `aztec compile` and `aztec test` green (48/48).
 
 ## Phase 1 — Core voting contracts
 
@@ -63,6 +63,7 @@ SDK + QR gate + server re-verify + on-chain `identity_commitment`. Domain `aztec
 | 5.9 | ZKPassport portal chrome | Done — collapse after success |
 | 5.10 | Catalog voting window | Done — on-chain `starts_at` / `ends_at` + catalog ISO + UI countdown |
 | 5.11 | Contract hardening | Done — PublicImmutable config, private checks before nullifier, pause, cancel, transfer_admin, next_poll_id |
+| 5.12 | First-party visit stats | Done — cookieless `POST /api/site-stats`, operator `GET` |
 
 ## Phase 6 — Alpha mainnet
 
@@ -88,8 +89,8 @@ Permissionless `create_poll` with limits, anti-spam, moderation, discovery, extr
 - [x] Frontend on aztec.happyvote.xyz
 - [x] Happy/Sad + multi-option + ZKPassport demo polls
 - [x] Private and public modes (`voter_choice`)
-- [x] Double-vote impossible (Noir + `SingleUseClaim`)
+- [x] Double-vote impossible (Noir + `SingleUseClaim`; optional UTC-day period)
 - [x] ZKPassport gate + server re-verify + identity claim
-- [x] `aztec compile` / `aztec test` green (40/40)
+- [x] `aztec compile` / `aztec test` green (48/48)
 - [x] User guide for connect + vote
 - [ ] Real-device ZKPassport E2E

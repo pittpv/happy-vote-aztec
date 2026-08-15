@@ -28,7 +28,7 @@ The platform is **not** limited to Happy/Sad.
 | `approval` | Approve / Reject | Later |
 | `ranked` | Ranking | After MVP |
 
-Off-chain metadata (catalog + optional Vercel Blob): `title`, `description`, `locale`, `options[]` (label + optional description), `category`, `tags[]`, `cover`, `legal_notice`, optional `startsAt` / `endsAt`, ZKPassport requirement JSON.
+Off-chain metadata (catalog + optional Vercel Blob): `title`, `description`, `locale`, `options[]` (label + optional description), `category`, `tags[]`, `cover`, `legal_notice`, optional `startsAt` / `endsAt`, `showOnHome` / `homeRank` (which polls appear on `/`), ZKPassport requirement JSON.
 
 On-chain integrity: `metadata_hash` (SHA-256 of canonical JSON, reduced to a Field).
 
@@ -39,6 +39,7 @@ created → (optional wait until startsAt) → open → ended
 ```
 
 - Voting is allowed while the poll exists, is not paused, is not cancelled, `vote_ended` is false, and the on-chain window is open (`starts_at` / `ends_at`; `0` = unset).
+- **Vote frequency** is fixed at create: `0` = one ballot per account for the life of the poll; `1` = one ballot per UTC calendar day (`timestamp / 86400`). Private and open share the same claim. Each accepted daily ballot adds to the tally (yesterday’s choice is not subtracted).
 - Optional `starts_at` / `ends_at` (unix seconds on-chain). The catalog stores the same instants as ISO-8601 for display. Omit both → the poll stays open until `end_poll` or `cancel_poll`.
 - A poll can be **published before `starts_at`**. Guests can read the question; Connect and Vote unlock automatically at start, then lock at `ends_at`. Direct `cast_vote_*` calls are rejected on-chain outside the window.
 - After close, votes are rejected; tallies stay readable (unless sealed and still open).
@@ -70,7 +71,7 @@ Private mode **does not** hide the option from the live board: `option_id` is en
 
 | Level | On-chain `eligibility_mode` | Mechanism |
 |-------|----------------------------|-----------|
-| Open | 0 | Any Aztec account; one vote via `SingleUseClaim` |
+| Open | 0 | Any Aztec account; one vote via `SingleUseClaim` (or once per UTC day) |
 | Personhood | 1 | ZKPassport `uniqueIdentifier` → `identity_commitment` |
 | Gated | 2 | Personhood + age / nationality / sanctions / FaceMatch / Dashboard policy (predicates off-chain + server re-verify) |
 
@@ -85,7 +86,7 @@ Important polls should require at least personhood. Details live in catalog JSON
 3. Connect Aztec account (embedded PXE / Browser session).
 4. Private vote + public tally.
 5. Optional open vote (`voter_choice`).
-6. Double-vote prevention (`SingleUseClaim` + identity claims).
+6. Double-vote prevention (`SingleUseClaim` + identity claims; optional UTC-day period).
 7. On-chain `end_poll` (contract admin).
 8. Templates `binary` + `single_choice`.
 9. Iteration 1: HappyVote operators publish polls on-chain.
@@ -118,7 +119,7 @@ Permissionless `create_poll`, anti-spam, moderation, discovery, more templates, 
 | Privacy | No passport images or MRZ on HappyVote servers |
 | Versions | Pin Aztec **5.1.0** |
 | Legal | Disclaimer: tech platform, not an official election commission |
-| Analytics | No third-party analytics counter on aztec.happyvote.xyz |
+| Analytics | No third-party analytics counter on aztec.happyvote.xyz; first-party cookieless daily aggregates only |
 | UX | Mission on home; vote page 1080px; honest private-vote copy |
 
 ## 9. Anti-goals
@@ -133,7 +134,7 @@ Permissionless `create_poll`, anti-spam, moderation, discovery, more templates, 
 
 ### Sentiment (`/p/1`)
 
-Home → Open polls → Happy/Sad → Connect → Private (default) or Open → prove → live results.
+Home → Featured polls (or **All polls** `/polls`) → Happy/Sad → Connect → Private (default) or Open → prove → live results.
 
 ### Important poll (`/p/3`)
 

@@ -38,6 +38,7 @@ AI / CLI: https://docs.aztec.network/developers/ai_tooling
 | 5.9 | ZKPassport в стиле портала | Готово |
 | 5.10 | Окно голосования | Готово — on-chain `starts_at` / `ends_at` + ISO в каталоге + обратный отсчёт |
 | 5.11 | Hardening контракта | Готово — PublicImmutable конфиг, проверки до nullifier, pause, cancel, transfer_admin, next_poll_id |
+| 5.12 | Свои агрегаты посещений | Готово — cookieless `POST /api/site-stats`, чтение оператором |
 
 ## Phase 6 — Alpha
 
@@ -49,4 +50,4 @@ Permissionless `create_poll`, антиспам, модерация, discovery.
 
 ## DoD итерации 1
 
-Контракты на Testnet, UI на домене, три демо-опроса, private/open, double-vote невозможен, ZKPassport gate, тесты 40/40, гайд. Не закрыто: E2E на устройстве.
+Контракты на Testnet, UI на домене, три демо-опроса, private/open, double-vote невозможен (опционально раз в сутки UTC), ZKPassport gate, тесты, гайд. Не закрыто: E2E на устройстве.

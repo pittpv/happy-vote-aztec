@@ -13,6 +13,8 @@ import { PRIVACY, Fr, asFieldBigInt } from "../lib/aztecClient.js";
 import { savePollMeta, publishPollMeta, normalizePollOptions } from "../lib/polls.js";
 import { datetimeLocalToIso, isoToUnixSeconds, normalizePollWindow } from "../lib/pollSchedule.js";
 import { CountryPicker } from "./CountryPicker.jsx";
+import { explainError } from "../lib/userMessages.js";
+import { VOTE_FREQUENCY } from "../lib/voteFrequency.js";
 
 /**
  * Admin form: create on-chain poll + ZKPassport requirements (Dashboard-like).
@@ -38,7 +40,9 @@ export function AdminCreatePollForm({
   ]);
   const [important, setImportant] = useState(true);
   const [privacyPolicy, setPrivacyPolicy] = useState(PRIVACY.VOTER_CHOICE);
+  const [voteFrequency, setVoteFrequency] = useState(VOTE_FREQUENCY.ONCE);
   const [sealed, setSealed] = useState(false);
+  const [showOnHome, setShowOnHome] = useState(false);
   const [startsAtLocal, setStartsAtLocal] = useState("");
   const [endsAtLocal, setEndsAtLocal] = useState("");
   const [publishToken, setPublishToken] = useState(
@@ -109,10 +113,7 @@ export function AdminCreatePollForm({
       setPollIdInput(id.toString());
     })().catch((error) => {
       if (cancelled) return;
-      setStatus({
-        text: `Could not load next poll id: ${error?.message || String(error)}`,
-        tone: "error",
-      });
+      setStatus({ tone: "error", ...explainError(error, "generic") });
     });
     return () => {
       cancelled = true;
@@ -223,10 +224,13 @@ export function AdminCreatePollForm({
         endsAt: datetimeLocalToIso(endsAtLocal),
       });
     } catch (error) {
-      setStatus({ text: error.message || String(error), tone: "error" });
+      setStatus({
+        title: "Check the schedule",
+        text: error.message || "Start and end times are invalid.",
+        tone: "error",
+      });
       return;
     }
-
     const topics = topicsText
       .split(/[,#\n]/)
       .map((t) => t.trim().toLowerCase())
@@ -241,7 +245,11 @@ export function AdminCreatePollForm({
         metadataHash = await hashZkRequirementsToField(requirements, Fr);
       }
     } catch (error) {
-      setStatus({ text: error.message || String(error), tone: "error" });
+      setStatus({
+        title: "Check identity rules",
+        text: error.message || "ZKPassport requirements are invalid.",
+        tone: "error",
+      });
       return;
     }
 
@@ -266,6 +274,9 @@ export function AdminCreatePollForm({
           isoToUnixSeconds(scheduleWindow.endsAt),
         );
       }
+      if (typeof contract.methods.get_vote_frequency === "function") {
+        createArgs.push(voteFrequency);
+      }
       await contract.methods.create_poll(...createArgs).send({
           from: accountAddress,
           fee: { paymentMethod },
@@ -284,6 +295,9 @@ export function AdminCreatePollForm({
         privacyPolicy,
         zkRequirements: requirements,
         sealed,
+        showOnHome,
+        homeRank: Number(pollIdNum),
+        voteFrequency,
         startsAt: scheduleWindow.startsAt,
         endsAt: scheduleWindow.endsAt,
         metadataHash: metadataHash.toString(),
@@ -318,7 +332,7 @@ export function AdminCreatePollForm({
       onCreated?.(meta);
     } catch (error) {
       console.error(error);
-      setStatus({ text: error?.message || String(error), tone: "error" });
+      setStatus({ tone: "error", ...explainError(error, "generic") });
     } finally {
       setBusy(false);
     }
@@ -328,57 +342,61 @@ export function AdminCreatePollForm({
     <form className="admin-form" onSubmit={submit}>
       <h2>Create poll</h2>
       <p className="meta">
-        On-chain: options count, ballot privacy policy, eligibility, sealed flag, metadata hash.
-        Labels and ZKPassport rules are published to the shared catalog when a publish token is set.
+        On-chain: options count, ballot privacy policy, vote frequency, eligibility, sealed flag,
+        metadata hash.
+        Labels and ZKPassport rules go to the shared catalog when a publish token is set.
       </p>
 
-      <label>
-        Poll id
-        <input
-          type="number"
-          min={1}
-          step={1}
-          value={pollIdInput}
-          disabled={busy}
-          onChange={(e) => setPollIdInput(e.target.value)}
-          placeholder="Loading next id…"
-          required
-        />
-      </label>
+      <fieldset className="zk-req">
+        <legend>Details</legend>
+        <label>
+          Poll id
+          <input
+            type="number"
+            min={1}
+            step={1}
+            value={pollIdInput}
+            disabled={busy}
+            onChange={(e) => setPollIdInput(e.target.value)}
+            placeholder="Loading next id…"
+            required
+          />
+        </label>
 
-      <label>
-        Title
-        <input
-          type="text"
-          value={title}
-          disabled={busy}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Should we adopt proposal X?"
-          required
-        />
-      </label>
+        <label>
+          Title
+          <input
+            type="text"
+            value={title}
+            disabled={busy}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Should we adopt proposal X?"
+            required
+          />
+        </label>
 
-      <label>
-        Description
-        <input
-          type="text"
-          value={description}
-          disabled={busy}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Optional short context"
-        />
-      </label>
+        <label>
+          Description
+          <input
+            type="text"
+            value={description}
+            disabled={busy}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Optional short context"
+          />
+        </label>
 
-      <label>
-        Topics (comma-separated)
-        <input
-          type="text"
-          value={topicsText}
-          disabled={busy}
-          onChange={(e) => setTopicsText(e.target.value)}
-          placeholder="governance, elections, demo"
-        />
-      </label>
+        <label>
+          Topics (comma-separated)
+          <input
+            type="text"
+            value={topicsText}
+            disabled={busy}
+            onChange={(e) => setTopicsText(e.target.value)}
+            placeholder="governance, elections, demo"
+          />
+        </label>
+      </fieldset>
 
       <fieldset className="option-editor">
         <legend>Options</legend>
@@ -457,6 +475,28 @@ export function AdminCreatePollForm({
         </div>
         <p className="meta">{privacyHint(privacyPolicy)}</p>
 
+        <p className="meta">
+          How often one Aztec account (and one ZKPassport identity, if required) may ballot. Private
+          and open votes share this limit. Cannot be changed after create.
+        </p>
+        <div className="privacy-row" role="radiogroup" aria-label="Vote frequency">
+          {VOTE_FREQUENCY_OPTIONS.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className="chip"
+              role="radio"
+              aria-checked={voteFrequency === option.value}
+              aria-pressed={voteFrequency === option.value}
+              disabled={busy}
+              onClick={() => setVoteFrequency(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        <p className="meta">{voteFrequencyHint(voteFrequency)}</p>
+
         <label className="check-row">
           <input
             type="checkbox"
@@ -465,6 +505,15 @@ export function AdminCreatePollForm({
             onChange={(e) => setSealed(e.target.checked)}
           />
           Sealed tallies — hide results until the poll ends
+        </label>
+        <label className="check-row">
+          <input
+            type="checkbox"
+            checked={showOnHome}
+            disabled={busy}
+            onChange={(e) => setShowOnHome(e.target.checked)}
+          />
+          Show on homepage — otherwise it only appears in All polls
         </label>
       </fieldset>
 
@@ -517,18 +566,6 @@ export function AdminCreatePollForm({
             onChange={(e) => setImportant(e.target.checked)}
           />
           Important poll — require ZKPassport
-        </label>
-
-        <label>
-          Catalog publish token
-          <input
-            type="password"
-            autoComplete="off"
-            value={publishToken}
-            disabled={busy}
-            onChange={(e) => setPublishToken(e.target.value)}
-            placeholder="POLLS_PUBLISH_TOKEN (needed so everyone sees this poll)"
-          />
         </label>
 
         {important ? (
@@ -819,6 +856,24 @@ export function AdminCreatePollForm({
         </ul>
       </fieldset>
 
+      <fieldset className="zk-req">
+        <legend>Catalog</legend>
+        <p className="meta">
+          Needed so every visitor sees this poll’s title, options, and ZKPassport rules.
+        </p>
+        <label>
+          Catalog publish token
+          <input
+            type="password"
+            autoComplete="off"
+            value={publishToken}
+            disabled={busy}
+            onChange={(e) => setPublishToken(e.target.value)}
+            placeholder="Paste if not already stored in this tab"
+          />
+        </label>
+      </fieldset>
+
       <button type="submit" className="btn btn-primary" disabled={busy}>
         {busy ? "Working…" : "Create poll on-chain"}
       </button>
@@ -886,4 +941,16 @@ function privacyHint(policy) {
     return "Open only: address and choice are published on-chain. Voters cannot hide who they are.";
   }
   return "Voter choice: each voter picks private or open on the ballot page.";
+}
+
+const VOTE_FREQUENCY_OPTIONS = [
+  { value: VOTE_FREQUENCY.ONCE, label: "Once per poll" },
+  { value: VOTE_FREQUENCY.DAILY, label: "Once every 24 hours" },
+];
+
+function voteFrequencyHint(frequency) {
+  if (frequency === VOTE_FREQUENCY.DAILY) {
+    return "UTC calendar day: one private or open ballot per account from 00:00 to 24:00 UTC. Each day adds to the tally; yesterday’s choice is not subtracted.";
+  }
+  return "One ballot per Aztec account for the life of this poll. Switching private/open does not add a second vote.";
 }

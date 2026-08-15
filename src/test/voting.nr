@@ -26,6 +26,9 @@ unconstrained fn test_create_poll() {
 
     let policy = env.view_public(HappyVote::at(contract_address).get_privacy_policy(poll_id));
     assert_eq(policy, 2);
+
+    let freq = env.view_public(HappyVote::at(contract_address).get_vote_frequency(poll_id));
+    assert_eq(freq, 0);
 }
 
 #[test(should_fail_with = "Only admin")]
@@ -36,7 +39,7 @@ unconstrained fn test_fail_create_poll_non_admin() {
 
     env.call_public(
         alice,
-        HappyVote::at(contract_address).create_poll(poll_id, 2, 2, 0, 1, false, 0, 0),
+        HappyVote::at(contract_address).create_poll(poll_id, 2, 2, 0, 1, false, 0, 0, 0),
     );
 }
 
@@ -58,7 +61,7 @@ unconstrained fn test_cast_vote_private() {
     utils::create_happy_sad_poll(&mut env, contract_address, admin, poll_id);
 
     // option 0 = Happy; identity_commitment = 0 for open eligibility
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, 0));
 
     let tally = env.view_public(HappyVote::at(contract_address).get_tally(poll_id, 0));
     assert_eq(tally, 1);
@@ -76,8 +79,8 @@ unconstrained fn test_cast_vote_private_two_voters() {
 
     utils::create_happy_sad_poll(&mut env, contract_address, admin, poll_id);
 
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0));
-    env.call_private(bob, HappyVote::at(contract_address).cast_vote_private(poll_id, 1, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, 0));
+    env.call_private(bob, HappyVote::at(contract_address).cast_vote_private(poll_id, 1, 0, 0));
 
     let happy = env.view_public(HappyVote::at(contract_address).get_tally(poll_id, 0));
     let sad = env.view_public(HappyVote::at(contract_address).get_tally(poll_id, 1));
@@ -93,8 +96,8 @@ unconstrained fn test_fail_double_vote_private() {
 
     utils::create_happy_sad_poll(&mut env, contract_address, admin, poll_id);
 
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0));
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 1, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 1, 0, 0));
 }
 
 #[test]
@@ -105,7 +108,7 @@ unconstrained fn test_cast_vote_open() {
 
     utils::create_happy_sad_poll(&mut env, contract_address, admin, poll_id);
 
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_open(poll_id, 1, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_open(poll_id, 1, 0, 0));
 
     let tally = env.view_public(HappyVote::at(contract_address).get_tally(poll_id, 1));
     assert_eq(tally, 1);
@@ -123,8 +126,8 @@ unconstrained fn test_fail_private_then_open() {
 
     utils::create_happy_sad_poll(&mut env, contract_address, admin, poll_id);
 
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0));
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_open(poll_id, 1, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_open(poll_id, 1, 0, 0));
 }
 
 #[test]
@@ -137,8 +140,8 @@ unconstrained fn test_vote_two_polls() {
     utils::create_happy_sad_poll(&mut env, contract_address, admin, poll_a);
     utils::create_happy_sad_poll(&mut env, contract_address, admin, poll_b);
 
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_a, 0, 0));
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_b, 1, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_a, 0, 0, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_b, 1, 0, 0));
 
     assert_eq(env.view_public(HappyVote::at(contract_address).get_tally(poll_a, 0)), 1);
     assert_eq(env.view_public(HappyVote::at(contract_address).get_tally(poll_b, 1)), 1);
@@ -179,7 +182,7 @@ unconstrained fn test_fail_vote_after_end() {
 
     utils::create_happy_sad_poll(&mut env, contract_address, admin, poll_id);
     env.call_public(admin, HappyVote::at(contract_address).end_poll(poll_id));
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, 0));
 }
 
 #[test(should_fail_with = "Poll requires private votes")]
@@ -189,8 +192,8 @@ unconstrained fn test_fail_open_on_private_only_poll() {
     let poll_id = PollId::new(Field::from(13));
 
     // privacy_policy = 0 (private_only)
-    env.call_public(admin, HappyVote::at(contract_address).create_poll(poll_id, 2, 0, 0, 1, false, 0, 0));
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_open(poll_id, 0, 0));
+    env.call_public(admin, HappyVote::at(contract_address).create_poll(poll_id, 2, 0, 0, 1, false, 0, 0, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_open(poll_id, 0, 0, 0));
 }
 
 #[test(should_fail_with = "Poll requires open votes")]
@@ -200,8 +203,8 @@ unconstrained fn test_fail_private_on_public_only_poll() {
     let poll_id = PollId::new(Field::from(14));
 
     // privacy_policy = 1 (public_only)
-    env.call_public(admin, HappyVote::at(contract_address).create_poll(poll_id, 2, 1, 0, 1, false, 0, 0));
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0));
+    env.call_public(admin, HappyVote::at(contract_address).create_poll(poll_id, 2, 1, 0, 1, false, 0, 0, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, 0));
 }
 
 #[test(should_fail_with = "Invalid option")]
@@ -212,7 +215,7 @@ unconstrained fn test_fail_invalid_option_out_of_range() {
 
     utils::create_happy_sad_poll(&mut env, contract_address, admin, poll_id);
     // options_count = 2 → option 2 is invalid
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 2, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 2, 0, 0));
 }
 
 #[test(should_fail_with = "Invalid option")]
@@ -225,7 +228,7 @@ unconstrained fn test_fail_option_u32_truncation() {
     // 2^32 truncates to 0 as u32; must still be rejected (would write wrong map key).
     env.call_private(
         alice,
-        HappyVote::at(contract_address).cast_vote_private(poll_id, Field::from(4294967296), 0),
+        HappyVote::at(contract_address).cast_vote_private(poll_id, Field::from(4294967296), 0, 0),
     );
 }
 
@@ -236,8 +239,8 @@ unconstrained fn test_create_poll_zkpassport_eligibility() {
     let poll_gated = PollId::new(Field::from(21));
 
     // eligibility = 1 personhood, 2 gated
-    env.call_public(admin, HappyVote::at(contract_address).create_poll(poll_personhood, 2, 2, 1, 11, false, 0, 0));
-    env.call_public(admin, HappyVote::at(contract_address).create_poll(poll_gated, 3, 2, 2, 22, false, 0, 0));
+    env.call_public(admin, HappyVote::at(contract_address).create_poll(poll_personhood, 2, 2, 1, 11, false, 0, 0, 0));
+    env.call_public(admin, HappyVote::at(contract_address).create_poll(poll_gated, 3, 2, 2, 22, false, 0, 0, 0));
 
     let mode_p = env.view_public(HappyVote::at(contract_address).get_eligibility_mode(poll_personhood));
     let mode_g = env.view_public(HappyVote::at(contract_address).get_eligibility_mode(poll_gated));
@@ -252,7 +255,7 @@ unconstrained fn test_create_poll_zkpassport_eligibility() {
 unconstrained fn test_fail_invalid_eligibility_mode() {
     let (mut env, contract_address, admin) = utils::setup();
     let poll_id = PollId::new(Field::from(22));
-    env.call_public(admin, HappyVote::at(contract_address).create_poll(poll_id, 2, 2, 3, 1, false, 0, 0));
+    env.call_public(admin, HappyVote::at(contract_address).create_poll(poll_id, 2, 2, 3, 1, false, 0, 0, 0));
 }
 
 #[test]
@@ -265,15 +268,15 @@ unconstrained fn test_zkpassport_identity_vote() {
     let identity_b = Field::from(222);
 
     // eligibility personhood = 1
-    env.call_public(admin, HappyVote::at(contract_address).create_poll(poll_id, 2, 2, 1, 99, false, 0, 0));
+    env.call_public(admin, HappyVote::at(contract_address).create_poll(poll_id, 2, 2, 1, 99, false, 0, 0, 0));
 
     env.call_private(
         alice,
-        HappyVote::at(contract_address).cast_vote_private(poll_id, 0, identity_a),
+        HappyVote::at(contract_address).cast_vote_private(poll_id, 0, identity_a, 0),
     );
     env.call_private(
         bob,
-        HappyVote::at(contract_address).cast_vote_private(poll_id, 1, identity_b),
+        HappyVote::at(contract_address).cast_vote_private(poll_id, 1, identity_b, 0),
     );
 
     assert_eq(env.view_public(HappyVote::at(contract_address).get_tally(poll_id, 0)), 1);
@@ -292,16 +295,16 @@ unconstrained fn test_fail_same_identity_two_accounts() {
     let poll_id = PollId::new(Field::from(31));
     let shared_identity = Field::from(777);
 
-    env.call_public(admin, HappyVote::at(contract_address).create_poll(poll_id, 2, 2, 1, 99, false, 0, 0));
+    env.call_public(admin, HappyVote::at(contract_address).create_poll(poll_id, 2, 2, 1, 99, false, 0, 0, 0));
 
     env.call_private(
         alice,
-        HappyVote::at(contract_address).cast_vote_private(poll_id, 0, shared_identity),
+        HappyVote::at(contract_address).cast_vote_private(poll_id, 0, shared_identity, 0),
     );
     // Same ZKPassport UID, different Aztec account → reject
     env.call_private(
         bob,
-        HappyVote::at(contract_address).cast_vote_private(poll_id, 1, shared_identity),
+        HappyVote::at(contract_address).cast_vote_private(poll_id, 1, shared_identity, 0),
     );
 }
 
@@ -311,8 +314,8 @@ unconstrained fn test_fail_personhood_without_identity() {
     let alice = env.create_light_account();
     let poll_id = PollId::new(Field::from(32));
 
-    env.call_public(admin, HappyVote::at(contract_address).create_poll(poll_id, 2, 2, 1, 99, false, 0, 0));
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0));
+    env.call_public(admin, HappyVote::at(contract_address).create_poll(poll_id, 2, 2, 1, 99, false, 0, 0, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, 0));
 }
 
 #[test(should_fail_with = "Identity not allowed for open polls")]
@@ -324,7 +327,7 @@ unconstrained fn test_fail_identity_on_open_poll() {
     utils::create_happy_sad_poll(&mut env, contract_address, admin, poll_id);
     env.call_private(
         alice,
-        HappyVote::at(contract_address).cast_vote_private(poll_id, 0, Field::from(55)),
+        HappyVote::at(contract_address).cast_vote_private(poll_id, 0, Field::from(55), 0),
     );
 }
 
@@ -335,8 +338,8 @@ unconstrained fn test_sealed_hides_tallies_until_end() {
     let poll_id = PollId::new(Field::from(40));
 
     // sealed = true
-    env.call_public(admin, HappyVote::at(contract_address).create_poll(poll_id, 2, 2, 0, 1, true, 0, 0));
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0));
+    env.call_public(admin, HappyVote::at(contract_address).create_poll(poll_id, 2, 2, 0, 1, true, 0, 0, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, 0));
 
     assert_eq(env.view_public(HappyVote::at(contract_address).get_sealed(poll_id)), true);
     // Hidden while active
@@ -355,7 +358,7 @@ unconstrained fn test_next_poll_id_auto_assign() {
 
     env.call_public(
         admin,
-        HappyVote::at(contract_address).create_poll(PollId::new(0), 2, 2, 0, 1, false, 0, 0),
+        HappyVote::at(contract_address).create_poll(PollId::new(0), 2, 2, 0, 1, false, 0, 0, 0),
     );
 
     assert_eq(env.view_public(HappyVote::at(contract_address).get_options_count(PollId::new(1))), 2);
@@ -377,9 +380,9 @@ unconstrained fn test_fail_vote_before_start() {
     let poll_id = PollId::new(Field::from(50));
     let starts_at = env.last_block_timestamp() + 1000;
 
-    utils::create_poll(&mut env, contract_address, admin, poll_id, 2, 2, 0, 1, false, starts_at, 0);
+    utils::create_poll(&mut env, contract_address, admin, poll_id, 2, 2, 0, 1, false, starts_at, 0, 0);
     assert_eq(env.view_public(HappyVote::at(contract_address).is_voting_open(poll_id)), false);
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, 0));
 }
 
 #[test]
@@ -389,9 +392,9 @@ unconstrained fn test_vote_after_start() {
     let poll_id = PollId::new(Field::from(51));
     let starts_at = env.last_block_timestamp() + 100;
 
-    utils::create_poll(&mut env, contract_address, admin, poll_id, 2, 2, 0, 1, false, starts_at, 0);
+    utils::create_poll(&mut env, contract_address, admin, poll_id, 2, 2, 0, 1, false, starts_at, 0, 0);
     env.mine_block_at(starts_at);
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, 0));
     assert_eq(env.view_public(HappyVote::at(contract_address).get_tally(poll_id, 0)), 1);
 }
 
@@ -402,16 +405,16 @@ unconstrained fn test_fail_vote_after_ends_at() {
     let poll_id = PollId::new(Field::from(52));
     let ends_at = env.last_block_timestamp() + 100;
 
-    utils::create_poll(&mut env, contract_address, admin, poll_id, 2, 2, 0, 1, false, 0, ends_at);
+    utils::create_poll(&mut env, contract_address, admin, poll_id, 2, 2, 0, 1, false, 0, ends_at, 0);
     env.mine_block_at(ends_at);
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, 0));
 }
 
 #[test(should_fail_with = "End must be after start")]
 unconstrained fn test_fail_end_before_start() {
     let (mut env, contract_address, admin) = utils::setup();
     let poll_id = PollId::new(Field::from(53));
-    utils::create_poll(&mut env, contract_address, admin, poll_id, 2, 2, 0, 1, false, 200, 100);
+    utils::create_poll(&mut env, contract_address, admin, poll_id, 2, 2, 0, 1, false, 200, 100, 0);
 }
 
 #[test(should_fail_with = "End must be in the future")]
@@ -419,7 +422,7 @@ unconstrained fn test_fail_end_in_the_past() {
     let (mut env, contract_address, admin) = utils::setup();
     let poll_id = PollId::new(Field::from(54));
     env.mine_block_at(env.last_block_timestamp() + 1000);
-    utils::create_poll(&mut env, contract_address, admin, poll_id, 2, 2, 0, 1, false, 0, 500);
+    utils::create_poll(&mut env, contract_address, admin, poll_id, 2, 2, 0, 1, false, 0, 500, 0);
 }
 
 #[test]
@@ -429,8 +432,8 @@ unconstrained fn test_sealed_reveals_after_ends_at() {
     let poll_id = PollId::new(Field::from(55));
     let ends_at = env.last_block_timestamp() + 200;
 
-    utils::create_poll(&mut env, contract_address, admin, poll_id, 2, 2, 0, 1, true, 0, ends_at);
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0));
+    utils::create_poll(&mut env, contract_address, admin, poll_id, 2, 2, 0, 1, true, 0, ends_at, 0);
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, 0));
     assert_eq(env.view_public(HappyVote::at(contract_address).get_tally(poll_id, 0)), 0);
 
     env.mine_block_at(ends_at);
@@ -476,7 +479,7 @@ unconstrained fn test_fail_cancel_after_votes() {
     let alice = env.create_light_account();
     let poll_id = PollId::new(Field::from(71));
     utils::create_happy_sad_poll(&mut env, contract_address, admin, poll_id);
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, 0));
     env.call_public(admin, HappyVote::at(contract_address).cancel_poll(poll_id));
 }
 
@@ -487,7 +490,7 @@ unconstrained fn test_fail_vote_after_cancel() {
     let poll_id = PollId::new(Field::from(72));
     utils::create_happy_sad_poll(&mut env, contract_address, admin, poll_id);
     env.call_public(admin, HappyVote::at(contract_address).cancel_poll(poll_id));
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, 0));
 }
 
 #[test(should_fail_with = "Contract is paused")]
@@ -505,7 +508,7 @@ unconstrained fn test_fail_vote_when_paused() {
     let poll_id = PollId::new(Field::from(81));
     utils::create_happy_sad_poll(&mut env, contract_address, admin, poll_id);
     env.call_public(admin, HappyVote::at(contract_address).set_paused(true));
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, 0));
 }
 
 #[test]
@@ -516,6 +519,142 @@ unconstrained fn test_unpause_allows_vote() {
     utils::create_happy_sad_poll(&mut env, contract_address, admin, poll_id);
     env.call_public(admin, HappyVote::at(contract_address).set_paused(true));
     env.call_public(admin, HappyVote::at(contract_address).set_paused(false));
-    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, 0));
     assert_eq(env.view_public(HappyVote::at(contract_address).get_tally(poll_id, 0)), 1);
+}
+
+#[test(should_fail_with = "Unsupported vote frequency")]
+unconstrained fn test_fail_invalid_vote_frequency() {
+    let (mut env, contract_address, admin) = utils::setup();
+    let poll_id = PollId::new(Field::from(90));
+    env.call_public(
+        admin,
+        HappyVote::at(contract_address).create_poll(poll_id, 2, 2, 0, 1, false, 0, 0, 2),
+    );
+}
+
+#[test]
+unconstrained fn test_daily_vote_private_then_next_day() {
+    let (mut env, contract_address, admin) = utils::setup();
+    let alice = env.create_light_account();
+    let poll_id = PollId::new(Field::from(91));
+    utils::create_daily_poll(&mut env, contract_address, admin, poll_id);
+
+    let freq = env.view_public(HappyVote::at(contract_address).get_vote_frequency(poll_id));
+    assert_eq(freq, 1);
+
+    let period = (env.last_block_timestamp() / 86400) as Field;
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, period));
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_tally(poll_id, 0)), 1);
+
+    env.mine_block_at(env.last_block_timestamp() + 86400);
+    let next_period = (env.last_block_timestamp() / 86400) as Field;
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 1, 0, next_period));
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_tally(poll_id, 0)), 1);
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_tally(poll_id, 1)), 1);
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_total_votes(poll_id)), 2);
+}
+
+#[test(should_fail_with = "duplicate siloed nullifier")]
+unconstrained fn test_fail_daily_double_vote_same_day() {
+    let (mut env, contract_address, admin) = utils::setup();
+    let alice = env.create_light_account();
+    let poll_id = PollId::new(Field::from(92));
+    utils::create_daily_poll(&mut env, contract_address, admin, poll_id);
+    let period = (env.last_block_timestamp() / 86400) as Field;
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, period));
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_open(poll_id, 1, 0, period));
+}
+
+#[test]
+unconstrained fn test_daily_vote_open_then_next_day() {
+    let (mut env, contract_address, admin) = utils::setup();
+    let alice = env.create_light_account();
+    let poll_id = PollId::new(Field::from(93));
+    utils::create_daily_poll(&mut env, contract_address, admin, poll_id);
+    let period = (env.last_block_timestamp() / 86400) as Field;
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_open(poll_id, 0, 0, period));
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_open_ballot(poll_id, alice)), 1);
+
+    env.mine_block_at(env.last_block_timestamp() + 86400);
+    let next_period = (env.last_block_timestamp() / 86400) as Field;
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_open(poll_id, 1, 0, next_period));
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_open_ballot(poll_id, alice)), 2);
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_total_votes(poll_id)), 2);
+}
+
+#[test(should_fail_with = "Wrong vote period")]
+unconstrained fn test_fail_daily_wrong_period() {
+    let (mut env, contract_address, admin) = utils::setup();
+    let alice = env.create_light_account();
+    let poll_id = PollId::new(Field::from(94));
+    utils::create_daily_poll(&mut env, contract_address, admin, poll_id);
+    let period = (env.last_block_timestamp() / 86400) as Field;
+    env.call_private(
+        alice,
+        HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, period + 1),
+    );
+}
+
+#[test(should_fail_with = "duplicate siloed nullifier")]
+unconstrained fn test_fail_once_only_next_day() {
+    let (mut env, contract_address, admin) = utils::setup();
+    let alice = env.create_light_account();
+    let poll_id = PollId::new(Field::from(95));
+    utils::create_happy_sad_poll(&mut env, contract_address, admin, poll_id);
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 0, 0, 0));
+    env.mine_block_at(env.last_block_timestamp() + 86400);
+    env.call_private(alice, HappyVote::at(contract_address).cast_vote_private(poll_id, 1, 0, 0));
+}
+
+#[test]
+unconstrained fn test_daily_identity_next_day() {
+    let (mut env, contract_address, admin) = utils::setup();
+    let alice = env.create_light_account();
+    let bob = env.create_light_account();
+    let poll_id = PollId::new(Field::from(96));
+    let identity = Field::from(888);
+    env.call_public(
+        admin,
+        HappyVote::at(contract_address).create_poll(poll_id, 2, 2, 1, 99, false, 0, 0, 1),
+    );
+    let period = (env.last_block_timestamp() / 86400) as Field;
+    env.call_private(
+        alice,
+        HappyVote::at(contract_address).cast_vote_private(poll_id, 0, identity, period),
+    );
+    assert_eq(
+        env.view_public(HappyVote::at(contract_address).has_identity_voted(poll_id, identity)),
+        true,
+    );
+
+    env.mine_block_at(env.last_block_timestamp() + 86400);
+    let next_period = (env.last_block_timestamp() / 86400) as Field;
+    env.call_private(
+        bob,
+        HappyVote::at(contract_address).cast_vote_private(poll_id, 1, identity, next_period),
+    );
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_total_votes(poll_id)), 2);
+}
+
+#[test(should_fail_with = "Identity already voted")]
+unconstrained fn test_fail_daily_identity_same_day() {
+    let (mut env, contract_address, admin) = utils::setup();
+    let alice = env.create_light_account();
+    let bob = env.create_light_account();
+    let poll_id = PollId::new(Field::from(97));
+    let identity = Field::from(999);
+    env.call_public(
+        admin,
+        HappyVote::at(contract_address).create_poll(poll_id, 2, 2, 1, 99, false, 0, 0, 1),
+    );
+    let period = (env.last_block_timestamp() / 86400) as Field;
+    env.call_private(
+        alice,
+        HappyVote::at(contract_address).cast_vote_private(poll_id, 0, identity, period),
+    );
+    env.call_private(
+        bob,
+        HappyVote::at(contract_address).cast_vote_private(poll_id, 1, identity, period),
+    );
 }

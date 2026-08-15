@@ -32,9 +32,15 @@
 
       "eligibilityMode": 0,
 
+      "voteFrequency": 1,
+
       "zkRequirements": null,
 
       "sealed": false,
+
+      "showOnHome": true,
+
+      "homeRank": 1,
 
       "metadataHash": null
 
@@ -89,6 +95,10 @@
       "zkRequirements": null,
 
       "sealed": false,
+
+      "showOnHome": true,
+
+      "homeRank": 2,
 
       "metadataHash": null
 
@@ -157,6 +167,10 @@
       },
 
       "sealed": false,
+
+      "showOnHome": true,
+
+      "homeRank": 3,
 
       "metadataHash": "0x1aa6032787d3653250160ddb12a166c9e1fa38486ce9bb30afd96fafdc9f390c"
 

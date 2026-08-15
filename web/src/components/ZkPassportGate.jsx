@@ -6,7 +6,8 @@ import {
   applyZkRequirementsToQuery,
   resolveEffectiveZkRequirements,
 } from "../lib/zkRequirements.js";
-import { reverifyZkPassport } from "../lib/zkIdentity.js";
+import { Notice } from "./Notice.jsx";
+import { explainError, softenTechnicalText } from "../lib/userMessages.js";
 
 /**
  * ZKPassport gate (Phase 4).
@@ -188,9 +189,9 @@ export function ZkPassportGate({
               </button>
             ) : null}
             {!sdkEnabled && !allowMock ? (
-              <p className="status" data-tone="error">
-                ZKPassport SDK is not enabled. Set <code>VITE_ZKPASSPORT_ENABLED=true</code>.
-              </p>
+              <Notice tone="error" title="ZKPassport is not enabled">
+                This poll cannot verify identity until the site is configured for ZKPassport.
+              </Notice>
             ) : null}
             {phase === "rechecking" || busy ? (
               <p className="status" data-tone="neutral">
@@ -200,9 +201,9 @@ export function ZkPassportGate({
           </div>
 
           {error ? (
-            <p className="status" data-tone="error">
-              {error}
-            </p>
+            <Notice tone="error" title={error.title}>
+              {error.text}
+            </Notice>
           ) : null}
         </div>
       </div>
@@ -226,11 +227,17 @@ export function ZkPassportGate({
             onResult={async ({ verified, uniqueIdentifier, proofs, result, queryResultErrors }) => {
               setError(null);
               if (!verified) {
-                setError(formatZkVerifyFailure(queryResultErrors));
+                setError({
+                  title: "Identity check failed",
+                  text: formatZkVerifyFailure(queryResultErrors),
+                });
                 return;
               }
               if (!uniqueIdentifier) {
-                setError("ZKPassport returned no uniqueIdentifier");
+                setError({
+                  title: "Identity check failed",
+                  text: "ZKPassport did not return an identifier. Scan again.",
+                });
                 return;
               }
 
@@ -262,7 +269,7 @@ export function ZkPassportGate({
                 });
               } catch (err) {
                 console.error(err);
-                setError(err?.message || String(err));
+                setError(explainError(err, "generic"));
                 setPhase("scan");
               } finally {
                 setBusy(false);
@@ -272,7 +279,12 @@ export function ZkPassportGate({
               console.error(err);
               setError(formatZkNetworkError(err));
             }}
-            onReject={() => setError("Verification rejected in ZKPassport app")}
+            onReject={() =>
+              setError({
+                title: "Verification cancelled",
+                text: "Rejected in the ZKPassport app. Scan again when you are ready.",
+              })
+            }
           />
         </div>
       ) : null}
@@ -310,18 +322,23 @@ function collectZkErrorMessages(queryResultErrors) {
 }
 
 function formatZkVerifyFailure(queryResultErrors) {
-  const details = collectZkErrorMessages(queryResultErrors);
+  const details = collectZkErrorMessages(queryResultErrors).map((msg) =>
+    softenTechnicalText(msg, 160),
+  );
   if (details.some((msg) => /unrecognized root certificate/i.test(msg))) {
-    return `${details.join(" · ")} The site could not reach the certificate registry (blocked RPC). Retry after a refresh.`;
+    return "The site could not reach the certificate registry. Refresh and try again.";
   }
-  if (details.length > 0) return `ZKPassport verification failed: ${details.join(" · ")}`;
-  return "ZKPassport verification failed";
+  if (details.length > 0) return details.join(" · ");
+  return "The passport proof was not accepted. Scan again.";
 }
 
 function formatZkNetworkError(err) {
   const msg = err?.message || String(err);
   if (/content security policy|failed to fetch|refused to connect/i.test(msg)) {
-    return `${msg} Certificate registry lookup was blocked. The site needs access to the ZKPassport registry RPC.`;
+    return {
+      title: "Certificate registry blocked",
+      text: "This site needs access to the ZKPassport registry. Check ad blockers, then retry.",
+    };
   }
-  return msg;
+  return explainError(err, "generic");
 }

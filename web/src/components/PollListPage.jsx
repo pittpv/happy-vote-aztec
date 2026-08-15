@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { listPolls, pollOptionLabels, refreshSharedCatalog } from "../lib/polls.js";
+import { listPolls, refreshSharedCatalog } from "../lib/polls.js";
 import { countryLabel } from "../lib/countries.js";
-import { countriesFromRequirements, ELIGIBILITY_MODE } from "../lib/zkRequirements.js";
-import { getPollSchedule, scheduleBadge, scheduleSummary } from "../lib/pollSchedule.js";
+import { countriesFromRequirements } from "../lib/zkRequirements.js";
 import { useNow } from "../hooks/useNow.js";
-import { navigate, pollPath } from "../lib/routing.js";
-import { SITE_DESCRIPTION, SITE_NAME } from "../lib/site.js";
-import { homeJsonLd } from "../lib/seo.js";
+import { SITE_NAME } from "../lib/site.js";
+import { metaDescription, pageTitle, webPageJsonLd } from "../lib/seo.js";
 import { usePageSeo } from "../hooks/usePageSeo.js";
 import { SiteFooter } from "./SiteFooter.jsx";
+import { SiteHeader } from "./SiteHeader.jsx";
+import { PollCard } from "./PollCard.jsx";
 
-export function PollListPage() {
+const POLLS_DESCRIPTION =
+  "Browse every HappyVote poll on Aztec Testnet. Search by title or topic, filter by country and eligibility, then open a ballot.";
+
+export function PollListPage({ walletConnect }) {
   const now = useNow(1000);
   const [polls, setPolls] = useState(() => listPolls());
   const [catalogStatus, setCatalogStatus] = useState("Loading shared catalog…");
@@ -74,63 +77,34 @@ export function PollListPage() {
     });
   }, [polls, topic, country, eligibility, query]);
 
+  const pollsTitle = pageTitle("All polls");
   usePageSeo({
-    title: SITE_NAME,
-    description: SITE_DESCRIPTION,
-    path: "/",
-    jsonLd: homeJsonLd(),
+    title: pollsTitle,
+    description: metaDescription(POLLS_DESCRIPTION),
+    path: "/polls",
+    jsonLd: webPageJsonLd({
+      title: pollsTitle,
+      description: POLLS_DESCRIPTION,
+      path: "/polls",
+      breadcrumbs: [
+        { name: SITE_NAME, path: "/" },
+        { name: "All polls", path: "/polls" },
+      ],
+    }),
   });
 
   return (
     <main className="app app-wide">
+      <SiteHeader walletConnect={walletConnect} current="polls" />
+
       <header className="home-hero">
-        <h1 className="brand">
-          HappyVote <span className="brand-on">on</span> <span>Aztec</span>
-        </h1>
-        <p className="lede">
-          HappyVote on Aztec: private or open ballots on Aztec Testnet — pick a poll, connect a
-          wallet, cast once.
-        </p>
+        <p className="vote-kicker">Catalog</p>
+        <h1 className="question">All polls</h1>
+        <p className="lede">Search, filter, then open a ballot. New votes appear here as they are published.</p>
       </header>
 
-      <section className="home-about" aria-labelledby="about-heading">
-        <h2 id="about-heading" className="section-title">
-          Independent voting, without exposing who you are
-        </h2>
-        <p className="section-lede">
-          HappyVote is a technology layer for honest polls on Aztec Network: one verified person,
-          one vote — with privacy that keeps voters safer where speech can be punished.
-        </p>
-
-        <div className="home-pillars">
-          <article className="home-pillar">
-            <h3>Private by design</h3>
-            <p>
-              Cast a private ballot so your wallet address stays hidden. The network still records a
-              valid +1 to the chosen option — results stay auditable, identity does not.
-            </p>
-          </article>
-          <article className="home-pillar">
-            <h3>Verified, not doxed</h3>
-            <p>
-              ZKPassport can prove personhood or eligibility without handing organizers your
-              passport data. Sybil resistance without a public voter registry.
-            </p>
-          </article>
-          <article className="home-pillar">
-            <h3>Safer where votes are risky</h3>
-            <p>
-              In places where political or social expression invites harassment or prosecution,
-              independent on-chain voting lets people participate without publishing who chose what.
-            </p>
-          </article>
-        </div>
-      </section>
-
-      <section id="polls" className="catalog" aria-label="Polls">
+      <section id="polls" className="catalog" aria-label="All polls">
         <div className="catalog-head">
-          <h2 className="section-title">Open polls</h2>
-          <p className="section-lede tight">Search, filter, then open a ballot.</p>
           <p className="meta">{catalogStatus}</p>
         </div>
 
@@ -187,90 +161,9 @@ export function PollListPage() {
         )}
       </section>
 
-      <section className="home-trust" aria-labelledby="trust-heading">
-        <h2 id="trust-heading" className="section-title">
-          Why this matters
-        </h2>
-        <div className="home-trust-grid">
-          <div>
-            <h3>Independent of local gatekeepers</h3>
-            <p>
-              Ballots live on Aztec, not on a single server you have to trust. Tallies are public
-              and checkable; organizers cannot quietly rewrite private votes after the fact.
-            </p>
-          </div>
-          <div>
-            <h3>Honest counts, protected voters</h3>
-            <p>
-              Privacy mode hides who voted; open mode is available when transparency of the voter
-              is intentional. Either way, duplicate voting is constrained by the wallet (and
-              ZKPassport when required).
-            </p>
-          </div>
-        </div>
-      </section>
-
       <SiteFooter
         disclaimer="HappyVote is a technology layer on Aztec Network. It is not an official electoral authority."
       />
     </main>
-  );
-}
-
-function optionKindLabel(poll) {
-  const labels = pollOptionLabels(poll.options);
-  if (labels.length === 2) return labels.join(" · ");
-  return "Single choice";
-}
-
-function PollCard({ poll, now }) {
-  const codes = poll.countries || countriesFromRequirements(poll.zkRequirements);
-  const schedule = getPollSchedule(poll, now);
-  const badge = scheduleBadge(schedule);
-  const summary = scheduleSummary(schedule);
-  const modeLabel =
-    poll.eligibilityMode === ELIGIBILITY_MODE.GATED
-      ? "Gated"
-      : poll.requiresZkPassport
-        ? "Personhood"
-        : "Open";
-
-  return (
-    <button
-      type="button"
-      className="poll-card"
-      onClick={() => navigate(pollPath(poll.id))}
-    >
-      <div className="poll-card-top">
-        <span className="poll-card-id">#{poll.id}</span>
-        <div className="poll-card-badges">
-          {badge ? <span className={`elig-badge is-${badge.kind}`}>{badge.label}</span> : null}
-          <span className={`elig-badge${poll.requiresZkPassport ? " is-zk" : ""}`}>{modeLabel}</span>
-          {poll.sealed ? <span className="elig-badge">Sealed</span> : null}
-        </div>
-      </div>
-      <h2 className="poll-card-title">{poll.title}</h2>
-      {poll.description ? <p className="poll-card-desc">{poll.description}</p> : null}
-      {summary ? <p className="poll-card-schedule">{summary}</p> : null}
-      <div className="poll-card-meta">
-        <span>{(poll.options || []).length} options</span>
-        <span>{optionKindLabel(poll)}</span>
-      </div>
-      {(poll.topics || []).length > 0 ? (
-        <div className="topic-row">
-          {poll.topics.map((t) => (
-            <span key={t} className="topic-chip">
-              {t}
-            </span>
-          ))}
-        </div>
-      ) : null}
-      {codes.length > 0 ? (
-        <p className="poll-card-countries">
-          {codes.slice(0, 4).map(countryLabel).join(" · ")}
-          {codes.length > 4 ? ` +${codes.length - 4}` : ""}
-        </p>
-      ) : null}
-    </button>
   );
 }

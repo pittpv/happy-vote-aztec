@@ -4,6 +4,7 @@
  * GET  /api/polls          → { polls: PollMeta[], source }
  * GET  /api/polls?id=3     → single poll
  * POST /api/polls          → upsert poll (Authorization: Bearer POLLS_PUBLISH_TOKEN)
+ * POST /api/polls { homepage: [{ id, showOnHome, homeRank }] } → featured flags for `/`
  *
  * Persistence: embedded seed + optional Vercel Blob overlay (`BLOB_READ_WRITE_TOKEN`).
  */
@@ -98,13 +99,50 @@ function normalizePoll(raw) {
     privacyPolicy: [0, 1, 2].includes(Number(raw.privacyPolicy))
       ? Number(raw.privacyPolicy)
       : 2,
+    voteFrequency: Number(raw.voteFrequency) === 1 ? 1 : 0,
     zkRequirements: raw.zkRequirements ?? null,
     sealed: Boolean(raw.sealed),
     startsAt,
     endsAt,
+    showOnHome: raw.showOnHome == null ? true : Boolean(raw.showOnHome),
+    homeRank: Number.isFinite(Number(raw.homeRank)) ? Number(raw.homeRank) : Number(id),
     metadataHash: raw.metadataHash != null ? String(raw.metadataHash) : null,
     publishedAt: raw.publishedAt || new Date().toISOString(),
   };
+}
+
+function normalizeHomepageEntries(raw) {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw new Error("homepage must be a non-empty array");
+  }
+  const seen = new Set();
+  return raw.map((item) => {
+    if (!item || typeof item !== "object") throw new Error("Invalid homepage entry");
+    const id = String(item.id || "").trim();
+    if (!/^\d+$/.test(id)) throw new Error("homepage entry id must be a positive integer string");
+    if (seen.has(id)) throw new Error(`Duplicate homepage entry for poll ${id}`);
+    seen.add(id);
+    const rank = Number(item.homeRank);
+    return {
+      id,
+      showOnHome: Boolean(item.showOnHome),
+      homeRank: Number.isFinite(rank) ? rank : Number(id),
+    };
+  });
+}
+
+function applyHomepage(mergedPolls, overlayPolls, entries) {
+  const next = { ...overlayPolls };
+  for (const entry of entries) {
+    const existing = mergedPolls[entry.id] || next[entry.id];
+    if (!existing) throw new Error(`Unknown poll ${entry.id}`);
+    next[entry.id] = {
+      ...existing,
+      showOnHome: entry.showOnHome,
+      homeRank: entry.homeRank,
+    };
+  }
+  return next;
 }
 
 async function readBlobCatalog() {
@@ -199,10 +237,43 @@ export default async function handler(req, res) {
       if (!checkAuth(req)) return unauthorized(res);
 
       const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
-      const poll = normalizePoll(body.poll || body);
-
       const seed = loadSeed();
       const overlay = (await readBlobCatalog()) || { version: 1, polls: {} };
+      const merged = mergeCatalogs(seed, overlay);
+
+      if (Array.isArray(body.homepage)) {
+        const entries = normalizeHomepageEntries(body.homepage);
+        const next = {
+          version: Number(overlay.version || 1),
+          updatedAt: new Date().toISOString(),
+          polls: applyHomepage(merged.polls, overlay.polls || {}, entries),
+        };
+        const mergedForClients = mergeCatalogs(seed, next);
+        try {
+          const blob = await writeBlobCatalog(next);
+          return res.status(200).json({
+            ok: true,
+            persisted: true,
+            blobUrl: blob.url,
+            totalPolls: Object.keys(mergedForClients.polls).length,
+            homepage: Object.values(mergedForClients.polls)
+              .filter((p) => p.showOnHome !== false)
+              .map((p) => p.id),
+          });
+        } catch (error) {
+          if (error?.code === "NO_BLOB") {
+            return res.status(503).json({
+              ok: false,
+              error:
+                "BLOB_READ_WRITE_TOKEN is not configured — homepage selection saved only in this browser until Blob is configured.",
+              persisted: false,
+            });
+          }
+          throw error;
+        }
+      }
+
+      const poll = normalizePoll(body.poll || body);
       const next = {
         version: Number(overlay.version || 1),
         updatedAt: new Date().toISOString(),

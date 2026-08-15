@@ -28,7 +28,7 @@
 | `approval` | Approve / Reject | Позже |
 | `ranked` | Ранжирование | После MVP |
 
-Off-chain метаданные (каталог + опционально Vercel Blob): `title`, `description`, `locale`, `options[]`, `category`, `tags[]`, `cover`, `legal_notice`, опциональные `startsAt` / `endsAt`, JSON требований ZKPassport.
+Off-chain метаданные (каталог + опционально Vercel Blob): `title`, `description`, `locale`, `options[]`, `category`, `tags[]`, `cover`, `legal_notice`, опциональные `startsAt` / `endsAt`, `showOnHome` / `homeRank` (какие опросы на `/`), JSON требований ZKPassport.
 
 On-chain целостность: `metadata_hash` (SHA-256 канонического JSON → Field).
 
@@ -39,6 +39,7 @@ created → (опциональное ожидание startsAt) → open → en
 ```
 
 - В UI и **on-chain** голос принимается, пока опрос существует, контракт не на паузе, опрос не отменён, `vote_ended` = false и окно `starts_at` / `ends_at` открыто (`0` = не задано).
+- **Частота голоса** задаётся при создании: `0` = один бюллетень на аккаунт за весь опрос; `1` = один бюллетень за календарные сутки UTC (`timestamp / 86400`). Private и open делят один claim. Каждый принятый дневной голос добавляет +1 к tally (вчерашний выбор не вычитается).
 - Опциональные unix-секунды on-chain; каталог хранит те же моменты как ISO-8601. Оба пустые → опрос открыт, пока его не закроют `end_poll` / `cancel_poll`.
 - Опрос можно **опубликовать до `starts_at`**. Вопрос виден сразу; Connect и Vote открываются автоматически в момент старта и закрываются в `ends_at`. Прямые `cast_vote_*` вне окна отклоняются контрактом.
 - После закрытия голоса отклоняются; tallies остаются читаемыми (если не sealed и ещё открыт).
@@ -70,7 +71,7 @@ Private **не** скрывает вариант с live-табло: `option_id`
 
 | Уровень | `eligibility_mode` | Механизм |
 |---------|-------------------|----------|
-| Open | 0 | Любой аккаунт; один голос через `SingleUseClaim` |
+| Open | 0 | Любой аккаунт; один голос через `SingleUseClaim` (или раз в сутки UTC) |
 | Personhood | 1 | ZKPassport `uniqueIdentifier` → `identity_commitment` |
 | Gated | 2 | Personhood + возраст / гражданство / sanctions / FaceMatch / Dashboard policy |
 
@@ -100,7 +101,7 @@ Permissionless `create_poll`, антиспам, модерация, discovery.
 | Приватность | Нет копий паспорта на серверах HappyVote |
 | Версии | Pin Aztec **5.1.0** |
 | Юридическое | Платформа ≠ избирательная комиссия |
-| Аналитика | Нет стороннего счётчика на aztec.happyvote.xyz |
+| Аналитика | Нет стороннего счётчика на aztec.happyvote.xyz; только свои cookieless дневные агрегаты |
 | UX | Миссия на главной; 1080px; честный копирайт private-голоса |
 
 ## 9. Анти-цели
@@ -111,7 +112,7 @@ Permissionless `create_poll`, антиспам, модерация, discovery.
 
 ### Sentiment (`/p/1`)
 
-Главная → Open polls → Happy/Sad → Connect → Private (по умолчанию) или Open → prove → live results.
+Главная → Featured polls (или **All polls** `/polls`) → Happy/Sad → Connect → Private (по умолчанию) или Open → prove → live results.
 
 ### Важный опрос (`/p/3`)
 

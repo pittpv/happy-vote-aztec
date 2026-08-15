@@ -42,6 +42,8 @@ export function happyVoteCapabilities() {
         { contract: happyVote, function: "get_starts_at" },
         { contract: happyVote, function: "get_ends_at" },
         { contract: happyVote, function: "get_cancelled" },
+        { contract: happyVote, function: "get_vote_frequency" },
+        { contract: happyVote, function: "get_current_vote_period" },
       ]
     : [];
 

@@ -136,7 +136,8 @@ export async function fetchPublicPollState({
 
   const nowSec = Math.floor(Date.now() / 1000);
   const voteEnded = asNumber(voteEndedValue) !== 0;
-  const sealed = asNumber(sealedValue) !== 0;
+  const sealedFlags = asNumber(sealedValue);
+  const sealed = (sealedFlags & 1) !== 0;
   const startsAt = asNumber(startsAtValue);
   const endsAt = asNumber(endsAtValue);
   const cancelled = asNumber(cancelledValue) !== 0;
@@ -156,6 +157,7 @@ export async function fetchPublicPollState({
     paused,
     startsAt,
     endsAt,
+    voteFrequency: (sealedFlags >> 1) & 1,
     votingOpen,
   };
 }

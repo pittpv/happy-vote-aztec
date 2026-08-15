@@ -20,6 +20,10 @@
     "api/client-error.js": {
       "memory": 512,
       "maxDuration": 10
+    },
+    "api/site-stats.js": {
+      "memory": 512,
+      "maxDuration": 15
     }
   },
   "rewrites": [

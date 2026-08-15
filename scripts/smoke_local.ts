@@ -77,12 +77,12 @@ async function main() {
   const pollId = { id: new Fr(1) };
   logger.info("Creating poll…");
   await contract.methods
-    .create_poll(pollId, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(1), false, 0, 0)
+    .create_poll(pollId, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(1), false, 0, 0, 1)
     .send({ from: admin.address, fee, wait: { timeout: timeouts.txTimeout } });
 
   logger.info("Private vote (Happy)…");
   await contract.methods
-    .cast_vote_private(pollId, new Fr(0), new Fr(0))
+    .cast_vote_private(pollId, new Fr(0), new Fr(0), new Fr(Math.floor(Date.now() / 1000 / 86400)))
     .send({ from: voter.address, fee, wait: { timeout: timeouts.txTimeout } });
 
   const happyRaw = await contract.methods.get_tally(pollId, new Fr(0)).simulate({ from: voter.address });
@@ -92,7 +92,7 @@ async function main() {
   logger.info("Second voter open vote (Sad)…");
   const voter2 = await deploySchnorrAccount(wallet);
   await contract.methods
-    .cast_vote_open(pollId, new Fr(1), new Fr(0))
+    .cast_vote_open(pollId, new Fr(1), new Fr(0), new Fr(Math.floor(Date.now() / 1000 / 86400)))
     .send({ from: voter2.address, fee, wait: { timeout: timeouts.txTimeout } });
 
   const sad = asBigInt(

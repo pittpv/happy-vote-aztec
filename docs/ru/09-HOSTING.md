@@ -24,12 +24,14 @@ COOP/COEP для WASM proving. CSP: RPC, CRS CDN, ZKPassport. SPA rewrite не �
 | Endpoint | Роль |
 |----------|------|
 | `GET /api/poll-state` | Гостевые tallies, кэш ~15с; нули если sealed и активен; есть `paused` / `cancelled` / `votingOpen` |
-| `GET/POST /api/polls` | Каталог (seed + Blob) |
+| `GET/POST /api/polls` | Каталог (seed + Blob). `showOnHome` / `homeRank` для главной; полный список на `/polls` |
 | `POST /api/zkpassport-verify` | Server re-verify |
 | `POST /api/client-error` | Логи ошибок |
+| `POST /api/site-stats` | Обезличенные дневные агрегаты посещений (без cookies, без IP) |
+| `GET /api/site-stats` | Те же агрегаты, только оператор |
 
 Не класть новый `AztecAddress` в зависимости `useEffect`.
 
 ## SEO и аналитика
 
-`index.html` + `seo.js`: title, OG, JSON-LD. `robots.txt`, `sitemap.xml`. Стороннего счётчика нет.
+`index.html` + `seo.js`: title, OG, JSON-LD. `robots.txt`, `sitemap.xml`. Стороннего счётчика нет. Есть first-party cookieless агрегат `POST /api/site-stats` (страна, раздел сайта, просмотры). Чтение агрегатов — только у оператора.

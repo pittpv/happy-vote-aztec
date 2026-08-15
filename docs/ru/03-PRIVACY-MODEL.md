@@ -29,7 +29,7 @@ verified personhood     (вариант всё равно    final only
 
 ### B. Open
 
-Адрес и выбор публичны (`open_ballots`). Тот же nullifier domain, что у private — нельзя проголосовать дважды, сменив режим.
+Адрес и выбор публичны (`open_ballots`). Тот же nullifier domain, что у private — нельзя проголосовать дважды, сменив режим. На дневных опросах общий domain — календарные сутки UTC.
 
 ### C. Voter choice
 
@@ -44,14 +44,16 @@ On-chain (`sealed`): пока `sealed && !closed`, view возвращают `0`
 ZKPassport доказывает personhood / возраст / гражданство / sanctions **на устройстве**. HappyVote получает `verified` + `uniqueIdentifier` + proofs.
 
 1. Server re-verify (`POST /api/zkpassport-verify`) до разблокировки бюллетеня.
-2. `identity_commitment` в `identity_claims[poll][commitment]`.
-3. Nullifier аккаунта тоже действует — два аккаунта, один ID → второй голос отклоняется.
+2. `identity_commitment` в `identity_claims` (Poseidon2 от poll, периода и commitment).
+3. Nullifier аккаунта тоже действует — два аккаунта, один ID → второй голос отклоняется. На дневных опросах тот же identity может голосовать на следующие сутки UTC.
 
 Scope по умолчанию: **на опрос** (`poll:{id}`).
 
 ## 6. Чего не обещаем
 
 Полную анонимность IP/тайминга. Privacy комиссий сверх Sponsored FPC. Статус официальной избирательной комиссии.
+
+Счётчик посещений сайта — отдельный first-party агрегат (без cookies, IP не хранится, без poll ID). К бюллетеням не привязан.
 
 ## 7. Обязательный копирайт
 
@@ -61,7 +63,7 @@ Scope по умолчанию: **на опрос** (`poll:{id}`).
 
 ## 8. Чеклист
 
-- [x] Nullifier на опрос (`SingleUseClaim`)
+- [x] Nullifier на опрос (`SingleUseClaim`), опционально на сутки UTC
 - [x] Private и open — один claim domain
 - [x] Range `option_id` + reject truncation
 - [x] Нет голоса после `end_poll` / `ends_at` / cancel
@@ -69,4 +71,5 @@ Scope по умолчанию: **на опрос** (`poll:{id}`).
 - [x] Server re-verify ZKPassport
 - [x] On-chain identity claim
 - [x] Sealed tallies
+- [x] Агрегаты посещений отделены от бюллетеней (нет cookies, IP не хранится, нет poll id)
 - [ ] E2E на реальном устройстве

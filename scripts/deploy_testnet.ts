@@ -31,6 +31,8 @@ import { getTimeouts } from "../config/config.js";
 const PRIVACY_VOTER_CHOICE = 2;
 const ELIGIBILITY_OPEN = 0;
 const ELIGIBILITY_PERSONHOOD = 1;
+const VOTE_ONCE = 0;
+const VOTE_DAILY = 1;
 const OPTIONS_COUNT_SLOT = 2n;
 const PUBLIC_RPC = "https://v5.testnet.rpc.aztec-labs.com";
 const PUBLISH_TIMEOUT_MS = 20 * 60 * 1000;
@@ -244,23 +246,23 @@ async function main() {
   }
 
   const pollId = { id: Fr.fromString(process.env.POLL_ID ?? "1") };
-  logger.info("Creating Happy/Sad poll (voter_choice)…");
+  logger.info("Creating Happy/Sad poll (voter_choice, daily)…");
   await contract.methods
-    .create_poll(pollId, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(1), false, 0, 0)
+    .create_poll(pollId, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(1), false, 0, 0, VOTE_DAILY)
     .send({ from: admin.address, fee, wait: txWait });
   await waitUntilPollExists(contract.address.toString(), 1, 2n, logger);
 
   const poll2 = { id: Fr.fromString("2") };
   logger.info("Creating single-choice poll #2 (3 options, open eligibility)…");
   await contract.methods
-    .create_poll(poll2, 3, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(2), false, 0, 0)
+    .create_poll(poll2, 3, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(2), false, 0, 0, VOTE_ONCE)
     .send({ from: admin.address, fee, wait: txWait });
   await waitUntilPollExists(contract.address.toString(), 2, 3n, logger);
 
   const poll3 = { id: Fr.fromString("3") };
   logger.info("Creating poll #3 (ZKPassport personhood)…");
   await contract.methods
-    .create_poll(poll3, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_PERSONHOOD, new Fr(3), false, 0, 0)
+    .create_poll(poll3, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_PERSONHOOD, new Fr(3), false, 0, 0, VOTE_ONCE)
     .send({ from: admin.address, fee, wait: txWait });
   await waitUntilPollExists(contract.address.toString(), 3, 2n, logger);
 
@@ -291,7 +293,7 @@ Deployed: ${new Date().toISOString()}
 |------|-------|
 | HappyVote | [\`${addressStr}\`](https://testnet.aztecscan.xyz/address/${addressStr}) |
 | Sponsored FPC | \`${sponsoredFPC.address}\` |
-| Poll id | \`1\` Happy/Sad · \`2\` single-choice (3 opts) · \`3\` ZKPassport personhood test · \`voter_choice\` |
+| Poll id | \`1\` Happy/Sad (daily) · \`2\` single-choice (3 opts) · \`3\` ZKPassport personhood test · \`voter_choice\` |
 | Eligibility modes | \`0\` open · \`1\` ZKPassport personhood · \`2\` gated |
 
 ## Frontend env
