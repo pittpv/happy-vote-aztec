@@ -73,6 +73,11 @@ export function useWalletConnect() {
     if (!provider) return;
     disconnectUnsubRef.current?.();
     disconnectUnsubRef.current = provider.onDisconnect(() => {
+      // iOS Safari hides this tab while the wallet app/popup is open and some
+      // providers emit disconnect. Dropping the session here looks like a full reset.
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        return;
+      }
       const dropped = panelProviderRef.current;
       panelProviderRef.current = null;
       disconnectUnsubRef.current = null;

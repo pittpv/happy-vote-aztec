@@ -97,16 +97,16 @@ export function PollListPage({ walletConnect }) {
     <main className="app app-wide">
       <SiteHeader walletConnect={walletConnect} current="polls" />
 
-      <header className="home-hero">
+      <header className="catalog-hero">
         <p className="vote-kicker">Catalog</p>
-        <h1 className="question">All polls</h1>
-        <p className="lede">Search, filter, then open a ballot. New votes appear here as they are published.</p>
+        <h1 className="catalog-hero-title">All polls</h1>
+        <p className="lede">
+          Search, filter, then open a ballot. New votes appear here as they are published.
+        </p>
+        <p className="meta">{catalogStatus}</p>
       </header>
 
       <section id="polls" className="catalog" aria-label="All polls">
-        <div className="catalog-head">
-          <p className="meta">{catalogStatus}</p>
-        </div>
 
         <div className="catalog-toolbar">
           <label className="filter-field grow">

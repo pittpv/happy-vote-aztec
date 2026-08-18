@@ -50,19 +50,13 @@ export function HomePage({ walletConnect }) {
       <SiteHeader walletConnect={walletConnect} current="home" />
 
       <header className="home-hero">
-        <h1 className="brand">
-          HappyVote <span className="brand-on">on</span> <span>Aztec</span>
-        </h1>
+        <h1 className="home-hero-title">Independent voting, without exposing who you are</h1>
         <p className="lede">
-          HappyVote on Aztec: private or open ballots on Aztec Testnet — pick a poll, connect a
-          wallet, cast once.
+          Private or open ballots on Aztec Testnet — pick a poll, connect a wallet, cast once.
         </p>
       </header>
 
-      <section className="home-about" aria-labelledby="about-heading">
-        <h2 id="about-heading" className="section-title">
-          Independent voting, without exposing who you are
-        </h2>
+      <section className="home-about" aria-label="How HappyVote works">
         <p className="section-lede">
           HappyVote is a technology layer for honest polls on Aztec Network: one verified person,
           one vote — with privacy that keeps voters safer where speech can be punished.

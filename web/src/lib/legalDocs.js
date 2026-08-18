@@ -123,7 +123,7 @@ export const LEGAL_DOCUMENTS = {
           "Private votes: validity and tally updates without revealing your address as the voter; live public tallies still show option counts.",
           "Wallet / account identifiers you connect in the browser for the session.",
           "Optional ZKPassport proofs: cryptographic personhood / eligibility signals (for example a scoped unique identifier). We do not receive your raw passport document through the HappyVote UI.",
-          "Local browser storage: poll catalog metadata you or admins persist in this browser (key happyvote.aztec.polls.v1).",
+          "Local browser storage: poll catalog metadata you or admins persist in this browser (key happyvote.aztec.polls.v1), and a short-lived ZKPassport personhood identifier per poll (key happyvote.aztec.zkid.v1) so a tab reload on mobile does not drop a completed identity check. This is not your passport image.",
           "Server logs / edge requests: when you load the site or call our guest tallies API (/api/poll-state), our host may process standard request metadata (IP, user agent, path, time) to deliver and secure the Service.",
           "First-party visit aggregates: we count pageviews without cookies. The server may read IP and user-agent only to derive a country code and a same-day uniqueness hash, then discard those inputs. We store daily totals (pageviews, approximate uniques, country, coarse site section, device class, browser family, referrer hostname). We do not store IP addresses, do not use analytics cookies, do not keep a cross-day visitor id, and do not record poll IDs in this counter. Small country/referrer counts are grouped so a single visit is not shown as a precise location.",
           "We do not require an email/password account to browse or vote.",
@@ -197,7 +197,7 @@ export const LEGAL_DOCUMENTS = {
       {
         heading: "2. Similar technologies we use",
         bullets: [
-          "localStorage — poll metadata catalog (happyvote.aztec.polls.v1) so created/listed polls persist in your browser.",
+          "localStorage — poll metadata catalog (happyvote.aztec.polls.v1) so created/listed polls persist in your browser; ZKPassport personhood id for a poll (happyvote.aztec.zkid.v1) for up to 12 hours so iPhone reloads do not require scanning again.",
           "In-memory session state — wallet connection and admin key material for the current tab (not written to localStorage for admin import).",
           "Essential host/CDN cookies — our hosting or security edge may set strictly necessary cookies to deliver the site.",
           "Third-party flows — connecting an external Aztec wallet or completing ZKPassport may involve cookies or storage controlled by those providers.",
@@ -207,7 +207,7 @@ export const LEGAL_DOCUMENTS = {
         heading: "3. Purpose categories",
         bullets: [
           "Strictly necessary — load the app, SPA routing, security headers, API delivery.",
-          "Functional — remember poll metadata locally; keep a wallet session while you vote.",
+          "Functional — remember poll metadata locally; keep a completed ZKPassport check across a tab reload; keep a wallet session while you vote.",
           "We do not set analytics or marketing cookies and do not run third-party analytics or cross-site advertising trackers on this subdomain. First-party visit totals (see Privacy Policy) do not use cookies.",
         ],
       },

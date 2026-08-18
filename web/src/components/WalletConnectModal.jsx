@@ -4,6 +4,7 @@ import { AZGUARD_STORE_URL } from "../lib/walletClient.js";
 import { parseAdminKeyMaterial } from "../lib/adminKeys.js";
 import { Notice } from "./Notice.jsx";
 import { explainError } from "../lib/userMessages.js";
+import { isIosBrowser } from "../lib/browser.js";
 
 function ProviderIcon({ icon, name }) {
   const [broken, setBroken] = useState(false);
@@ -48,43 +49,50 @@ function Modal({ title, children, onClose }) {
 }
 
 function ChooseSourceBody({ beginDiscovery, beginSession, onImportKeys, allowAdminImport }) {
-  const [selected, setSelected] = useState("session");
-  const options = [
-    {
-      choice: "session",
-      name: "Browser session",
-      hint: "New voter account",
-    },
-    ...(allowAdminImport
-      ? [
-          {
-            choice: "import",
-            name: "Import admin keys",
-            hint: "SECRET_KEY + SALT",
-          },
-        ]
-      : []),
-    {
-      choice: "extension",
-      name: "Browser Extension",
-      hint: "Azguard",
-    },
-    {
-      choice: "web",
-      name: "Web Wallet",
-      hint: "Aztec Demo Wallet",
-    },
-  ];
+  const ios = isIosBrowser();
+  const [selected, setSelected] = useState(ios ? "web" : "session");
+  const sessionOption = {
+    choice: "session",
+    name: "Browser session",
+    hint: ios ? "Heavy on iPhone — may reload this tab" : "New voter account",
+  };
+  const webOption = {
+    choice: "web",
+    name: "Web Wallet",
+    hint: ios ? "Recommended on iPhone" : "Aztec Demo Wallet",
+  };
+  const importOption = {
+    choice: "import",
+    name: "Import admin keys",
+    hint: "SECRET_KEY + SALT",
+  };
+  const extensionOption = {
+    choice: "extension",
+    name: "Browser Extension",
+    hint: "Azguard",
+  };
+  const options = ios
+    ? [webOption, sessionOption, ...(allowAdminImport ? [importOption] : []), extensionOption]
+    : [sessionOption, ...(allowAdminImport ? [importOption] : []), extensionOption, webOption];
   return (
     <div className="wc-stack">
       <p className="wc-hint">
-        Prefer <strong>Browser session</strong> for voting
-        {allowAdminImport ? (
+        {ios ? (
           <>
-            . Use <strong>Import admin keys</strong> only on a trusted device.
+            On iPhone prefer <strong>Web Wallet</strong>. Stay in Safari until it returns you here.
+            Identity verification is saved if this tab reloads.
           </>
         ) : (
-          "."
+          <>
+            Prefer <strong>Browser session</strong> for voting
+            {allowAdminImport ? (
+              <>
+                . Use <strong>Import admin keys</strong> only on a trusted device.
+              </>
+            ) : (
+              "."
+            )}
+          </>
         )}
       </p>
       <div className="wc-choice-grid wc-choice-grid-2">

@@ -6,6 +6,7 @@ import {
   applyZkRequirementsToQuery,
   resolveEffectiveZkRequirements,
 } from "../lib/zkRequirements.js";
+import { reverifyZkPassport } from "../lib/zkIdentity.js";
 import { Notice } from "./Notice.jsx";
 import { explainError, softenTechnicalText } from "../lib/userMessages.js";
 
@@ -55,8 +56,24 @@ export function ZkPassportGate({
     setError(null);
     setBusy(false);
     setExpanded(false);
-    setPhase("scan");
-    setDone(null);
+    if (verifiedId) {
+      setPhase("verified");
+      setDone({
+        uniqueIdentifier: verifiedId,
+        serverVerified: Boolean(serverVerified),
+        mock: false,
+      });
+    } else {
+      setPhase("scan");
+      setDone(null);
+    }
+  } else if (verifiedId && phase !== "verified") {
+    setPhase("verified");
+    setDone({
+      uniqueIdentifier: verifiedId,
+      serverVerified: Boolean(serverVerified),
+      mock: false,
+    });
   }
 
   function mockVerify() {

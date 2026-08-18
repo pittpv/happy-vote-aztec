@@ -28,7 +28,7 @@ import {
   reportClientError,
   pollOptionLabels,
 } from "./lib/polls.js";
-import { parseRoute, navigate, pollsPath } from "./lib/routing.js";
+import { parseRoute, navigate } from "./lib/routing.js";
 import { ZkPassportGate } from "./components/ZkPassportGate.jsx";
 import { WalletConnectModal } from "./components/WalletConnectModal.jsx";
 import { AdminCreatePollForm } from "./components/AdminCreatePollForm.jsx";
@@ -45,7 +45,7 @@ import { useNow } from "./hooks/useNow.js";
 import { LegalPage } from "./components/LegalPage.jsx";
 import { SiteFooter } from "./components/SiteFooter.jsx";
 import { PollScheduleBanner } from "./components/PollScheduleBanner.jsx";
-import { identityCommitmentFromUid } from "./lib/zkIdentity.js";
+import { identityCommitmentFromUid, loadZkSession, saveZkSession } from "./lib/zkIdentity.js";
 import { ELIGIBILITY_MODE } from "./lib/zkRequirements.js";
 import {
   POLL_PHASE,
@@ -411,8 +411,19 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
     () => Number(getPollMeta(routePollId).voteFrequency) || VOTE_FREQUENCY.ONCE,
   );
   const [receiptNonce, setReceiptNonce] = useState(0);
-  const [zkId, setZkId] = useState(null);
-  const [zkServerVerified, setZkServerVerified] = useState(false);
+  const [zkId, setZkId] = useState(
+    () => loadZkSession(routePollId)?.uniqueIdentifier ?? null,
+  );
+  const [zkServerVerified, setZkServerVerified] = useState(
+    () => Boolean(loadZkSession(routePollId)?.serverVerified),
+  );
+  const [seenZkPoll, setSeenZkPoll] = useState(routePollId);
+  if (seenZkPoll !== routePollId) {
+    setSeenZkPoll(routePollId);
+    const savedZk = loadZkSession(routePollId);
+    setZkId(savedZk?.uniqueIdentifier ?? null);
+    setZkServerVerified(Boolean(savedZk?.serverVerified));
+  }
   const [shareHint, setShareHint] = useState("");
   const now = useNow(1000);
   const dailyVote = isDailyVote(voteFrequency);
@@ -461,8 +472,6 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
     setTallies(optionLabels.map(() => 0));
     setTotal(0);
     setLastTxHash(null);
-    setZkId(null);
-    setZkServerVerified(false);
     setShareHint("");
     setReceiptNonce(0);
     setVoteFrequency(Number(getPollMeta(routePollId).voteFrequency) || VOTE_FREQUENCY.ONCE);
@@ -523,6 +532,8 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contractAddressStr, routePollId]);
 
+  const connectedAddress =
+    walletConnect.phase.kind === "connected" ? String(walletConnect.phase.address) : null;
   useEffect(() => {
     if (walletConnect.phase.kind !== "connected") return;
     const { wallet: nextWallet, address } = walletConnect.phase;
@@ -545,7 +556,7 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [walletConnect.phase]);
+  }, [walletConnect.phase.kind, connectedAddress]);
 
   useEffect(() => {
     if (walletConnect.phase.kind === "disconnected") {
@@ -821,11 +832,6 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
     }
   }
 
-  function disconnect() {
-    walletConnect.disconnectWallet();
-    clearSession();
-  }
-
   const faucetHref = FEE_JUICE_FAUCET_URL;
   const resultsHidden =
     (onChainSealed || pollMeta.sealed) &&
@@ -838,99 +844,90 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
     <main className="app app-wide">
       <SiteHeader walletConnect={walletConnect} current="poll" />
 
-      <header className="vote-top">
-        <nav className="page-nav vote-nav">
-          <button type="button" className="btn btn-ghost" onClick={() => navigate(pollsPath())}>
-            ← All polls
-          </button>
-        </nav>
-
-        <div className="vote-hero">
-          <p className="vote-kicker">Poll #{routePollId}</p>
-          <h1 className="question">{pollMeta.title}</h1>
-          {pollMeta.description ? <p className="poll-desc">{pollMeta.description}</p> : null}
-          {(pollMeta.topics || []).length > 0 ? (
-            <div className="topic-row">
-              {pollMeta.topics.map((t) => (
-                <span key={t} className="topic-chip">
-                  {t}
+      <section className="vote-shell" aria-label="Current poll">
+        <div className="vote-main">
+          <header className="vote-hero">
+            <p className="vote-kicker">Poll #{routePollId}</p>
+            <h1 className="question">{pollMeta.title}</h1>
+            {pollMeta.description ? <p className="poll-desc">{pollMeta.description}</p> : null}
+            {(pollMeta.topics || []).length > 0 ? (
+              <div className="topic-row">
+                {pollMeta.topics.map((t) => (
+                  <span key={t} className="topic-chip">
+                    {t}
+                  </span>
+                ))}
+              </div>
+            ) : null}
+            <div className="meta vote-meta">
+              <span>
+                Network <strong>{getNodeUrl().includes("localhost") ? "local" : "testnet"}</strong>
+              </span>
+              <span>
+                Votes <strong>{total}</strong>
+              </span>
+              {zkId ? (
+                <span>
+                  Personhood <strong>{shortAddr(zkId)}</strong>
+                  {zkServerVerified ? " · server OK" : ""}
                 </span>
-              ))}
+              ) : null}
+              <button type="button" className="text-link" disabled={busy} onClick={copyShareLink}>
+                {shareHint || "Copy share link"}
+              </button>
+              {contractAddressStr ? (
+                <a
+                  className="meta-link"
+                  href={explorerAddressUrl(contractAddressStr)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Contract
+                </a>
+              ) : null}
+            </div>
+            <PollScheduleBanner schedule={schedule} voteEnded={closedOnChain} />
+          </header>
+
+          <ol className="vote-steps" aria-label="Voting progress">
+            <li className={voteStep === 1 ? "is-current" : ""} data-done={identityOk || undefined}>
+              {requiresZk ? "Verify" : "Ready"}
+            </li>
+            <li className={voteStep === 2 ? "is-current" : ""} data-done={Boolean(accountAddress) || undefined}>
+              Connect
+            </li>
+            <li className={voteStep === 3 ? "is-current" : ""}>Vote</li>
+          </ol>
+
+          {requiresZk && votingOpen ? (
+            <div className="vote-zk">
+              <ZkPassportGate
+                pollId={routePollId}
+                requirements={pollMeta.zkRequirements}
+                verifiedId={zkId}
+                serverVerified={zkServerVerified}
+                onVerified={({ uniqueIdentifier, serverVerified, mock }) => {
+                  setZkId(uniqueIdentifier);
+                  setZkServerVerified(Boolean(serverVerified));
+                  saveZkSession(routePollId, {
+                    uniqueIdentifier,
+                    serverVerified,
+                    mock,
+                    requirements: pollMeta.zkRequirements,
+                  });
+                  setStatus({
+                    text: serverVerified
+                      ? "Identity verified — connect a wallet and cast your ballot."
+                      : "Identity verified for this poll.",
+                    tone: "ok",
+                  });
+                }}
+              />
             </div>
           ) : null}
-          <div className="meta vote-meta">
-            <span>
-              Network <strong>{getNodeUrl().includes("localhost") ? "local" : "testnet"}</strong>
-            </span>
-            <span>
-              Votes <strong>{total}</strong>
-            </span>
-            {accountAddress ? (
-              <span>
-                Account <strong>{shortAddr(accountAddress.toString())}</strong>
-              </span>
-            ) : null}
-            {zkId ? (
-              <span>
-                Personhood <strong>{shortAddr(zkId)}</strong>
-                {zkServerVerified ? " · server OK" : ""}
-              </span>
-            ) : null}
-          </div>
-          <PollScheduleBanner schedule={schedule} voteEnded={closedOnChain} />
-          <div className="share-row">
-            <button type="button" className="btn btn-ghost" disabled={busy} onClick={copyShareLink}>
-              Copy share link
-            </button>
-            {shareHint ? <span className="meta">{shareHint}</span> : null}
-            {contractAddressStr ? (
-              <a
-                className="meta-link"
-                href={explorerAddressUrl(contractAddressStr)}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Contract on Aztecscan
-              </a>
-            ) : null}
-          </div>
-        </div>
-      </header>
 
-      <ol className="vote-steps" aria-label="Voting progress">
-        <li className={voteStep === 1 ? "is-current" : ""} data-done={identityOk || undefined}>
-          {requiresZk ? "Verify" : "Ready"}
-        </li>
-        <li className={voteStep === 2 ? "is-current" : ""} data-done={Boolean(accountAddress) || undefined}>
-          Connect
-        </li>
-        <li className={voteStep === 3 ? "is-current" : ""}>Vote</li>
-      </ol>
-
-      {requiresZk && votingOpen ? (
-        <div className="vote-zk">
-          <ZkPassportGate
-            pollId={routePollId}
-            requirements={pollMeta.zkRequirements}
-            verifiedId={zkId}
-            serverVerified={zkServerVerified}
-            onVerified={({ uniqueIdentifier, serverVerified }) => {
-              setZkId(uniqueIdentifier);
-              setZkServerVerified(Boolean(serverVerified));
-              setStatus({
-                text: serverVerified
-                  ? "Identity verified — connect a wallet and cast your ballot."
-                  : "Identity verified for this poll.",
-                tone: "ok",
-              });
-            }}
-          />
-        </div>
-      ) : null}
-
-      <section className="vote-layout" aria-label="Current poll">
-        <div className="vote-ballot">
-          <h2 className="vote-panel-title">Your ballot</h2>
+          <div className="vote-ballot">
+            <h2 className="vote-panel-title">Your ballot</h2>
           <div className="options" role="listbox" aria-label="Options">
             {options.map((option, index) => {
               const count = tallies[index] ?? 0;
@@ -1031,11 +1028,6 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                         : "Vote openly"}
                 </button>
               )}
-              {accountAddress ? (
-                <button type="button" className="btn btn-ghost" disabled={busy} onClick={disconnect}>
-                  Disconnect
-                </button>
-              ) : null}
               {accountAddress && contract ? (
                 <button
                   type="button"
@@ -1056,34 +1048,35 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                 </button>
               ) : null}
             </div>
-            {policy === PRIVACY.VOTER_CHOICE ? (
-              <p className="hint privacy-hint">
-                {privacyMode === "private"
-                  ? "Private: your address stays hidden. The network sees a valid +1 to the chosen option, not who you are. Timing/IP can still correlate if few people vote."
-                  : "Open: your address and choice are published on-chain."}
-              </p>
-            ) : null}
-            {dailyVote && votingOpen && !votedReceipt ? (
-              <p className="hint">
-                One ballot per UTC day (00:00–24:00), private or open. After today you can vote
-                again in {formatCountdown(msUntilNextUtcDay(now))}.
-              </p>
-            ) : null}
-            {!votingOpen ? (
-              <p className="hint">
-                {paused
-                  ? "Voting is temporarily paused on this contract."
-                  : schedule.phase === POLL_PHASE.UPCOMING && !closedOnChain
-                  ? "The poll is published. Connect and vote unlock automatically at the start time."
-                  : "This poll is no longer accepting votes."}
-              </p>
-            ) : !accountAddress && !identityOk ? (
-              <p className="hint">
-                {requiresZk
-                  ? "Verify identity above, then connect a wallet to vote."
-                  : "Loading poll…"}
-              </p>
-            ) : null}
+
+            <div className="vote-notes">
+              {policy === PRIVACY.VOTER_CHOICE ? (
+                <p className="vote-note">
+                  <span className="vote-note-kicker">Privacy</span>
+                  {privacyMode === "private"
+                    ? "Your address stays hidden. The network records a valid +1, not who you are. Timing or IP can still correlate if few people vote."
+                    : "Open mode publishes your address and choice on-chain."}
+                </p>
+              ) : null}
+              {dailyVote && votingOpen && !votedReceipt ? (
+                <p className="vote-note">
+                  <span className="vote-note-kicker">Daily limit</span>
+                  One ballot per UTC day, private or open. Next window in{" "}
+                  <strong>{formatCountdown(msUntilNextUtcDay(now))}</strong>.
+                </p>
+              ) : null}
+              {!votingOpen ? (
+                <p className="vote-note">
+                  <span className="vote-note-kicker">Status</span>
+                  {paused
+                    ? "Voting is temporarily paused on this contract."
+                    : schedule.phase === POLL_PHASE.UPCOMING && !closedOnChain
+                      ? "Published — connect and vote unlock at the start time."
+                      : "This poll is no longer accepting votes."}
+                </p>
+              ) : null}
+            </div>
+
             {status.tone === "error" || status.title || lastTxHash ? (
               <Notice tone={status.tone === "error" ? "error" : "ok"} title={status.title}>
                 {status.text}
@@ -1106,13 +1099,14 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                   ? `You can vote again in ${formatCountdown(msUntilNextUtcDay(now))}.`
                   : "This device already has a participation receipt for this poll. One account can vote once."}
               </Notice>
-            ) : (
+            ) : busy ? (
               <p className="status" data-tone={status.tone === "neutral" ? undefined : status.tone}>
                 {status.text}
               </p>
-            )}
+            ) : null}
           </div>
         </div>
+      </div>
 
         <aside className="vote-results" aria-live="polite">
           <h2 className="vote-panel-title">Live results</h2>
@@ -1182,8 +1176,8 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                 : "Review the options and public tallies."}
             </li>
             <li>
-              Click <strong>Connect Aztec wallet</strong>. Prefer <em>Browser session</em> for this
-              demo.
+              Click <strong>Connect Aztec wallet</strong>. Prefer <em>Browser session</em> on
+              desktop. On iPhone, identity stays saved if Safari reloads while the wallet opens.
             </li>
             <li>Choose an option, pick Private or Open, then vote. First prove can take several minutes.</li>
             <li>
