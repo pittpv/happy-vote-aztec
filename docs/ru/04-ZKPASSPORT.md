@@ -9,6 +9,8 @@
 
 Поток: NFC ID → proof на телефоне → HappyVote получает результат предикатов + `uniqueIdentifier`.
 
+Опросы с open-eligibility **не** используют ZKPassport. Там один голос на Aztec-аккаунт, поэтому новая Browser session может дать ещё один бюллетень.
+
 ## 2. Режимы
 
 | Режим | Когда | Источник query |

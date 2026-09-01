@@ -13,6 +13,8 @@ For important polls:
 
 Flow: NFC ID → proof on phone → HappyVote gets predicates result + `uniqueIdentifier`.
 
+Open-eligibility polls do **not** use ZKPassport. They only bind one vote per Aztec account, so a new Browser session can add another ballot.
+
 ## 2. Integration modes
 
 | Mode | When | Query source |

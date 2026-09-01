@@ -81,7 +81,7 @@ Private **не** скрывает вариант с live-табло: `option_id`
 
 ### Must-have (итерация 1) — сделано
 
-Каталог, страница опроса, Connect, private + optional open, защита от double-vote, `end_poll`, шаблоны binary / single_choice, публикация опросов операторами, гостевые tallies, домен, документация.
+Каталог, страница опроса, Connect (на Testnet: Browser session / Demo Wallet / расширение), private + optional open, защита от double-vote на аккаунт (и ZKPassport identity на важных опросах), `end_poll`, шаблоны binary / single_choice, публикация опросов операторами, гостевые tallies, домен, документация.
 
 ### Should-have (1.5) — в основном сделано
 
@@ -112,7 +112,7 @@ Permissionless `create_poll`, антиспам, модерация, discovery.
 
 ### Sentiment (`/p/1`)
 
-Главная → Featured polls (или **All polls** `/polls`) → Happy/Sad → Connect → Private (по умолчанию) или Open → prove → live results.
+Главная → Featured polls (или **All polls** `/polls`) → Happy/Sad → Connect (Browser session = новый адрес) → Private (по умолчанию) или Open → prove → live results. Open eligibility: один голос на Aztec-аккаунт (или на сутки UTC), не на человека.
 
 ### Важный опрос (`/p/3`)
 

@@ -199,8 +199,26 @@ Vite + React. Маршруты:
 | Среда | Аккаунты | Fees |
 |-------|----------|------|
 | Local network | Schnorr из скриптов | Бесплатно |
-| Testnet | Browser session | Sponsored FPC |
-| Alpha | Production | Fee Juice / FPC |
+| Testnet | См. типы кошельков ниже. Операторские скрипты по-прежнему деплоят обычный Schnorr. | Sponsored FPC |
+| Alpha | Предпочтительен постоянный кошелёк. Browser session может остаться как лёгкий вход; Demo Wallet Labs — не продукт для mainnet. | Fee Juice / FPC |
+
+### 4.1 Типы кошельков (UI на Testnet)
+
+| Источник | Что это | Адрес | На Alpha |
+|----------|---------|-------|----------|
+| **Browser session** | In-page PXE (`EmbeddedWallet`, эфемерный). Создаёт **initializerless** Schnorr — без on-chain tx деплоя аккаунта. | **Новый на каждый Connect** (ключи сессии вкладки не восстанавливаются). | Опционально «проголосовать без установки кошелька», не постоянная личность. |
+| **Web Wallet** | Demo Wallet Aztec Labs (`demo-wallet.aztec-labs.com`). | Тот же аккаунт, если пользователь его сохранил; новый аккаунт в кошельке — новый адрес. | Не задуман как боевой кошелёк. |
+| **Browser extension** | Azguard (или следующий кошелёк Aztec). | Постоянный, если аккаунт сохранён. | Основной путь, когда кошелёк совпадает с сетью 5.1.0+. |
+
+`cast_vote_private` и `cast_vote_open` — private entrypoints HappyVote, поэтому session-аккаунту не нужен публичный деплой, чтобы голосовать.
+
+### 4.2 Один голос и дешёвые аккаунты
+
+Контракт даёт **один бюллетень на Aztec-аккаунт** (или на сутки UTC на дневных опросах), общий для private и open.
+
+Это не personhood. Аккаунтов можно набрать много. Browser session делает это особенно дёшево (новый адрес на каждый Connect). В Demo Wallet и расширении тоже можно создать лишние аккаунты.
+
+Опросы с open-eligibility (`eligibility_mode = 0`, например `/p/1` `/p/2`) это допускают. Важные опросы должны требовать ZKPassport (`1` / `2`): второй аккаунт с тем же `uniqueIdentifier` не пройдёт identity claim. См. [03-PRIVACY-MODEL.md](./03-PRIVACY-MODEL.md) и [04-ZKPASSPORT.md](./04-ZKPASSPORT.md).
 
 ## 5. Структура репозитория
 

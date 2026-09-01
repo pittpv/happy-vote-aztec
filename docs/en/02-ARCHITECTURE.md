@@ -202,8 +202,26 @@ Guest tallies: same-origin `/api/poll-state` only (public Testnet RPC rate-limit
 | Env | Accounts | Fees |
 |-----|----------|------|
 | Local network | Script-deployed Schnorr | Free |
-| Testnet | Browser session | Sponsored FPC |
-| Alpha | Production accounts | Fee Juice / FPC |
+| Testnet | See wallet types below. Operator scripts still deploy a regular Schnorr account. | Sponsored FPC |
+| Alpha | Prefer a persistent wallet. Browser session can remain as a low-friction option; the Labs Demo Wallet is not a mainnet product. | Fee Juice / FPC |
+
+### 4.1 Wallet types (Testnet UI)
+
+| Source | What it is | Address | On Alpha |
+|--------|------------|---------|----------|
+| **Browser session** | In-page PXE (`EmbeddedWallet`, ephemeral). Creates an **initializerless** Schnorr account — no on-chain account-deploy tx. | **New on every Connect** (keys are not restored after the tab session). | Optional “vote without installing a wallet”, not a lasting identity. |
+| **Web Wallet** | Aztec Labs Demo Wallet (`demo-wallet.aztec-labs.com`). | Reuses the wallet’s current account if the user kept it; a new account there is a new address. | Not intended as the production wallet. |
+| **Browser extension** | Azguard (or a later Aztec wallet). | Persistent if the user keeps that account. | Default path once the wallet matches network 5.1.0+. |
+
+`cast_vote_private` and `cast_vote_open` are private entrypoints on HappyVote, so a session account does not need a public account deploy to vote.
+
+### 4.2 One vote vs cheap accounts
+
+The contract enforces **one ballot per Aztec account** (or per UTC day on daily polls), shared by private and open.
+
+That is not personhood. Anyone can mint many Aztec accounts. Browser session makes that especially cheap (new address per Connect). Demo Wallet and extensions can also create extra accounts.
+
+Open-eligibility polls (`eligibility_mode = 0`, for example `/p/1` `/p/2`) accept that. Important polls should use ZKPassport (`1` / `2`): a second account with the same `uniqueIdentifier` fails the identity claim. See [03-PRIVACY-MODEL.md](./03-PRIVACY-MODEL.md) and [04-ZKPASSPORT.md](./04-ZKPASSPORT.md).
 
 ## 5. Repository layout (this Aztec project)
 

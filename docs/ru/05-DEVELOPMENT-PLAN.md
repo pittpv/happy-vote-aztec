@@ -39,10 +39,11 @@ AI / CLI: https://docs.aztec.network/developers/ai_tooling
 | 5.10 | Окно голосования | Готово — on-chain `starts_at` / `ends_at` + ISO в каталоге + обратный отсчёт |
 | 5.11 | Hardening контракта | Готово — PublicImmutable конфиг, проверки до nullifier, pause, cancel, transfer_admin, next_poll_id |
 | 5.12 | Свои агрегаты посещений | Готово — cookieless `POST /api/site-stats`, чтение оператором |
+| 5.13 | Initializerless Browser session | Готово — `createSchnorrInitializerlessAccount`; без tx деплоя аккаунта |
 
 ## Phase 6 — Alpha
 
-Pin версии, Fee Juice / FPC, redeploy, runbook.
+Pin версии, Fee Juice / FPC, redeploy, runbook. По умолчанию — постоянный Aztec-кошелёк; Browser session только как опциональный лёгкий вход. Demo Wallet Labs убрать или спрятать.
 
 ## Phase 7 — Пользовательские опросы
 

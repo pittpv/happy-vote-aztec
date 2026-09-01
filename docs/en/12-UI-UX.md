@@ -53,7 +53,7 @@ flowchart LR
 
 1. Guest: question, options, public tallies (`/api/poll-state`), plus schedule/countdown when dates are set. If the contract is paused or the poll is cancelled, Connect and Vote stay locked. Daily polls show a **Daily** catalog badge and a UTC-day countdown after a ballot.
 2. Optional ZKPassport gate (only while the voting window is open).
-3. Connect Aztec wallet (prefer Browser session).
+3. Connect Aztec wallet. Testnet prefers **Browser session** (initializerless in-tab account, new address each Connect). **Web Wallet** is the Labs Demo Wallet (may reuse an account). Azguard is the extension path.
 4. Option + Private/Open → submit.
 5. Status + explorer link next to the CTA.
 

@@ -16,7 +16,7 @@ npm install
 npm run dev   # http://localhost:5174
 ```
 
-Smoke creates poll `1` with the deploy account. The web **Connect** flow deploys a *new* voter account — voting works from that session.
+Smoke creates poll `1` with the deploy account. **Browser session** creates an *initializerless* voter account in the tab (no on-chain account-deploy tx). Each Connect is a new address.
 
 ## Features
 
@@ -26,7 +26,7 @@ Smoke creates poll `1` with the deploy account. The web **Connect** flow deploys
 - Poll pages `/p/:id` — 1080px, ballot | live results
 - Private vs open ballot (when policy = voter_choice)
 - Public tallies without a wallet (`/api/poll-state`)
-- Connect Aztec account (EmbeddedWallet + IndexedDB PXE)
+- Connect Aztec account (Browser session: initializerless EmbeddedWallet + IndexedDB PXE; Demo Wallet / Azguard optional)
 - ZKPassport gate + server re-verify + collapse to **Identity verified**
 - On-chain identity claim for personhood/gated polls
 - Sealed tallies hidden until close

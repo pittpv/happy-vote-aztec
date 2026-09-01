@@ -47,6 +47,8 @@ ZKPassport доказывает personhood / возраст / гражданст
 2. `identity_commitment` в `identity_claims` (Poseidon2 от poll, периода и commitment).
 3. Nullifier аккаунта тоже действует — два аккаунта, один ID → второй голос отклоняется. На дневных опросах тот же identity может голосовать на следующие сутки UTC.
 
+Open eligibility (`eligibility_mode = 0`) вяжет только **Aztec-аккаунт**. Browser session каждый Connect создаёт новый аккаунт, поэтому переподключение может дать ещё один бюллетень. То же возможно в Demo Wallet / расширении, если создать ещё аккаунты. Это дешёвый Sybil; для fun-опросов допустимо и **не** гарантия уникальности человека. Personhood/gated добавляют identity claim выше.
+
 Scope по умолчанию: **на опрос** (`poll:{id}`).
 
 ## 6. Чего не обещаем

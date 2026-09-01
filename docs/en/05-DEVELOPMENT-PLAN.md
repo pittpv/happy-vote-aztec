@@ -27,7 +27,7 @@ Node 24.12, Aztec CLI 5.1.0, docs, `AGENTS.md`, bootstrap from aztec-starter.
 **Status: done** — https://aztec.happyvote.xyz
 
 - Vite React app in `web/`
-- Connect Aztec account (embedded wallet / Browser session)
+- Connect Aztec account (Browser session = initializerless in-page PXE; also Demo Wallet / extension)
 - Poll page with privacy toggle
 - Guest tallies via `/api/poll-state`
 - Fraunces / Sora, teal / amber
@@ -64,10 +64,11 @@ SDK + QR gate + server re-verify + on-chain `identity_commitment`. Domain `aztec
 | 5.10 | Catalog voting window | Done — on-chain `starts_at` / `ends_at` + catalog ISO + UI countdown |
 | 5.11 | Contract hardening | Done — PublicImmutable config, private checks before nullifier, pause, cancel, transfer_admin, next_poll_id |
 | 5.12 | First-party visit stats | Done — cookieless `POST /api/site-stats`, operator `GET` |
+| 5.13 | Initializerless Browser session | Done — `createSchnorrInitializerlessAccount`; no account-deploy tx |
 
 ## Phase 6 — Alpha mainnet
 
-Pin Alpha 5.1.0 (or current stable), Fee Juice / FPC, redeploy, incident runbook, public launch.
+Pin Alpha 5.1.0 (or current stable), Fee Juice / FPC, redeploy, incident runbook, public launch. Prefer a persistent Aztec wallet as the default connect path; keep Browser session only as optional low-friction onboarding. Drop or hide the Labs Demo Wallet.
 
 ## Phase 7 — Iteration 2: user-created polls
 

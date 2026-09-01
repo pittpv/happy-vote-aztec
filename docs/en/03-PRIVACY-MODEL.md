@@ -72,6 +72,8 @@ Binding:
 2. `identity_commitment` from `uniqueIdentifier` claimed in `identity_claims` (Poseidon2 of poll, vote period, commitment).
 3. Account nullifier still applies — two accounts, one ID → second vote fails. Daily polls reuse the same identity the next UTC day.
 
+Open eligibility (`eligibility_mode = 0`) only binds the **Aztec account**. Browser session mints a new account on every Connect, so reconnecting can add another ballot. Demo Wallet / extensions can do the same if the user creates more accounts. That is a cheap Sybil vector; it is acceptable for fun polls and is **not** a uniqueness guarantee. Personhood/gated polls add the identity claim above.
+
 Default ZKPassport scope: **per poll** (`poll:{id}`).
 
 | Strategy | Scope | Meaning |

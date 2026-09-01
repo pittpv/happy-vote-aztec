@@ -108,33 +108,38 @@ export async function createWallet({ proverEnabled = false, onProgress } = {}) {
   });
 }
 
-export async function deployAccount(wallet, { onProgress } = {}) {
+/**
+ * Browser-session voter account (initializerless Schnorr).
+ * No on-chain constructor/deploy tx: the signing public key is committed in the
+ * address via immutables_hash and materialized locally in the PXE.
+ *
+ * Do not use this for admin import — those keys belong to an already-initialized
+ * `createSchnorrAccount` contract. External wallets keep their own account type.
+ */
+export async function createSessionAccount(wallet, { onProgress } = {}) {
+  if (typeof wallet.createSchnorrInitializerlessAccount !== "function") {
+    throw new Error(
+      "This Aztec wallet build is missing createSchnorrInitializerlessAccount. Pin @aztec/wallets to 5.1.0 or newer.",
+    );
+  }
+
   const { Fr: Field } = await import("@aztec/aztec.js/fields");
   const { GrumpkinScalar } = await import("@aztec/foundation/curves/grumpkin");
-  const { NO_FROM } = await import("@aztec/aztec.js/account");
 
   onProgress?.("Generating Schnorr keys…");
   const secretKey = Field.random();
   const signingKey = GrumpkinScalar.random();
   const salt = Field.random();
-  const account = await wallet.createSchnorrAccount(secretKey, salt, signingKey);
+
+  onProgress?.("Creating voter account (no on-chain deploy)…");
+  const account = await wallet.createSchnorrInitializerlessAccount(secretKey, salt, signingKey);
+  if (!account?.address) {
+    throw new Error("Initializerless account was created without an address");
+  }
 
   onProgress?.("Registering Sponsored FPC…");
   const sponsoredFPC = await getSponsoredFpc(wallet);
   const paymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC.address);
-  const deployMethod = await account.getDeployMethod();
-
-  onProgress?.("Simulating account deploy…");
-  await deployMethod.simulate({ from: NO_FROM });
-
-  onProgress?.(
-    "Proving & submitting account deploy (first time downloads keys; often 2–10 min)…",
-  );
-  await deployMethod.send({
-    from: NO_FROM,
-    fee: { paymentMethod },
-    wait: { timeout: waitTimeoutSeconds(600_000) },
-  });
 
   return { account, paymentMethod, keys: { secretKey, salt, signingKey } };
 }

@@ -9,7 +9,7 @@ import {
   registerStandardContracts,
   getSponsoredPaymentMethod,
   createWallet,
-  deployAccount,
+  createSessionAccount,
   importAccount,
   pollIdFromRaw,
   Fr,
@@ -141,7 +141,7 @@ function AppWalletModal({ walletConnect, allowAdminImport }) {
       const nextWallet = await createWallet({ proverEnabled, onProgress });
       const { account: nextAccount } = importedKeys
         ? await importAccount(nextWallet, importedKeys, { onProgress })
-        : await deployAccount(nextWallet, { onProgress });
+        : await createSessionAccount(nextWallet, { onProgress });
       walletConnect.adoptSession(nextWallet, nextAccount.address.toString());
     } catch (error) {
       console.error(error);
@@ -1177,9 +1177,10 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
             </li>
             <li>
               Click <strong>Connect Aztec wallet</strong>. Prefer <em>Browser session</em> on
-              desktop. On iPhone, identity stays saved if Safari reloads while the wallet opens.
+              desktop — it creates an in-tab account without an on-chain deploy (a new address
+              each time). On iPhone, identity stays saved if Safari reloads while the wallet opens.
             </li>
-            <li>Choose an option, pick Private or Open, then vote. First prove can take several minutes.</li>
+            <li>Choose an option, pick Private or Open, then vote. Proving the ballot can take several minutes.</li>
             <li>
               If fees fail, claim Fee Juice at{" "}
               <a href={faucetHref} target="_blank" rel="noopener noreferrer">
