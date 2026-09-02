@@ -863,9 +863,15 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
               <span>
                 Network <strong>{getNodeUrl().includes("localhost") ? "local" : "testnet"}</strong>
               </span>
-              <span>
-                Votes <strong>{total}</strong>
-              </span>
+              {resultsHidden ? (
+                <span>
+                  Votes <strong>sealed</strong>
+                </span>
+              ) : (
+                <span>
+                  Votes <strong>{total}</strong>
+                </span>
+              )}
               {zkId ? (
                 <span>
                   Personhood <strong>{shortAddr(zkId)}</strong>
@@ -931,7 +937,7 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
           <div className="options" role="listbox" aria-label="Options">
             {options.map((option, index) => {
               const count = tallies[index] ?? 0;
-              const barPct = Math.round((count / maxTally) * 100);
+              const barPct = resultsHidden ? 0 : Math.round((count / maxTally) * 100);
               return (
                 <button
                   key={`${option.label}-${index}`}
@@ -943,16 +949,20 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                   disabled={busy || !votingOpen}
                   onClick={() => setSelected(index)}
                 >
-                  <span className="option-bar" style={{ width: `${barPct}%` }} aria-hidden="true" />
+                  {resultsHidden ? null : (
+                    <span className="option-bar" style={{ width: `${barPct}%` }} aria-hidden="true" />
+                  )}
                   <span className="option-text">
                     <span className="option-label">{option.label}</span>
                     {option.description ? (
                       <span className="option-desc">{option.description}</span>
                     ) : null}
                   </span>
-                  <span className="option-count" aria-hidden="true">
-                    {count}
-                  </span>
+                  {resultsHidden ? null : (
+                    <span className="option-count" aria-hidden="true">
+                      {count}
+                    </span>
+                  )}
                 </button>
               );
             })}

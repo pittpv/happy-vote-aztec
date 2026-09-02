@@ -43,7 +43,7 @@ created → (опциональное ожидание startsAt) → open → en
 - Опциональные unix-секунды on-chain; каталог хранит те же моменты как ISO-8601. Оба пустые → опрос открыт, пока его не закроют `end_poll` / `cancel_poll`.
 - Опрос можно **опубликовать до `starts_at`**. Вопрос виден сразу; Connect и Vote открываются автоматически в момент старта и закрываются в `ends_at`. Прямые `cast_vote_*` вне окна отклоняются контрактом.
 - После закрытия голоса отклоняются; tallies остаются читаемыми (если не sealed и ещё открыт).
-- **Sealed tally:** пока sealed **и** не закрыт (`vote_ended`, cancel или `now >= ends_at`), `get_tally` / `get_total_votes` возвращают `0`; UI скрывает live results.
+- **Sealed tally:** пока sealed **и** не закрыт (`vote_ended`, cancel или `now >= ends_at`), `get_tally` / `get_total_votes` возвращают `0`; UI скрывает live results и не ставит нули на кнопки вариантов.
 
 `end_poll` закрывает сразу. По `ends_at` опрос закрывается без отдельной tx. `cancel_poll` только при `total_votes == 0`.
 
@@ -117,3 +117,7 @@ Permissionless `create_poll`, антиспам, модерация, discovery.
 ### Важный опрос (`/p/3`)
 
 Открыть опрос → QR ZKPassport → server re-verify → **Identity verified** → Connect → голос. Один identity — один голос на опрос (между аккаунтами тоже).
+
+### Sealed tally (`/p/4`)
+
+Главная → Featured polls → sealed-демо. Live results пустые, пока опрос открыт; на кнопках вариантов нет нулей. После закрытия (`end_poll`, cancel или `ends_at`) tallies становятся читаемыми. Open eligibility; private или open бюллетень.

@@ -218,7 +218,7 @@ Vite + React. Маршруты:
 
 Это не personhood. Аккаунтов можно набрать много. Browser session делает это особенно дёшево (новый адрес на каждый Connect). В Demo Wallet и расширении тоже можно создать лишние аккаунты.
 
-Опросы с open-eligibility (`eligibility_mode = 0`, например `/p/1` `/p/2`) это допускают. Важные опросы должны требовать ZKPassport (`1` / `2`): второй аккаунт с тем же `uniqueIdentifier` не пройдёт identity claim. См. [03-PRIVACY-MODEL.md](./03-PRIVACY-MODEL.md) и [04-ZKPASSPORT.md](./04-ZKPASSPORT.md).
+Опросы с open-eligibility (`eligibility_mode = 0`, например `/p/1` `/p/2` `/p/4`) это допускают. Важные опросы должны требовать ZKPassport (`1` / `2`): второй аккаунт с тем же `uniqueIdentifier` не пройдёт identity claim. См. [03-PRIVACY-MODEL.md](./03-PRIVACY-MODEL.md) и [04-ZKPASSPORT.md](./04-ZKPASSPORT.md).
 
 ## 5. Структура репозитория
 

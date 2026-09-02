@@ -23,7 +23,7 @@ COOP/COEP для WASM proving. CSP: RPC, CRS CDN, ZKPassport. SPA rewrite не �
 
 | Endpoint | Роль |
 |----------|------|
-| `GET /api/poll-state` | Гостевые tallies, кэш ~15с; нули если sealed и активен; есть `paused` / `cancelled` / `votingOpen` |
+| `GET /api/poll-state` | Гостевые tallies, кэш ~15с; нули если sealed и активен (UI нули на кнопках не рисует); есть `paused` / `cancelled` / `votingOpen` |
 | `GET/POST /api/polls` | Каталог (seed + Blob). `showOnHome` / `homeRank` для главной; полный список на `/polls` |
 | `POST /api/zkpassport-verify` | Server re-verify |
 | `POST /api/client-error` | Логи ошибок |

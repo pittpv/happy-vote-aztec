@@ -51,4 +51,4 @@ Permissionless `create_poll`, антиспам, модерация, discovery.
 
 ## DoD итерации 1
 
-Контракты на Testnet, UI на домене, три демо-опроса, private/open, double-vote невозможен (опционально раз в сутки UTC), ZKPassport gate, тесты, гайд. Не закрыто: E2E на устройстве.
+Контракты на Testnet, UI на домене, четыре демо-опроса (включая sealed), private/open, double-vote невозможен (опционально раз в сутки UTC), ZKPassport gate, тесты, гайд. Не закрыто: E2E на устройстве.

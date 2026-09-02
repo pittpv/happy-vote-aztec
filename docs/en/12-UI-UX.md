@@ -51,7 +51,7 @@ flowchart LR
   Prove --> Results[Live results]
 ```
 
-1. Guest: question, options, public tallies (`/api/poll-state`), plus schedule/countdown when dates are set. If the contract is paused or the poll is cancelled, Connect and Vote stay locked. Daily polls show a **Daily** catalog badge and a UTC-day countdown after a ballot.
+1. Guest: question, options, public tallies (`/api/poll-state`), plus schedule/countdown when dates are set. If the contract is paused or the poll is cancelled, Connect and Vote stay locked. Daily polls show a **Daily** catalog badge and a UTC-day countdown after a ballot. **Sealed** polls omit counts and fill bars on option buttons while voting is open; the header shows **Votes sealed**, and Live results explain that tallies stay hidden until close.
 2. Optional ZKPassport gate (only while the voting window is open).
 3. Connect Aztec wallet. Testnet prefers **Browser session** (initializerless in-tab account, new address each Connect). **Web Wallet** is the Labs Demo Wallet (may reuse an account). Azguard is the extension path.
 4. Option + Private/Open → submit.
@@ -91,7 +91,7 @@ Effective date: **15 August 2026**. Contact: **legal@happyvote.xyz**. See [13-LE
 
 ## SEO
 
-Per-route `document.title`, meta description, canonical, Open Graph, Twitter card, JSON-LD (`Organization`, `Person`, `WebSite`, `WebApplication`, `WebPage`). `robots.txt` allows indexing of public pages. `sitemap.xml` lists home, **All polls** `/polls`, demo polls `/p/1` `/p/2` `/p/3`, and legal URLs.
+Per-route `document.title`, meta description, canonical, Open Graph, Twitter card, JSON-LD (`Organization`, `Person`, `WebSite`, `WebApplication`, `WebPage`). `robots.txt` allows indexing of public pages. `sitemap.xml` lists home, **All polls** `/polls`, demo polls `/p/1` `/p/2` `/p/3` `/p/4`, and legal URLs.
 
 No third-party analytics counter on this subdomain. First-party cookieless daily aggregates only (`POST /api/site-stats`).
 

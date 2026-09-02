@@ -147,6 +147,36 @@ export const POLLS = {
     homeRank: 3,
     metadataHash: "0x1aa6032787d3653250160ddb12a166c9e1fa38486ce9bb30afd96fafdc9f390c",
   },
+  4: {
+    id: "4",
+    title: "Should results stay hidden until voting ends?",
+    description:
+      "Sealed-tally demo on Aztec Testnet. Live results stay blank while this poll is open; they appear only after it closes. Open eligibility — private or open ballot.",
+    topics: ["demo", "sealed"],
+    countries: [],
+    options: [
+      {
+        label: "Yes, hide until close",
+        description: "Keep the board sealed for every poll.",
+      },
+      {
+        label: "No, show live tallies",
+        description: "I want to see results while voting is open.",
+      },
+      {
+        label: "Only for high-stakes polls",
+        description: "Seal elections; keep live boards for casual votes.",
+      },
+    ],
+    template: "single_choice",
+    requiresZkPassport: false,
+    eligibilityMode: ELIGIBILITY_MODE.OPEN,
+    voteFrequency: VOTE_FREQUENCY.ONCE,
+    zkRequirements: null,
+    sealed: true,
+    showOnHome: true,
+    homeRank: 4,
+  },
 };
 
 function readStoredPolls() {

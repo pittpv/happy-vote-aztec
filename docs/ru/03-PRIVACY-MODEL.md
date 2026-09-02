@@ -37,7 +37,7 @@ UI: **Private** (default) / **Open**. Оба инкрементят одну к�
 
 ## 4. Sealed
 
-On-chain (`sealed`): пока `sealed && !closed`, view возвращают `0`, UI скрывает результаты. Закрыт = `vote_ended`, cancel или `now >= ends_at`. После закрытия читаются истинные tallies. Гостевой API в том же окне отдаёт нули. Это **скрытие view**, не MPC-агрегат.
+On-chain (`sealed`): пока `sealed && !closed`, view возвращают `0`. UI скрывает live results и не ставит нули на кнопки вариантов. Закрыт = `vote_ended`, cancel или `now >= ends_at`. После закрытия читаются истинные tallies. Гостевой API в том же окне отдаёт нули; страница голоса их на бюллетене не рисует. Это **скрытие view**, не MPC-агрегат.
 
 ## 5. Eligibility без doxxing
 

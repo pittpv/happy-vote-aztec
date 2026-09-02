@@ -56,9 +56,9 @@ UI: **Private** (default) / **Open**. Both increment the same tally map.
 
 Implemented on-chain (`sealed` storage):
 
-- While `sealed && !closed`: views return `0`; UI hides live results. Closed = `vote_ended` or cancelled or scheduled `ends_at`.
+- While `sealed && !closed`: views return `0`; the UI hides live results and omits counts on option buttons. Closed = `vote_ended` or cancelled or scheduled `ends_at`.
 - After close: true tallies are readable.
-- Guest API zeros tallies in the same window.
+- Guest API zeros tallies in the same window; the vote page does not render those zeros on the ballot.
 
 This is **view hiding**, not encrypted aggregate MPC.
 

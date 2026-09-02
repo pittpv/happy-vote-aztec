@@ -88,7 +88,7 @@ Permissionless `create_poll` with limits, anti-spam, moderation, discovery, extr
 
 - [x] Contracts on Testnet, addresses documented
 - [x] Frontend on aztec.happyvote.xyz
-- [x] Happy/Sad + multi-option + ZKPassport demo polls
+- [x] Happy/Sad + multi-option + ZKPassport + sealed demo polls
 - [x] Private and public modes (`voter_choice`)
 - [x] Double-vote impossible (Noir + `SingleUseClaim`; optional UTC-day period)
 - [x] ZKPassport gate + server re-verify + identity claim

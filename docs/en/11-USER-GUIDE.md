@@ -17,9 +17,9 @@ Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data
 
 - Browse featured polls on home, or the full catalog at `/polls`, then open any poll
 - See **start/end times** and a live countdown when a poll is scheduled
-- View **Live results** (public tallies; hidden while a poll is sealed and still open)
+- View **Live results** (public tallies; hidden while a poll is sealed and still open — option buttons show labels only, no zeros)
 - If the contract is paused or a poll is cancelled, the ballot stays locked; the question remains readable
-- Share a deep link: `/p/1` (Happy/Sad), `/p/2` (single-choice), `/p/3` (ZKPassport demo)
+- Share a deep link: `/p/1` (Happy/Sad), `/p/2` (single-choice), `/p/3` (ZKPassport demo), `/p/4` (sealed tallies)
 - Read the contract on [Aztecscan](https://testnet.aztecscan.xyz)
 
 ## Vote (private or open)
@@ -41,7 +41,7 @@ On wide screens, **Live results** sit beside the ballot; on mobile they stack be
 
 ## Rules
 
-- **One vote per Aztec account per poll**, or **one vote per UTC day** when the poll is created with daily frequency. Private and open share that limit. A new Browser session is a new account, so open-eligibility polls can be voted again after reconnecting. That is expected for fun polls (`/p/1`, `/p/2`). Personhood/gated polls (`/p/3`) also bind **one ZKPassport identity**, so extra session addresses do not add extra ballots.
+- **One vote per Aztec account per poll**, or **one vote per UTC day** when the poll is created with daily frequency. Private and open share that limit. A new Browser session is a new account, so open-eligibility polls can be voted again after reconnecting. That is expected for fun polls (`/p/1`, `/p/2`, `/p/4`). Personhood/gated polls (`/p/3`) also bind **one ZKPassport identity**, so extra session addresses do not add extra ballots.
 - Daily polls reset at **00:00 UTC**. Each new day adds to the tally; the previous choice is not removed.
 - Private mode hides your **address**; the chosen option still increments the **public** tally (unless the poll is sealed).
 - Open mode publishes address + choice.

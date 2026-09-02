@@ -221,7 +221,7 @@ The contract enforces **one ballot per Aztec account** (or per UTC day on daily 
 
 That is not personhood. Anyone can mint many Aztec accounts. Browser session makes that especially cheap (new address per Connect). Demo Wallet and extensions can also create extra accounts.
 
-Open-eligibility polls (`eligibility_mode = 0`, for example `/p/1` `/p/2`) accept that. Important polls should use ZKPassport (`1` / `2`): a second account with the same `uniqueIdentifier` fails the identity claim. See [03-PRIVACY-MODEL.md](./03-PRIVACY-MODEL.md) and [04-ZKPASSPORT.md](./04-ZKPASSPORT.md).
+Open-eligibility polls (`eligibility_mode = 0`, for example `/p/1` `/p/2` `/p/4`) accept that. Important polls should use ZKPassport (`1` / `2`): a second account with the same `uniqueIdentifier` fails the identity claim. See [03-PRIVACY-MODEL.md](./03-PRIVACY-MODEL.md) and [04-ZKPASSPORT.md](./04-ZKPASSPORT.md).
 
 ## 5. Repository layout (this Aztec project)
 

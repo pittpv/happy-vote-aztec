@@ -43,7 +43,7 @@ created → (optional wait until startsAt) → open → ended
 - Optional `starts_at` / `ends_at` (unix seconds on-chain). The catalog stores the same instants as ISO-8601 for display. Omit both → the poll stays open until `end_poll` or `cancel_poll`.
 - A poll can be **published before `starts_at`**. Guests can read the question; Connect and Vote unlock automatically at start, then lock at `ends_at`. Direct `cast_vote_*` calls are rejected on-chain outside the window.
 - After close, votes are rejected; tallies stay readable (unless sealed and still open).
-- **Sealed tally:** while sealed **and** not closed (`vote_ended`, cancelled, or `now >= ends_at`), `get_tally` / `get_total_votes` return `0`; UI hides live results.
+- **Sealed tally:** while sealed **and** not closed (`vote_ended`, cancelled, or `now >= ends_at`), `get_tally` / `get_total_votes` return `0`; the UI hides live results and omits counts on option buttons (no fake zeros).
 
 `end_poll` still closes immediately. Scheduled `ends_at` auto-closes without an extra admin tx. `cancel_poll` is allowed only while `total_votes == 0`.
 
@@ -139,3 +139,7 @@ Home → Featured polls (or **All polls** `/polls`) → Happy/Sad → Connect (B
 ### Important poll (`/p/3`)
 
 Open poll → ZKPassport QR → server re-verify → compact **Identity verified** → Connect → vote. Identity can vote once per poll across accounts.
+
+### Sealed tally (`/p/4`)
+
+Home → Featured polls → sealed demo. Live results stay blank while the poll is open; option buttons show labels only. After close (`end_poll`, cancel, or `ends_at`), tallies become readable. Open eligibility; private or open ballot.

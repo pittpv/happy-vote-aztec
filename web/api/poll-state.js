@@ -53,6 +53,20 @@ const PRECOMPUTED = {
     endsAt: "0x2403a7add78c639009581e8a0774808a21e10394d1c23a13f69c8ed5a9d46344",
     cancelled: "0x25bf2d54475ffd45cb075e412b026bb8a2ce37e7d02f17f419457d1b9660f88f",
   },
+  "4": {
+    tallies: [
+      "0x210b6cac87a9c74155440e466e5499549826c8e62dcca7639535bfdb9de3895f",
+      "0x0cc970f21090ab54ba5f90d70d95c46debbb1b531412a521f677ab900875d0f0",
+      "0x064c2e30a40c2fd5207c0cc192c3d254216ef0fccf9d9381b550847ceb6be735",
+    ],
+    total: "0x01bfe74d650bada64d0a8ae346263abbdf2a34b9b6dad0457613edd167c3d08c",
+    policy: "0x226e86df115da1a9a96faae25d9829b5f0f9d0228e3fee360cd8332556937784",
+    voteEnded: "0x285d1ba7b66bf6d8f4b14690e2af8a5c163f4f0ad0c772352bc68b99e0864b1a",
+    sealed: "0x2e768ac3094df193234b48b17593a8aec03c149779de032372c6e6017e74827d",
+    startsAt: "0x28672abdbcfcdf81c05a4ee9dcfc172b29190a9f783facdd3944cdc330c4e5e4",
+    endsAt: "0x1d062ec9cf07234575e18aaccdbf8ec5ba721e9f215f2214ca694f829fc3d8af",
+    cancelled: "0x2d0092d7f123827de23a50885a7fe558725c3b48802695a1a54f0b157bafe688",
+  },
 };
 
 /** @type {{ key: string, at: number, data: object } | null} */

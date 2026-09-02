@@ -21,7 +21,7 @@ Pillars: Private by design · Verified, not doxed · Safer where votes are risky
 
 ## Голосование (`/p/:id`)
 
-Ширина **1080px**. Общая шапка сайта, ссылка **← All polls** на `/polls`, вопрос — `h1`. Две колонки на десктопе. Комиссии и how-to в `<details>`. Чипы Ready/Verify → Connect → Vote. На дневных опросах бейдж **Daily** и отсчёт до следующих суток UTC.
+Ширина **1080px**. Общая шапка сайта, ссылка **← All polls** на `/polls`, вопрос — `h1`. Две колонки на десктопе. Комиссии и how-to в `<details>`. Чипы Ready/Verify → Connect → Vote. На дневных опросах бейдж **Daily** и отсчёт до следующих суток UTC. Пока опрос **sealed** и открыт, на кнопках вариантов нет счётчиков и полосок; в шапке **Votes sealed**; Live results объясняют, что итоги скрыты до закрытия.
 
 ```mermaid
 flowchart LR
