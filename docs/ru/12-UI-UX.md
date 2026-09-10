@@ -30,7 +30,7 @@ flowchart LR
   Gate -->|нет| Connect[Connect]
   QR --> Verified[Identity verified]
   Verified --> Connect
-  Connect → Ballot[Вариант + Private/Open]
+  Connect --> Ballot[Вариант + Private/Open]
   Ballot --> Prove[Prove + send]
   Prove --> Results[Live results]
 ```
