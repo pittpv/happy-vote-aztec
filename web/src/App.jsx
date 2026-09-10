@@ -8,6 +8,7 @@ import {
   registerHappyVote,
   registerStandardContracts,
   getSponsoredPaymentMethod,
+  sponsoredTxOptions,
   createWallet,
   createSessionAccount,
   importAccount,
@@ -461,7 +462,6 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
   const identityOk = pollKnown && (!requiresZk || Boolean(zkId));
   const canVote =
     votingOpen &&
-    !votedReceipt &&
     Boolean(accountAddress && contract && identityOk && !busy) &&
     (policy === PRIVACY.VOTER_CHOICE ||
       (policy === PRIVACY.PRIVATE_ONLY && privacyMode === "private") ||
@@ -788,10 +788,11 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
             ? contract.methods.cast_vote_open(pollId, new Fr(selected), identityCommitment, period)
             : contract.methods.cast_vote_open(pollId, new Fr(selected), identityCommitment);
 
-      await method.simulate({ from: accountAddress });
+      const txOpts = await sponsoredTxOptions(paymentMethod);
+      await method.simulate({ from: accountAddress, ...txOpts });
       const receipt = await method.send({
         from: accountAddress,
-        fee: { paymentMethod },
+        ...txOpts,
         wait: { timeout: 600 },
       });
       const txHash = extractTxHash(receipt);
@@ -802,8 +803,8 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
       setStatus({
         title: "Vote recorded",
         text: dailyVote
-          ? "You can cast another ballot after 00:00 UTC."
-          : "A participation receipt is saved in this browser.",
+          ? "You can cast another ballot after 00:00 UTC. A receipt on this device does not block a different account."
+          : "A participation receipt is saved in this browser. Submitting again with the same account will fail.",
         tone: "ok",
       });
     } catch (error) {
@@ -1024,18 +1025,14 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                 <button
                   type="button"
                   className="btn btn-primary"
-                  disabled={!canVote || votedReceipt}
+                  disabled={!canVote}
                   onClick={vote}
                 >
                   {busy
                     ? "Working…"
-                    : votedReceipt
-                      ? dailyVote
-                        ? "Already voted today"
-                        : "Already voted"
-                      : privacyMode === "private"
-                        ? "Vote privately"
-                        : "Vote openly"}
+                    : privacyMode === "private"
+                      ? "Vote privately"
+                      : "Vote openly"}
                 </button>
               )}
               {accountAddress && contract ? (
@@ -1066,6 +1063,14 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                   {privacyMode === "private"
                     ? "Your address stays hidden. The network records a valid +1, not who you are. Timing or IP can still correlate if few people vote."
                     : "Open mode publishes your address and choice on-chain."}
+                </p>
+              ) : null}
+              {votedReceipt && votingOpen ? (
+                <p className="vote-note">
+                  <span className="vote-note-kicker">This device</span>
+                  {dailyVote
+                    ? `A ballot was already cast from this browser today. Submitting again with the same account before 00:00 UTC will fail. A different account can still vote. Next UTC day in ${formatCountdown(msUntilNextUtcDay(now))}.`
+                    : "A ballot was already cast from this browser. One Aztec account can vote once; submitting again with that same account will fail. A different account on this device can still vote."}
                 </p>
               ) : null}
               {dailyVote && votingOpen && !votedReceipt ? (
@@ -1103,12 +1108,6 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                   </>
                 ) : null}
               </Notice>
-            ) : votedReceipt ? (
-              <Notice tone="ok" title={dailyVote ? "Already voted today" : "Already voted"}>
-                {dailyVote
-                  ? `You can vote again in ${formatCountdown(msUntilNextUtcDay(now))}.`
-                  : "This device already has a participation receipt for this poll. One account can vote once."}
-              </Notice>
             ) : busy ? (
               <p className="status" data-tone={status.tone === "neutral" ? undefined : status.tone}>
                 {status.text}
@@ -1121,10 +1120,10 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
         <aside className="vote-results" aria-live="polite">
           <h2 className="vote-panel-title">Live results</h2>
           {votedReceipt ? (
-            <p className="hint" data-tone="ok">
+            <p className="hint">
               {dailyVote
-                ? `Participation receipt: you voted today. Next ballot in ${formatCountdown(msUntilNextUtcDay(now))}.`
-                : "Participation receipt: you voted on this device."}
+                ? `This device recorded a ballot today. The same account cannot vote again until 00:00 UTC.`
+                : "This device recorded a ballot. The same account cannot vote twice; a different account still can."}
             </p>
           ) : null}
           {resultsHidden ? (
@@ -1186,9 +1185,10 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                 : "Review the options and public tallies."}
             </li>
             <li>
-              Click <strong>Connect Aztec wallet</strong>. Prefer <em>Browser session</em> on
-              desktop — it creates an in-tab account without an on-chain deploy (a new address
-              each time). On iPhone, identity stays saved if Safari reloads while the wallet opens.
+              Click <strong>Connect Aztec wallet</strong>. Prefer <em>Azguard</em> on desktop
+              (browser extension, persistent account). <em>Browser session</em> is an in-tab
+              alternative without an on-chain deploy (a new address each time). On iPhone, prefer
+              Web Wallet; identity stays saved if Safari reloads.
             </li>
             <li>Choose an option, pick Private or Open, then vote. Proving the ballot can take several minutes.</li>
             <li>

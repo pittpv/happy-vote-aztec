@@ -81,7 +81,7 @@ Private **не** скрывает вариант с live-табло: `option_id`
 
 ### Must-have (итерация 1) — сделано
 
-Каталог, страница опроса, Connect (на Testnet: Browser session / Demo Wallet / расширение), private + optional open, защита от double-vote на аккаунт (и ZKPassport identity на важных опросах), `end_poll`, шаблоны binary / single_choice, публикация опросов операторами, гостевые tallies, домен, документация.
+Каталог, страница опроса, Connect (на десктопе предпочтителен Azguard; Browser session и Demo Wallet как альтернативы), private + optional open, защита от double-vote на аккаунт (и ZKPassport identity на важных опросах), `end_poll`, шаблоны binary / single_choice, публикация опросов операторами, гостевые tallies, домен, документация.
 
 ### Should-have (1.5) — в основном сделано
 

@@ -19,7 +19,7 @@
 - **Terms** — Testnet-демо, не официальные выборы; кошелёк Aztec; private vs open; ZKPassport как третья сторона.
 - **Privacy** — публичное on-chain состояние vs private бюллетени; API tallies; каталог; логи хостинга; свои cookieless агрегаты посещений.
 - **Data Safety** — нет изображений паспорта; proofs проверяются и не хранятся как паспорт; ключи в браузере / PXE.
-- **Cookies** — functional `localStorage`; нет first-party analytics cookies.
+- **Cookies** — functional `localStorage` (каталог, короткий ZKPassport id, подсказка об участии без адреса кошелька); нет first-party analytics cookies.
 - **GDPR** — роли, основания, трансферы, права.
 
 Cookie / Privacy / GDPR фиксируют, что стороннего счётчика на поддомене нет. Посещения считаются своими агрегатами без cookies.

@@ -50,7 +50,7 @@ function Modal({ title, children, onClose }) {
 
 function ChooseSourceBody({ beginDiscovery, beginSession, onImportKeys, allowAdminImport }) {
   const ios = isIosBrowser();
-  const [selected, setSelected] = useState(ios ? "web" : "session");
+  const [selected, setSelected] = useState(ios ? "web" : "extension");
   const sessionOption = {
     choice: "session",
     name: "Browser session",
@@ -68,12 +68,12 @@ function ChooseSourceBody({ beginDiscovery, beginSession, onImportKeys, allowAdm
   };
   const extensionOption = {
     choice: "extension",
-    name: "Browser Extension",
-    hint: "Azguard",
+    name: "Azguard",
+    hint: ios ? "Desktop browser extension" : "Recommended",
   };
   const options = ios
     ? [webOption, sessionOption, ...(allowAdminImport ? [importOption] : []), extensionOption]
-    : [sessionOption, ...(allowAdminImport ? [importOption] : []), extensionOption, webOption];
+    : [extensionOption, sessionOption, webOption, ...(allowAdminImport ? [importOption] : [])];
   return (
     <div className="wc-stack">
       <p className="wc-hint">
@@ -84,7 +84,7 @@ function ChooseSourceBody({ beginDiscovery, beginSession, onImportKeys, allowAdm
           </>
         ) : (
           <>
-            Prefer <strong>Browser session</strong> for voting
+            Prefer <strong>Azguard wallet</strong> browser extension for voting
             {allowAdminImport ? (
               <>
                 . Use <strong>Import admin keys</strong> only on a trusted device.

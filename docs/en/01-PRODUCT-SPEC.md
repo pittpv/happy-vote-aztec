@@ -83,7 +83,7 @@ Important polls should require at least personhood. Details live in catalog JSON
 
 1. Catalog + poll cards (operator-published in Iteration 1).
 2. Poll page: question, options, Vote CTA.
-3. Connect Aztec account. Testnet: **Browser session** (initializerless in-page PXE; new address each Connect), optional Demo Wallet / Azguard. Alpha should prefer a persistent wallet; session can stay as a low-friction option.
+3. Connect Aztec account. Testnet desktop prefers **Azguard** (persistent extension); **Browser session** remains as a low-friction in-page option (initializerless PXE, new address each Connect); **Web Wallet** is the Labs Demo Wallet (preferred on iPhone). Alpha should keep a persistent wallet as the default.
 4. Private vote + public tally.
 5. Optional open vote (`voter_choice`).
 6. Double-vote prevention (`SingleUseClaim` + identity claims; optional UTC-day period).

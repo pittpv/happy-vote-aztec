@@ -53,8 +53,8 @@ flowchart LR
 
 1. Guest: question, options, public tallies (`/api/poll-state`), plus schedule/countdown when dates are set. If the contract is paused or the poll is cancelled, Connect and Vote stay locked. Daily polls show a **Daily** catalog badge and a UTC-day countdown after a ballot. **Sealed** polls omit counts and fill bars on option buttons while voting is open; the header shows **Votes sealed**, and Live results explain that tallies stay hidden until close.
 2. Optional ZKPassport gate (only while the voting window is open).
-3. Connect Aztec wallet. Testnet prefers **Browser session** (initializerless in-tab account, new address each Connect). **Web Wallet** is the Labs Demo Wallet (may reuse an account). Azguard (Aztec 5.2.0) is the extension path; reconnect after a permission-scope change.
-4. Option + Private/Open → submit.
+3. Connect Aztec wallet. Desktop prefers **Azguard** (Aztec 5.2.0 extension, first in the connect modal). **Browser session** is an initializerless in-tab alternative (new address each Connect). **Web Wallet** is the Labs Demo Wallet (preferred on iPhone; may reuse an account). Reconnect Azguard after a permission-scope change.
+4. Option + Private/Open → submit. A local participation hint may appear if this browser already cast a ballot; it does not store an address and does not lock Vote. Submitting again with the **same account** fails on-chain.
 5. Status + explorer link next to the CTA.
 
 ## ZKPassport gate

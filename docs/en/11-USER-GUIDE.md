@@ -29,9 +29,9 @@ Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data
 3. Progress chips: **Ready/Verify → Connect → Vote**.
 4. If the poll requires ZKPassport, complete verification first (QR on desktop, ZKPassport app on the phone). After success the block collapses to **Identity verified**.
 5. Click **Connect Aztec wallet**.
-   - Prefer **Browser session** for voting (in-page PXE). It creates an initializerless Schnorr account in this tab — no on-chain account-deploy tx. Proving the ballot itself can still take several minutes. Each new Browser session is a **new Aztec address**.
-   - **Web Wallet** is the Aztec Labs Demo Wallet. It can reuse an account you already created there.
-   - [Azguard](https://azguardwallet.io/) (browser extension, Aztec 5.2.0) can connect and vote. Testnet ballots are sponsored — you do not need Fee Juice for the vote itself. After an Azguard or site update, disconnect and reconnect if the wallet asks again or if a permission error appears.
+   - Prefer **[Azguard](https://azguardwallet.io/)** on desktop (browser extension, Aztec 5.2.0). It keeps a persistent account. Testnet ballots are sponsored — you do not need Fee Juice for the vote itself. After an Azguard or site update, disconnect and reconnect if the wallet asks again or if a permission error appears.
+   - **Browser session** is an in-page PXE alternative. It creates an initializerless Schnorr account in this tab — no on-chain account-deploy tx. Proving the ballot itself can still take several minutes. Each new Browser session is a **new Aztec address**.
+   - **Web Wallet** is the Aztec Labs Demo Wallet (recommended on iPhone). It can reuse an account you already created there.
 6. Under **Your ballot** pick an option. Under **Ballot privacy** choose **Private** (default) or **Open**.
 7. Submit and wait for proving + inclusion. Status sits next to the CTA; use **Open tx** when shown.
 8. Expand **Fees on testnet** only if a fee error appears — claim Fee Juice at https://aztec-faucet.nethermind.io and paste your Aztec address.
@@ -41,7 +41,7 @@ On wide screens, **Live results** sit beside the ballot; on mobile they stack be
 
 ## Rules
 
-- **One vote per Aztec account per poll**, or **one vote per UTC day** when the poll is created with daily frequency. Private and open share that limit. A new Browser session is a new account, so open-eligibility polls can be voted again after reconnecting. That is expected for fun polls (`/p/1`, `/p/2`, `/p/4`). Personhood/gated polls (`/p/3`) also bind **one ZKPassport identity**, so extra session addresses do not add extra ballots.
+- **One vote per Aztec account per poll**, or **one vote per UTC day** when the poll is created with daily frequency. Private and open share that limit. A new Browser session is a new account, so open-eligibility polls can be voted again after reconnecting. That is expected for fun polls (`/p/1`, `/p/2`, `/p/4`). Personhood/gated polls (`/p/3`) also bind **one ZKPassport identity**, so extra session addresses do not add extra ballots. After a ballot, this browser may show a **device hint** (no address stored). It does not lock the Vote button; sending again with the **same account** still fails on-chain.
 - Daily polls reset at **00:00 UTC**. Each new day adds to the tally; the previous choice is not removed.
 - Private mode hides your **address**; the chosen option still increments the **public** tally (unless the poll is sealed).
 - Open mode publishes address + choice.

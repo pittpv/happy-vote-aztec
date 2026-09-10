@@ -348,6 +348,7 @@ export async function publishHomepage(entries, publishToken) {
   };
 }
 
+/** Local hint only — poll id, never a wallet address. Does not block voting. */
 export function markVoted(pollId, { frequency } = {}) {
   if (typeof localStorage === "undefined") return;
   try {

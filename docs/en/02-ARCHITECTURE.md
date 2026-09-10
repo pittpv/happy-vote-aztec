@@ -207,11 +207,13 @@ Guest tallies: same-origin `/api/poll-state` only (public Testnet RPC rate-limit
 
 ### 4.1 Wallet types (Testnet UI)
 
+Desktop Connect lists **Azguard** first and prefers the browser extension. **Browser session** and **Web Wallet** stay as alternatives. On iPhone the UI prefers Web Wallet.
+
 | Source | What it is | Address | On Alpha |
 |--------|------------|---------|----------|
+| **Browser extension** | Azguard (Aztec 5.2.0) or a later Aztec wallet. | Persistent if the user keeps that account. | Default path once the wallet matches the network. |
 | **Browser session** | In-page PXE (`EmbeddedWallet`, ephemeral). Creates an **initializerless** Schnorr account — no on-chain account-deploy tx. | **New on every Connect** (keys are not restored after the tab session). | Optional “vote without installing a wallet”, not a lasting identity. |
 | **Web Wallet** | Aztec Labs Demo Wallet (`demo-wallet.aztec-labs.com`). | Reuses the wallet’s current account if the user kept it; a new account there is a new address. | Not intended as the production wallet. |
-| **Browser extension** | Azguard (Aztec 5.2.0) or a later Aztec wallet. | Persistent if the user keeps that account. | Default path once the wallet matches the network. |
 
 `cast_vote_private` and `cast_vote_open` are private entrypoints on HappyVote, so a session account does not need a public account deploy to vote.
 
@@ -226,7 +228,7 @@ Registering the FPC under `type: "contracts"` only allows `registerContract`. Th
 
 ### 4.3 One vote vs cheap accounts
 
-The contract enforces **one ballot per Aztec account** (or per UTC day on daily polls), shared by private and open.
+The contract enforces **one ballot per Aztec account** (or per UTC day on daily polls), shared by private and open. After a ballot, the UI may show a **device hint** in this browser (poll id only, no address). That hint does not lock Vote; sending again with the **same account** still fails on-chain.
 
 That is not personhood. Anyone can mint many Aztec accounts. Browser session makes that especially cheap (new address per Connect). Demo Wallet and extensions can also create extra accounts.
 
