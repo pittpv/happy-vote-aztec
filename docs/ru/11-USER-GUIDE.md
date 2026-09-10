@@ -31,7 +31,7 @@ UI: [12-UI-UX.md](./12-UI-UX.md)
 5. **Connect Aztec wallet**.
    - Предпочтительно **Browser session** (in-page PXE). Создаётся initializerless Schnorr в этой вкладке — без on-chain tx деплоя аккаунта. Prove бюллетеня по-прежнему может занять несколько минут. Каждая новая Browser session — **новый Aztec-адрес**.
    - **Web Wallet** — Demo Wallet Aztec Labs. Может переиспользовать аккаунт, который вы уже создали там.
-   - [Azguard](https://azguardwallet.io/) (расширение) может подключиться; на Testnet часть prove-шагов всё ещё может требовать Browser session.
+   - [Azguard](https://azguardwallet.io/) (расширение, Aztec 5.2.0) может подключиться и проголосовать. На Testnet комиссию за бюллетень покрывает Sponsored FPC — Fee Juice для самого голоса не нужен. После обновления Azguard или сайта отключитесь и подключитесь снова, если кошелёк запросит разрешение повторно или появится ошибка доступа.
 6. В **Your ballot** выберите вариант. В **Ballot privacy** — **Private** (по умолчанию) или **Open**.
 7. Отправьте голос. Статус рядом с CTA; **Open tx**, когда появится.
 8. **Fees on testnet** — только при ошибке комиссии: https://aztec-faucet.nethermind.io

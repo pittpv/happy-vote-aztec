@@ -83,6 +83,12 @@ export function explainError(error, context = "generic") {
         text: "Reconnect with Browser session. Demo Wallet and some extensions cannot authorize this prove step yet.",
       };
     }
+    if (/not in capability scope|sponsor_unconditionally/i.test(blob)) {
+      return {
+        title: "Wallet needs an updated permission",
+        text: "Disconnect Azguard, reconnect, and approve the new request. Voting uses the Sponsored FPC to pay fees.",
+      };
+    }
     if (looksTechnical(blob)) {
       return {
         title: "The network rejected this ballot",

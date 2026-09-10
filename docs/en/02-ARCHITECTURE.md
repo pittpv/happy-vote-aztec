@@ -211,11 +211,20 @@ Guest tallies: same-origin `/api/poll-state` only (public Testnet RPC rate-limit
 |--------|------------|---------|----------|
 | **Browser session** | In-page PXE (`EmbeddedWallet`, ephemeral). Creates an **initializerless** Schnorr account — no on-chain account-deploy tx. | **New on every Connect** (keys are not restored after the tab session). | Optional “vote without installing a wallet”, not a lasting identity. |
 | **Web Wallet** | Aztec Labs Demo Wallet (`demo-wallet.aztec-labs.com`). | Reuses the wallet’s current account if the user kept it; a new account there is a new address. | Not intended as the production wallet. |
-| **Browser extension** | Azguard (or a later Aztec wallet). | Persistent if the user keeps that account. | Default path once the wallet matches network 5.1.0+. |
+| **Browser extension** | Azguard (Aztec 5.2.0) or a later Aztec wallet. | Persistent if the user keeps that account. | Default path once the wallet matches the network. |
 
 `cast_vote_private` and `cast_vote_open` are private entrypoints on HappyVote, so a session account does not need a public account deploy to vote.
 
-### 4.2 One vote vs cheap accounts
+### 4.2 Wallet capabilities (Azguard 5.2+)
+
+Azguard 5.2+ checks **every call** in `sendTx` against the dapp `transaction.scope`. A Testnet ballot is two private calls:
+
+1. `cast_vote_private` or `cast_vote_open` on HappyVote
+2. `sponsor_unconditionally` on the public Testnet Sponsored FPC (fee payment)
+
+Registering the FPC under `type: "contracts"` only allows `registerContract`. The fee-payment function must also be listed in `simulation.transactions.scope` and `transaction.scope`. The grant is `web/src/lib/walletCapabilities.js`. After that grant changes, the user must reconnect so the wallet can approve the new permission.
+
+### 4.3 One vote vs cheap accounts
 
 The contract enforces **one ballot per Aztec account** (or per UTC day on daily polls), shared by private and open.
 

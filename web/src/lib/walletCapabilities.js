@@ -8,6 +8,9 @@ import { getContractAddress, getSponsoredFpcAddress } from "./aztecClient.js";
  * Capability grant requested from Azguard / Demo Wallet (same pattern as the faucet).
  * Must include every contract we later registerContract() — Sponsored FPC, HappyVote,
  * and standard contracts used by SingleUseClaim / account entrypoints.
+ *
+ * Azguard 5.2+ checks every call in sendTx against transaction.scope, including the
+ * Sponsored FPC fee-payment call. Registering the FPC under type:"contracts" is not enough.
  */
 export function happyVoteCapabilities() {
   const feeJuice = ProtocolContractAddress.FeeJuice;
@@ -22,6 +25,11 @@ export function happyVoteCapabilities() {
     STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS,
   ];
   if (happyVote) contracts.push(happyVote);
+
+  const feeTxScope = [
+    { contract: sponsoredFpc, function: "sponsor_unconditionally" },
+    { contract: feeJuice, function: "check_balance" },
+  ];
 
   const happyVoteTxScope = happyVote
     ? [
@@ -47,6 +55,8 @@ export function happyVoteCapabilities() {
       ]
     : [];
 
+  const txScope = [...happyVoteTxScope, ...feeTxScope];
+
   return {
     version: "1.0",
     metadata: {
@@ -67,18 +77,12 @@ export function happyVoteCapabilities() {
         type: "simulation",
         utilities: { scope: [] },
         transactions: {
-          scope: [
-            ...happyVoteTxScope,
-            { contract: feeJuice, function: "check_balance" },
-          ],
+          scope: txScope,
         },
       },
       {
         type: "transaction",
-        scope: [
-          ...happyVoteTxScope,
-          { contract: feeJuice, function: "check_balance" },
-        ],
+        scope: txScope,
       },
     ],
   };

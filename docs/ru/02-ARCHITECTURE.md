@@ -208,11 +208,20 @@ Vite + React. Маршруты:
 |----------|---------|-------|----------|
 | **Browser session** | In-page PXE (`EmbeddedWallet`, эфемерный). Создаёт **initializerless** Schnorr — без on-chain tx деплоя аккаунта. | **Новый на каждый Connect** (ключи сессии вкладки не восстанавливаются). | Опционально «проголосовать без установки кошелька», не постоянная личность. |
 | **Web Wallet** | Demo Wallet Aztec Labs (`demo-wallet.aztec-labs.com`). | Тот же аккаунт, если пользователь его сохранил; новый аккаунт в кошельке — новый адрес. | Не задуман как боевой кошелёк. |
-| **Browser extension** | Azguard (или следующий кошелёк Aztec). | Постоянный, если аккаунт сохранён. | Основной путь, когда кошелёк совпадает с сетью 5.1.0+. |
+| **Browser extension** | Azguard (Aztec 5.2.0) или следующий кошелёк Aztec. | Постоянный, если аккаунт сохранён. | Основной путь, когда кошелёк совпадает с сетью. |
 
 `cast_vote_private` и `cast_vote_open` — private entrypoints HappyVote, поэтому session-аккаунту не нужен публичный деплой, чтобы голосовать.
 
-### 4.2 Один голос и дешёвые аккаунты
+### 4.2 Wallet capabilities (Azguard 5.2+)
+
+Azguard 5.2+ сверяет **каждый вызов** в `sendTx` с `transaction.scope` приложения. Бюллетень на Testnet — два private-вызова:
+
+1. `cast_vote_private` или `cast_vote_open` на HappyVote
+2. `sponsor_unconditionally` на публичном Testnet Sponsored FPC (оплата комиссии)
+
+Регистрация FPC в `type: "contracts"` разрешает только `registerContract`. Функция оплаты должна быть и в `simulation.transactions.scope`, и в `transaction.scope`. Грант: `web/src/lib/walletCapabilities.js`. После изменения гранта пользователь должен переподключить кошелёк, чтобы выдать новое разрешение.
+
+### 4.3 Один голос и дешёвые аккаунты
 
 Контракт даёт **один бюллетень на Aztec-аккаунт** (или на сутки UTC на дневных опросах), общий для private и open.
 

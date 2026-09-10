@@ -31,7 +31,7 @@ Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data
 5. Click **Connect Aztec wallet**.
    - Prefer **Browser session** for voting (in-page PXE). It creates an initializerless Schnorr account in this tab — no on-chain account-deploy tx. Proving the ballot itself can still take several minutes. Each new Browser session is a **new Aztec address**.
    - **Web Wallet** is the Aztec Labs Demo Wallet. It can reuse an account you already created there.
-   - [Azguard](https://azguardwallet.io/) (browser extension) can connect; some prove steps may still need Browser session on Testnet.
+   - [Azguard](https://azguardwallet.io/) (browser extension, Aztec 5.2.0) can connect and vote. Testnet ballots are sponsored — you do not need Fee Juice for the vote itself. After an Azguard or site update, disconnect and reconnect if the wallet asks again or if a permission error appears.
 6. Under **Your ballot** pick an option. Under **Ballot privacy** choose **Private** (default) or **Open**.
 7. Submit and wait for proving + inclusion. Status sits next to the CTA; use **Open tx** when shown.
 8. Expand **Fees on testnet** only if a fee error appears — claim Fee Juice at https://aztec-faucet.nethermind.io and paste your Aztec address.

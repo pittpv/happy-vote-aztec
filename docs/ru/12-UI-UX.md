@@ -35,7 +35,7 @@ flowchart LR
   Prove --> Results[Live results]
 ```
 
-На Testnet Connect предлагает **Browser session** (initializerless, новый адрес на подключение), Demo Wallet и расширение. Session не деплоит аккаунт on-chain; prove голоса по-прежнему может быть долгим.
+На Testnet Connect предлагает **Browser session** (initializerless, новый адрес на подключение), Demo Wallet и Azguard (Aztec 5.2.0). Session не деплоит аккаунт on-chain; prove голоса по-прежнему может быть долгим. После смены разрешений кошелька — отключиться и подключиться снова.
 
 ## ZKPassport
 
