@@ -40,9 +40,19 @@ export async function fetchZkPassportPolicies(domain = zkPassportPublicDomain())
   }
 }
 
+async function fetchWithTimeout(url, timeoutMs = 8_000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function loadPolicies(domain) {
   const url = `${DASHBOARD_API}/public/project?domain=${encodeURIComponent(domain)}`;
-  const response = await fetch(url, { signal: AbortSignal.timeout(10_000) });
+  const response = await fetchWithTimeout(url);
   if (!response.ok) {
     throw new Error(
       `ZKPassport Dashboard config failed for '${domain}' (${response.status} ${response.statusText})`,

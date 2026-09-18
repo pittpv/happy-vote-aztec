@@ -286,28 +286,63 @@ export async function catalogCountriesForPublish(requirements) {
   );
 }
 
+const CATALOG_FETCH_TIMEOUT_MS = 12_000;
+
+async function fetchCatalog(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), CATALOG_FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, {
+      headers: { accept: "application/json" },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Fetch one poll from /api/polls?id= and merge into the in-memory catalog.
+ * @returns {Promise<object|null>} hydrated meta, or null when the poll is not published
+ */
+export async function refreshPollMetaById(pollId) {
+  const id = String(pollId ?? "").trim();
+  if (!/^\d+$/.test(id)) {
+    throw new Error("poll id must be a positive integer");
+  }
+  const response = await fetchCatalog(`/api/polls?id=${encodeURIComponent(id)}`);
+  if (response.status === 404) return null;
+  if (!response.ok) throw new Error(`catalog HTTP ${response.status}`);
+  const data = await response.json();
+  if (!data?.poll?.id) throw new Error("Invalid poll catalog response");
+  sharedCatalog = { ...sharedCatalog, [String(data.poll.id)]: data.poll };
+  return getPollMeta(data.poll.id);
+}
+
 /**
  * Fetch shared catalog from /api/polls and cache in memory.
+ * Dashboard policy tags load in the background so poll pages are not blocked.
  * @returns {Promise<object[]>}
  */
 export async function refreshSharedCatalog() {
   try {
-    const response = await fetch("/api/polls", { headers: { accept: "application/json" } });
+    const response = await fetchCatalog("/api/polls");
     if (!response.ok) throw new Error(`catalog HTTP ${response.status}`);
     const data = await response.json();
     const next = {};
     for (const poll of data.polls || []) {
       if (poll?.id != null) next[String(poll.id)] = poll;
     }
-    sharedCatalog = next;
+    // Blob-backed list is complete. Seed-only responses must not drop a poll
+    // already loaded via /api/polls?id= (cold share links such as /p/5).
+    sharedCatalog = data.sources?.blob ? next : { ...sharedCatalog, ...next };
   } catch (error) {
     console.warn("[polls] shared catalog fetch failed", error);
   }
-  try {
-    await loadDashboardPolicyQueries();
-  } catch (error) {
+  void loadDashboardPolicyQueries().catch((error) => {
     console.error("[polls] dashboard policy countries", error);
-  }
+  });
   return listPolls();
 }
 

@@ -83,13 +83,14 @@ Never put a freshly constructed `AztecAddress` in a React `useEffect` dependency
 | Item | Value |
 |------|-------|
 | List | `GET /api/polls` |
-| One | `GET /api/polls?id=3` |
+| One | `GET /api/polls?id=3` (vote pages fetch this first so Blob-only polls such as `/p/5` do not flash seed placeholders) |
 | Publish | Authenticated `POST /api/polls` (operator-only; poll body, `homepage` flags, or `policyId` on an existing ZKPassport poll) |
 | Seed | `web/data/polls-catalog.json` |
 | Overlay | Optional object storage overlay on the host |
 | Home | Catalog fields `showOnHome` and `homeRank` select cards on `/`; `/polls` lists every poll. Country filter also uses public Dashboard policy `nationality` / `issuing_country` when `policyId` is set. Replacing catalog `policyId` on an existing poll does not rewrite on-chain `metadata_hash`. |
+| Cache | Overlay hits may be cached ~30s. A seed-only miss (overlay unread) is cached only briefly. Unknown-id `404` is not stored on the CDN. |
 
-Without Blob, everyone still sees the seed catalog.
+Without the overlay, everyone still sees the seed catalog. Overlay polls appear after `GET /api/polls?id=` succeeds.
 
 ## ZKPassport verify
 

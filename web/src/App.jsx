@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Component, lazy, Suspense, useEffect, useState } from "react";
 import {
   PRIVACY,
   getNodeUrl,
@@ -23,6 +23,7 @@ import {
   explorerTxUrl,
   explorerAddressUrl,
   pollPath,
+  refreshPollMetaById,
   refreshSharedCatalog,
   markVoted,
   hasVotedReceipt,
@@ -30,7 +31,6 @@ import {
   pollOptionLabels,
 } from "./lib/polls.js";
 import { parseRoute, navigate } from "./lib/routing.js";
-import { ZkPassportGate } from "./components/ZkPassportGate.jsx";
 import { WalletConnectModal } from "./components/WalletConnectModal.jsx";
 import { AdminCreatePollForm } from "./components/AdminCreatePollForm.jsx";
 import { AdminContractControls } from "./components/AdminContractControls.jsx";
@@ -69,6 +69,36 @@ import {
   msUntilNextUtcDay,
   utcDayIndex,
 } from "./lib/voteFrequency.js";
+
+const ZkPassportGate = lazy(() =>
+  import("./components/ZkPassportGate.jsx").then((mod) => ({ default: mod.ZkPassportGate })),
+);
+
+class ZkGateBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+
+  componentDidCatch(error) {
+    console.error(error);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <Notice tone="error" title="Identity check failed to load">
+          Refresh the page, then try verification again.
+        </Notice>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function envRequiresZkPassport() {
   return import.meta.env.VITE_REQUIRE_ZKPASSPORT === "true";
@@ -391,6 +421,9 @@ function AdminRoute({ walletConnect }) {
 
 function PollVoteRoute({ pollId: routePollId, walletConnect }) {
   const [pollMeta, setPollMeta] = useState(() => getPollMeta(routePollId));
+  const [metaPending, setMetaPending] = useState(() => !hasKnownPollMeta(routePollId));
+  const [catalogError, setCatalogError] = useState(null);
+  const [catalogNonce, setCatalogNonce] = useState(0);
   const options = pollMeta.options;
   const optionLabels = pollOptionLabels(options);
   const requiresZk =
@@ -451,14 +484,69 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
 
   useEffect(() => {
     let cancelled = false;
+    const alreadyKnown = hasKnownPollMeta(routePollId);
+    setMetaPending(!alreadyKnown);
+    setCatalogError(null);
+    if (alreadyKnown) {
+      setPollMeta(getPollMeta(routePollId));
+    }
+
     (async () => {
-      await refreshSharedCatalog();
-      if (!cancelled) setPollMeta(getPollMeta(routePollId));
+      try {
+        const single = await refreshPollMetaById(routePollId);
+        if (cancelled) return;
+        if (single) {
+          setPollMeta(single);
+          setVoteFrequency(Number(single.voteFrequency) || VOTE_FREQUENCY.ONCE);
+          setOnChainSealed(Boolean(single.sealed));
+          setTallies(pollOptionLabels(single.options).map(() => 0));
+          setTotal(0);
+          setMetaPending(false);
+          setCatalogError(null);
+        }
+        await refreshSharedCatalog();
+        if (cancelled) return;
+        if (hasKnownPollMeta(routePollId)) {
+          const meta = getPollMeta(routePollId);
+          setPollMeta(meta);
+          setVoteFrequency(Number(meta.voteFrequency) || VOTE_FREQUENCY.ONCE);
+          setOnChainSealed(Boolean(meta.sealed));
+          setTallies((prev) =>
+            pollOptionLabels(meta.options).length === prev.length
+              ? prev
+              : pollOptionLabels(meta.options).map(() => 0),
+          );
+          setMetaPending(false);
+          setCatalogError(null);
+        } else {
+          setPollMeta(getPollMeta(routePollId));
+          setMetaPending(false);
+          setCatalogError(
+            "This poll is not in the shared catalog yet. Retry if you followed a share link.",
+          );
+        }
+      } catch (error) {
+        if (cancelled) return;
+        console.error(error);
+        if (hasKnownPollMeta(routePollId)) {
+          setPollMeta(getPollMeta(routePollId));
+          setMetaPending(false);
+          setCatalogError(null);
+        } else {
+          setCatalogError(
+            error?.name === "AbortError"
+              ? "This poll is taking too long to load. Check your connection and retry."
+              : "Could not load this poll from the shared catalog.",
+          );
+          setMetaPending(false);
+        }
+      }
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [routePollId]);
+  }, [routePollId, catalogNonce]);
 
   const contractAddressStr = import.meta.env.VITE_HAPPY_VOTE_CONTRACT_ADDRESS
     ? String(import.meta.env.VITE_HAPPY_VOTE_CONTRACT_ADDRESS)
@@ -478,19 +566,23 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
 
   useEffect(() => {
     setSelected(0);
-    setTallies(optionLabels.map(() => 0));
     setTotal(0);
     setLastTxHash(null);
     setShareHint("");
     setReceiptNonce(0);
-    setVoteFrequency(Number(getPollMeta(routePollId).voteFrequency) || VOTE_FREQUENCY.ONCE);
-    setOnChainSealed(Boolean(getPollMeta(routePollId).sealed));
     setChainStartsAt(null);
     setChainEndsAt(null);
     setCancelled(false);
     setPaused(false);
     setVoteEnded(false);
-    setPollMeta(getPollMeta(routePollId));
+    const known = hasKnownPollMeta(routePollId);
+    const meta = getPollMeta(routePollId);
+    setPollMeta(meta);
+    setVoteFrequency(Number(meta.voteFrequency) || VOTE_FREQUENCY.ONCE);
+    setOnChainSealed(Boolean(meta.sealed));
+    setTallies(pollOptionLabels(meta.options).map(() => 0));
+    setMetaPending(!known);
+    setCatalogError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routePollId]);
 
@@ -502,12 +594,14 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
       });
       return;
     }
+    if (metaPending) return;
 
+    const optionsCount = optionLabels.length;
     let cancelled = false;
     (async () => {
       try {
         setStatus({ text: "Loading public tallies…", tone: "neutral" });
-        const result = await readPublicPollState(pollId, optionLabels.length);
+        const result = await readPublicPollState(pollId, optionsCount);
         if (cancelled) return;
         setTallies(result.tallies);
         setTotal(result.total);
@@ -539,7 +633,7 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contractAddressStr, routePollId]);
+  }, [contractAddressStr, routePollId, optionLabels.length, metaPending]);
 
   const connectedAddress =
     walletConnect.phase.kind === "connected" ? String(walletConnect.phase.address) : null;
@@ -849,6 +943,54 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
     schedule.phase !== POLL_PHASE.CLOSED;
   const maxTally = Math.max(1, ...tallies);
   const voteStep = !identityOk ? 1 : !accountAddress ? 2 : 3;
+  const pollFooter = (
+    <SiteFooter
+      disclaimer="HappyVote is a technology layer on Aztec Network. It is not an official electoral authority. Private ballots hide your address; open ballots publish your address and selection."
+    />
+  );
+
+  if (metaPending) {
+    return (
+      <main className="app app-wide">
+        <SiteHeader walletConnect={walletConnect} current="poll" />
+        <section className="vote-shell" aria-busy="true" aria-live="polite">
+          <header className="vote-hero">
+            <p className="vote-kicker">Poll #{routePollId}</p>
+            <h1 className="question">Loading poll…</h1>
+            <p className="poll-desc">Fetching the shared catalog for this vote.</p>
+          </header>
+        </section>
+        {pollFooter}
+      </main>
+    );
+  }
+
+  if (catalogError && !pollKnown) {
+    return (
+      <main className="app app-wide">
+        <SiteHeader walletConnect={walletConnect} current="poll" />
+        <section className="vote-shell">
+          <header className="vote-hero">
+            <p className="vote-kicker">Poll #{routePollId}</p>
+            <h1 className="question">Poll #{routePollId}</h1>
+            <Notice tone="error" title="Poll metadata is unavailable">
+              {catalogError}
+            </Notice>
+            <div className="vote-cta-actions">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setCatalogNonce((n) => n + 1)}
+              >
+                Retry
+              </button>
+            </div>
+          </header>
+        </section>
+        {pollFooter}
+      </main>
+    );
+  }
 
   return (
     <main className="app app-wide">
@@ -917,28 +1059,38 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
 
           {requiresZk && votingOpen ? (
             <div className="vote-zk">
-              <ZkPassportGate
-                pollId={routePollId}
-                requirements={pollMeta.zkRequirements}
-                verifiedId={zkId}
-                serverVerified={zkServerVerified}
-                onVerified={({ uniqueIdentifier, serverVerified, mock }) => {
-                  setZkId(uniqueIdentifier);
-                  setZkServerVerified(Boolean(serverVerified));
-                  saveZkSession(routePollId, {
-                    uniqueIdentifier,
-                    serverVerified,
-                    mock,
-                    requirements: pollMeta.zkRequirements,
-                  });
-                  setStatus({
-                    text: serverVerified
-                      ? "Identity verified — connect a wallet and cast your ballot."
-                      : "Identity verified for this poll.",
-                    tone: "ok",
-                  });
-                }}
-              />
+              <ZkGateBoundary key={routePollId}>
+                <Suspense
+                  fallback={
+                    <p className="status" data-tone="neutral">
+                      Loading identity check…
+                    </p>
+                  }
+                >
+                  <ZkPassportGate
+                    pollId={routePollId}
+                    requirements={pollMeta.zkRequirements}
+                    verifiedId={zkId}
+                    serverVerified={zkServerVerified}
+                    onVerified={({ uniqueIdentifier, serverVerified, mock }) => {
+                      setZkId(uniqueIdentifier);
+                      setZkServerVerified(Boolean(serverVerified));
+                      saveZkSession(routePollId, {
+                        uniqueIdentifier,
+                        serverVerified,
+                        mock,
+                        requirements: pollMeta.zkRequirements,
+                      });
+                      setStatus({
+                        text: serverVerified
+                          ? "Identity verified — connect a wallet and cast your ballot."
+                          : "Identity verified for this poll.",
+                        tone: "ok",
+                      });
+                    }}
+                  />
+                </Suspense>
+              </ZkGateBoundary>
             </div>
           ) : null}
 

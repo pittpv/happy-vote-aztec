@@ -157,14 +157,14 @@ Vite + React. Routes:
 | `/p/:id` | Vote |
 | `/legal/:slug` | Terms, Privacy, Data Safety, Cookies, GDPR |
 
-Guest tallies: same-origin `/api/poll-state` only (public Testnet RPC rate-limits browsers).
+Guest tallies: same-origin `/api/poll-state` only (public Testnet RPC rate-limits browsers). Vote pages that are not in the client seed fetch `GET /api/polls?id=` first and wait for real option labels before reading tallies. ZKPassport Dashboard country tags load in the background so a share link is not blocked on that request.
 
 ### 3.2 APIs
 
 | Endpoint | Role |
 |----------|------|
 | `GET /api/poll-state?pollId=&optionsCount=` | Batch `node_getPublicStorageAt`, ~15s cache. Poseidon map slots from catalog metadata (any poll id) |
-| `GET /api/polls` | Seed JSON + optional Blob overlay (`showOnHome` / `homeRank` for `/`). The `/polls` country filter also uses Dashboard policy countries when `policyId` is set. |
+| `GET /api/polls` | Seed JSON + optional Blob overlay (`showOnHome` / `homeRank` for `/`). `GET /api/polls?id=` hydrates a single poll (used by `/p/:id`). The `/polls` country filter also uses Dashboard policy countries when `policyId` is set. |
 | `POST /api/polls` | Authenticated catalog publish (operator-only): new poll body, `homepage` flags, or `policyId` on an existing ZKPassport poll |
 | `POST /api/zkpassport-verify` | Server re-verify `@zkpassport/sdk` |
 | `POST /api/client-error` | Boot / vote errors → Vercel logs |

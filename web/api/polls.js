@@ -10,6 +10,8 @@
  * Persistence: embedded seed + optional Vercel Blob overlay (`BLOB_READ_WRITE_TOKEN`).
  */
 import {
+  catalogCacheControl,
+  loadMergedCatalog,
   loadSeed,
   mergeCatalogs,
   readBlobCatalog,
@@ -239,21 +241,22 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === "GET") {
-      const seed = loadSeed();
-      const overlay = await readBlobCatalog();
-      const catalog = mergeCatalogs(seed, overlay);
+      const catalog = await loadMergedCatalog();
       const url = new URL(req.url, "http://localhost");
       const id = url.searchParams.get("id");
       if (id) {
         const poll = catalog.polls[String(id)];
-        if (!poll) return res.status(404).json({ ok: false, error: "Poll not found" });
-        res.setHeader("Cache-Control", "public, s-maxage=30, stale-while-revalidate=120");
+        if (!poll) {
+          res.setHeader("Cache-Control", "private, no-store");
+          return res.status(404).json({ ok: false, error: "Poll not found" });
+        }
+        res.setHeader("Cache-Control", catalogCacheControl(catalog));
         return res.status(200).json({ ok: true, poll: publicPoll(poll), sources: catalog.sources });
       }
       const polls = Object.values(catalog.polls)
         .map(publicPoll)
         .sort((a, b) => Number(a.id) - Number(b.id));
-      res.setHeader("Cache-Control", "public, s-maxage=30, stale-while-revalidate=120");
+      res.setHeader("Cache-Control", catalogCacheControl(catalog));
       return res.status(200).json({
         ok: true,
         updatedAt: catalog.updatedAt,

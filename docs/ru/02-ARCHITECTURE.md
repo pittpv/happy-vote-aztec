@@ -154,14 +154,14 @@ Vite + React. Маршруты:
 | `/p/:id` | Голосование |
 | `/legal/:slug` | Terms, Privacy, Data Safety, Cookies, GDPR |
 
-Гостевые tallies только через same-origin `/api/poll-state`.
+Гостевые tallies только через same-origin `/api/poll-state`. Страницы опросов, которых нет в клиентском seed, сначала берут `GET /api/polls?id=` и ждут реальные подписи вариантов, прежде чем читать tallies. Страны из ZKPassport Dashboard подгружаются в фоне, чтобы шаринговая ссылка не ждала этот запрос.
 
 ### 3.2 API
 
 | Endpoint | Роль |
 |----------|------|
 | `GET /api/poll-state` | Batch `node_getPublicStorageAt`, кэш ~15с. Poseidon-слоты из метаданных каталога (любой poll id) |
-| `GET /api/polls` | Seed JSON + опциональный Blob (`showOnHome` / `homeRank` для `/`). Фильтр стран на `/polls` также берёт страны из Dashboard policy, если задан `policyId`. |
+| `GET /api/polls` | Seed JSON + опциональный Blob (`showOnHome` / `homeRank` для `/`). `GET /api/polls?id=` гидратирует один опрос (страница `/p/:id`). Фильтр стран на `/polls` также берёт страны из Dashboard policy, если задан `policyId`. |
 | `POST /api/polls` | Публикация метаданных каталога (только оператор): тело опроса, флаги `homepage` или `policyId` у существующего ZKPassport-опроса |
 | `POST /api/zkpassport-verify` | Server re-verify |
 | `POST /api/client-error` | Ошибки в логи Vercel |

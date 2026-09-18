@@ -2035,6 +2035,11 @@ body::before {
   max-width: 42ch;
 }
 
+.vote-hero .notice,
+.vote-hero .vote-cta-actions {
+  margin-top: 1rem;
+}
+
 .share-row {
   display: flex;
   flex-wrap: wrap;

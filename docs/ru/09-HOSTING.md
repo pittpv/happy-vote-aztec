@@ -24,7 +24,7 @@ COOP/COEP для WASM proving. CSP: RPC, CRS CDN, ZKPassport. SPA rewrite не �
 | Endpoint | Роль |
 |----------|------|
 | `GET /api/poll-state` | Гостевые tallies, кэш ~15с; нули если sealed и активен (UI нули на кнопках не рисует); есть `paused` / `cancelled` / `votingOpen`. Poseidon-слоты пишутся в каталог при публикации (любой poll id) |
-| `GET/POST /api/polls` | Каталог (seed + Blob). `showOnHome` / `homeRank` для главной; полный список на `/polls`. Фильтр стран также читает Dashboard policy, если задан `policyId`. Смена каталожного `policyId` у существующего опроса не переписывает on-chain `metadata_hash`. |
+| `GET/POST /api/polls` | Каталог (seed + overlay). `GET /api/polls?id=` для `/p/:id` (опросы только в overlay, например `/p/5`, не показывают seed-заглушку). `showOnHome` / `homeRank` для главной; полный список на `/polls`. Фильтр стран также читает Dashboard policy, если задан `policyId`. Смена каталожного `policyId` у существующего опроса не переписывает on-chain `metadata_hash`. Промах overlay кешируется коротко; `404` по id на CDN не кладётся. |
 | `POST /api/zkpassport-verify` | Server re-verify |
 | `POST /api/client-error` | Логи ошибок |
 | `POST /api/site-stats` | Обезличенные дневные агрегаты посещений (без cookies, без IP) |
