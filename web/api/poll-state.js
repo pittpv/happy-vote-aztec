@@ -1,73 +1,18 @@
 /**
  * Lightweight public tallies API (no aztec.js runtime).
- * Uses raw JSON-RPC + known HappyVote map slots (Poseidon2 map derivation).
+ * Uses raw JSON-RPC + HappyVote map slots (Poseidon2).
+ *
+ * Slots are catalog metadata written at publish (any poll id). A baked JSON
+ * file is only a fallback for older records. Do NOT import @aztec/* here —
+ * Vercel serverless lacks pino-pretty transport.
  */
+import { loadMergedCatalog } from "./poll-catalog.js";
+import { resolvePollSlots } from "./poll-slots.js";
+
 const DEFAULT_NODE = "https://v5.testnet.rpc.aztec-labs.com";
 const CACHE_TTL_MS = 15_000;
 /** Contract-level `paused` PublicMutable (codegen slot 18), not a per-poll map. */
 const PAUSED_SLOT = "0x12";
-
-/**
- * Precomputed slots for known polls (deriveStorageSlotInMap Poseidon2).
- * Recompute via `node scripts/compute-slots.mjs <pollId> <optionsCount>`.
- * Do NOT lazy-import @aztec/* here — Vercel serverless lacks pino-pretty transport.
- */
-const PRECOMPUTED = {
-  "1": {
-    tallies: [
-      "0x06baebfd238caf7a5deca592831b242a70d94c07af56c14bf6a9b93188b3e6b4",
-      "0x11d05c357dfaf79a90fab3ee30e9c6338e7b01270d97363a8475d53494f3adb3",
-    ],
-    total: "0x29dc8c7d0cd7c1466ed7fe05e006a2b50049d209be60512c9b2cb7af5a10a022",
-    policy: "0x19d85eb93cdc773ceebf95f44d6135aceea42db777461ac3e29a1bb1249273d3",
-    voteEnded: "0x0cf8ce2bc3b2b2ae03caaab0d8e620df5c780e2b09a43f0b9bd0458847308ca4",
-    sealed: "0x1df69935b815bbd167efbd22f6f97d96f4a4be05c863c81c6d5359aa938024f5",
-    startsAt: "0x25a286df9dac8b0b04d1f0f8dff42cbade7a7c35ccde7b254357cb1386731ea0",
-    endsAt: "0x1a1b696e0bee39da8dac5f43ea0af379d9825d8131fcfe530f79cd29a795f5fd",
-    cancelled: "0x0a8900c8076d089c1e0853189795b9215ac1bcba5317d598b944f65dac44b1a8",
-  },
-  "2": {
-    tallies: [
-      "0x1b945991781bd92ea6379d148d4d18a45b7b3d29c58bdaa041521e38086ac6a2",
-      "0x26640bb4ebbb3cfedc3148757e165cd1a9423db65e7c7f526e74368a029f5343",
-      "0x0886b6a9dd2f7c6e3984c926ad962d43d91cf9fb702abfab9d79e701018dabd2",
-    ],
-    total: "0x0814cfb0d92b7cc90d9903053c92106e17d39ed96908fde5b1f20ffa4ce574e2",
-    policy: "0x1b2a5d455cab4740e443147754809bb1c9659b71a2e190ccd46a96b43d61224e",
-    voteEnded: "0x02f2f2c711b07c5b3e451652f95e973cd3fddc316ad99df65e9872ea652c5050",
-    sealed: "0x25ad04948afa1d452b6982c6176e938eafd9df78e83be35082c1d08d18b8aae5",
-    startsAt: "0x2b5e79bc122b46322aa0aa5ebdf454610668fee02b8a96a897132982530a75a8",
-    endsAt: "0x29dd978dc8a1beac3ed29e5bae264bf837aede75c1ca1357474aa92be818fa6c",
-    cancelled: "0x23d7483264d96fcb229c072ecabef3faac70dfb6dbddcf490364ee5eb3c648e7",
-  },
-  "3": {
-    tallies: [
-      "0x03aa52cfb08ec2659803714a6cc5928c99bf03b2be0be2780d136e6fb67b5179",
-      "0x246ccaf75686a18b2a387f2dbf5bd7c5ba2a5ad1b9a856df559d9250e4c8d589",
-    ],
-    total: "0x16ee43df76609024788af83ab7fecc63347ed8ab80d5f5338e250b51d5b8602c",
-    policy: "0x1e0563e6101ac38fe9432cc18ef12325f5eed9c261a16afe76efebf100cd21da",
-    voteEnded: "0x1ff113a83ed3e36ef00580b705cf6d26496d42ad7de586d222f15796dc43983c",
-    sealed: "0x0a4695a7e02968b12a28fc63cf80bdb3f0a6fceea3006482e25209d1fc2cb4b6",
-    startsAt: "0x1a596808e4e53a32f0d6197881c45ce6b873c6a291526ce92c07e4fc21ce56d1",
-    endsAt: "0x2403a7add78c639009581e8a0774808a21e10394d1c23a13f69c8ed5a9d46344",
-    cancelled: "0x25bf2d54475ffd45cb075e412b026bb8a2ce37e7d02f17f419457d1b9660f88f",
-  },
-  "4": {
-    tallies: [
-      "0x210b6cac87a9c74155440e466e5499549826c8e62dcca7639535bfdb9de3895f",
-      "0x0cc970f21090ab54ba5f90d70d95c46debbb1b531412a521f677ab900875d0f0",
-      "0x064c2e30a40c2fd5207c0cc192c3d254216ef0fccf9d9381b550847ceb6be735",
-    ],
-    total: "0x01bfe74d650bada64d0a8ae346263abbdf2a34b9b6dad0457613edd167c3d08c",
-    policy: "0x226e86df115da1a9a96faae25d9829b5f0f9d0228e3fee360cd8332556937784",
-    voteEnded: "0x285d1ba7b66bf6d8f4b14690e2af8a5c163f4f0ad0c772352bc68b99e0864b1a",
-    sealed: "0x2e768ac3094df193234b48b17593a8aec03c149779de032372c6e6017e74827d",
-    startsAt: "0x28672abdbcfcdf81c05a4ee9dcfc172b29190a9f783facdd3944cdc330c4e5e4",
-    endsAt: "0x1d062ec9cf07234575e18aaccdbf8ec5ba721e9f215f2214ca694f829fc3d8af",
-    cancelled: "0x2d0092d7f123827de23a50885a7fe558725c3b48802695a1a54f0b157bafe688",
-  },
-};
 
 /** @type {{ key: string, at: number, data: object } | null} */
 let memoryCache = null;
@@ -97,28 +42,6 @@ function fieldToNumber(value) {
     }
   }
   throw new Error(`Unexpected storage value: ${JSON.stringify(value)}`);
-}
-
-async function rpcCall(nodeUrl, method, params) {
-  const response = await fetch(nodeUrl, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-  });
-  const text = await response.text();
-  let json;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    throw new Error(`RPC non-JSON (${response.status}): ${text.slice(0, 200)}`);
-  }
-  if (!response.ok) {
-    throw new Error(json?.message || json?.error?.message || `HTTP ${response.status}`);
-  }
-  if (json.error) {
-    throw new Error(json.error.message || JSON.stringify(json.error));
-  }
-  return json.result;
 }
 
 async function rpcBatch(nodeUrl, calls) {
@@ -173,28 +96,13 @@ async function withRetry(fn, attempts = 5) {
   throw last;
 }
 
-function resolveSlots(pollId, optionsCount) {
-  const entry = PRECOMPUTED[String(pollId)];
-  if (!entry) {
-    throw new Error(
-      `No precomputed slots for pollId=${pollId}. Run: node scripts/compute-slots.mjs ${pollId} ${optionsCount}`,
-    );
-  }
-  if (optionsCount > entry.tallies.length) {
-    throw new Error(
-      `optionsCount=${optionsCount} exceeds precomputed tallies (${entry.tallies.length}) for poll ${pollId}`,
-    );
-  }
-  return {
-    tallies: entry.tallies.slice(0, optionsCount),
-    total: entry.total,
-    policy: entry.policy,
-    voteEnded: entry.voteEnded,
-    sealed: entry.sealed,
-    startsAt: entry.startsAt,
-    endsAt: entry.endsAt,
-    cancelled: entry.cancelled,
-  };
+async function resolveSlots(pollId, optionsCount) {
+  const id = String(pollId);
+  const catalog = await loadMergedCatalog();
+  const slots = resolvePollSlots(id, catalog.polls?.[id]?.storageSlots, optionsCount);
+  if (slots) return slots;
+  console.error("poll-state missing slots", { pollId: id, optionsCount });
+  throw new Error("Poll tallies are unavailable");
 }
 
 export default async function handler(req, res) {
@@ -235,7 +143,7 @@ export default async function handler(req, res) {
     }
 
     const nodeUrl = env("VITE_AZTEC_NODE_URL") || DEFAULT_NODE;
-    const slots = resolveSlots(pollId, optionsCount);
+    const slots = await resolveSlots(pollId, optionsCount);
     const contract = padHex32(contractAddress);
 
     const calls = [

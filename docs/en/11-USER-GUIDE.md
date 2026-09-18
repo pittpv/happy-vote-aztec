@@ -19,7 +19,7 @@ Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data
 - See **start/end times** and a live countdown when a poll is scheduled
 - View **Live results** (public tallies; hidden while a poll is sealed and still open — option buttons show labels only, no zeros)
 - If the contract is paused or a poll is cancelled, the ballot stays locked; the question remains readable
-- Share a deep link: `/p/1` (Happy/Sad), `/p/2` (single-choice), `/p/3` (ZKPassport demo), `/p/4` (sealed tallies)
+- Share a deep link: `/p/1` (Happy/Sad), `/p/2` (single-choice), `/p/3` (ZKPassport demo), `/p/4` (sealed tallies), `/p/5` (gated catalog poll)
 - Read the contract on [Aztecscan](https://testnet.aztecscan.xyz)
 
 ## Vote (private or open)

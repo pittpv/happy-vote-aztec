@@ -15,12 +15,15 @@
 | [03-PRIVACY-MODEL.md](./03-PRIVACY-MODEL.md) | Модель приватности: private / public / sealed |
 | [04-ZKPASSPORT.md](./04-ZKPASSPORT.md) | Identity verification через ZKPassport |
 | [05-DEVELOPMENT-PLAN.md](./05-DEVELOPMENT-PLAN.md) | План разработки по итерациям |
-| [09-HOSTING.md](./09-HOSTING.md) | Домен, публичные API, SEO |
-| [10-TESTNET-ADDRESSES.md](./10-TESTNET-ADDRESSES.md) | Адреса на Testnet 5.1.0 |
+| [06-TECH-SETUP.md](./06-TECH-SETUP.md) | Установка toolchain, local network, env |
+| [07-EXECUTION-LOG.md](./07-EXECUTION-LOG.md) | Журнал выполнения |
+| [08-TESTNET-RUNBOOK.md](./08-TESTNET-RUNBOOK.md) | Деплой на Testnet |
+| [09-HOSTING.md](./09-HOSTING.md) | DNS / Vercel / CSP / API |
+| [10-TESTNET-ADDRESSES.md](./10-TESTNET-ADDRESSES.md) | Адреса и tx на Testnet 5.1.0 |
 | [11-USER-GUIDE.md](./11-USER-GUIDE.md) | Как подключить аккаунт и проголосовать |
 | [12-UI-UX.md](./12-UI-UX.md) | Landing, страница голосования, ZKPassport, SEO |
 | [13-LEGAL.md](./13-LEGAL.md) | Terms, Privacy, Cookies, Data Safety, GDPR |
-| [../../AGENTS.md](../../AGENTS.md) | Правила для AI/разработки ([AI Tooling](https://docs.aztec.network/developers/ai_tooling)) |
+| [../../AGENTS.md](../../../AGENTS.md) | Правила для AI/разработки ([AI Tooling](https://docs.aztec.network/developers/ai_tooling)) |
 
 ## Краткое видение
 
@@ -42,7 +45,7 @@
 
 ## Статус (2026-09-02)
 
-Контракт `HappyVote` на **Aztec Testnet 5.1.0**: [`0x2e10858cf6750c003489a62f570535966fb940bb10d18a0c146a36cac64713b6`](https://testnet.aztecscan.xyz/address/0x2e10858cf6750c003489a62f570535966fb940bb10d18a0c146a36cac64713b6). Опросы `/p/1` Happy/Sad, `/p/2` single-choice, `/p/3` ZKPassport personhood, `/p/4` sealed tallies. Noir-тесты **48/48**. Фронтенд: https://aztec.happyvote.xyz.
+Контракт `HappyVote` на **Aztec Testnet 5.1.0**: [`0x2e10858cf6750c003489a62f570535966fb940bb10d18a0c146a36cac64713b6`](https://testnet.aztecscan.xyz/address/0x2e10858cf6750c003489a62f570535966fb940bb10d18a0c146a36cac64713b6). Опросы `/p/1` Happy/Sad, `/p/2` single-choice, `/p/3` ZKPassport personhood, `/p/4` sealed tallies, `/p/5` gated-опрос в каталоге. Noir-тесты **48/48**. Фронтенд: https://aztec.happyvote.xyz.
 
 ## Источники истины
 

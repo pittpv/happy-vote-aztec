@@ -65,6 +65,7 @@ Public Aztec Labs RPC rate-limits browsers (HTTP 429).
 | Endpoint | `GET /api/poll-state?pollId=1&optionsCount=2` |
 | File | `web/api/poll-state.js` |
 | Behavior | Batch `node_getPublicStorageAt`, cache ~15s |
+| Map slots | Stored with catalog metadata at publish (any poll id). A baked JSON file is only a fallback for older records |
 | Frontend | `readPublicPollState()` → same-origin fetch only |
 
 Example:
@@ -105,7 +106,7 @@ Without Blob, everyone still sees the seed catalog.
 | `web/index.html` | Default title, description, Open Graph, JSON-LD |
 | `web/src/lib/seo.js` | Per-route title / canonical / WebPage schema |
 | `web/public/robots.txt` | Allow `/`, sitemap |
-| `web/public/sitemap.xml` | Home, polls `/p/1` `/p/2` `/p/3` `/p/4`, legal pages |
+| `web/public/sitemap.xml` | Home, polls `/p/1` `/p/2` `/p/3` `/p/4` `/p/5`, legal pages |
 
 ## Analytics
 

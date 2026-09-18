@@ -325,13 +325,20 @@ export async function publishPollMeta(meta, publishToken) {
       error: "Missing publish token (set VITE_POLLS_PUBLISH_TOKEN or paste token in Admin).",
     };
   }
+  const optionsCount = normalizePollOptions(meta.options).length;
+  const { computePollStorageSlots, MAX_POLL_OPTIONS } = await import("./pollStorageSlots.js");
+  const storageSlots = await computePollStorageSlots(meta.id, MAX_POLL_OPTIONS);
+  if (storageSlots.tallies.length < optionsCount) {
+    throw new Error("Computed storage slots do not cover this poll's options");
+  }
+  const payload = { ...meta, storageSlots };
   const response = await fetch("/api/polls", {
     method: "POST",
     headers: {
       "content-type": "application/json",
       authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ poll: meta }),
+    body: JSON.stringify({ poll: payload }),
   });
   const data = await response.json().catch(() => ({}));
   if (response.ok && data.ok && data.persisted) {

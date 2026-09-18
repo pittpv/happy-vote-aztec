@@ -1,48 +1,58 @@
 /**
- * Precompute HappyVote public map slots (Poseidon2 deriveStorageSlotInMap).
- * Usage: node scripts/compute-slots.mjs [pollId] [optionsCount]
+ * Poseidon2 HappyVote public map slots.
+ *
+ *   node scripts/compute-slots.mjs [pollId] [optionsCount]
+ *   node scripts/compute-slots.mjs --write [--max-poll 128] [--options 32]
+ *
+ * `--write` regenerates the migration fallback `data/precomputed-slots.json`
+ * after a contract storage-layout change. Guest `/api/poll-state` reads slots
+ * from catalog metadata published with each poll (any id).
  */
-import { Fr } from "@aztec/aztec.js/fields";
-import { deriveStorageSlotInMap } from "@aztec/stdlib/hash";
+import { writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import {
+  computePollStorageSlots,
+  MAX_POLL_OPTIONS,
+  PRECOMPUTED_POLL_ID_MAX,
+} from "../src/lib/pollStorageSlots.js";
 
-const pollId = process.argv[2] ?? "1";
-const optionsCount = Number(process.argv[3] ?? "2");
-if (!Number.isInteger(optionsCount) || optionsCount < 1 || optionsCount > 32) {
-  throw new Error(`Invalid optionsCount: ${process.argv[3]}`);
+const here = dirname(fileURLToPath(import.meta.url));
+const outPath = join(here, "..", "data", "precomputed-slots.json");
+
+function parseArgs(argv) {
+  const args = { write: false, maxPoll: PRECOMPUTED_POLL_ID_MAX, options: MAX_POLL_OPTIONS, pollId: null };
+  const rest = [];
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--write") args.write = true;
+    else if (a === "--max-poll") args.maxPoll = Number(argv[++i]);
+    else if (a === "--options") args.options = Number(argv[++i]);
+    else rest.push(a);
+  }
+  if (!args.write) {
+    args.pollId = rest[0] ?? "1";
+    args.options = rest[1] != null ? Number(rest[1]) : 2;
+  }
+  return args;
 }
 
-// Slot indices from HappyVote.storage layout (codegen).
-const BASE = {
-  privacy_policy: 3n,
-  tally: 6n,
-  total_votes: 7n,
-  vote_ended: 8n,
-  sealed: 13n,
-  starts_at: 14n,
-  ends_at: 15n,
-  cancelled: 16n,
-};
-const pollKey = { toField: () => Fr.fromString(String(pollId)) };
-const tallyRoot = await deriveStorageSlotInMap(new Fr(BASE.tally), pollKey);
-
-const tallies = [];
-for (let i = 0; i < optionsCount; i++) {
-  tallies.push(
-    (await deriveStorageSlotInMap(tallyRoot, { toField: () => new Fr(i) })).toString(),
-  );
+const args = parseArgs(process.argv.slice(2));
+if (!Number.isInteger(args.options) || args.options < 1 || args.options > MAX_POLL_OPTIONS) {
+  throw new Error(`Invalid optionsCount: ${args.options}`);
 }
 
-const result = {
-  pollId: String(pollId),
-  optionsCount,
-  tallies,
-  total: (await deriveStorageSlotInMap(new Fr(BASE.total_votes), pollKey)).toString(),
-  policy: (await deriveStorageSlotInMap(new Fr(BASE.privacy_policy), pollKey)).toString(),
-  voteEnded: (await deriveStorageSlotInMap(new Fr(BASE.vote_ended), pollKey)).toString(),
-  sealed: (await deriveStorageSlotInMap(new Fr(BASE.sealed), pollKey)).toString(),
-  startsAt: (await deriveStorageSlotInMap(new Fr(BASE.starts_at), pollKey)).toString(),
-  endsAt: (await deriveStorageSlotInMap(new Fr(BASE.ends_at), pollKey)).toString(),
-  cancelled: (await deriveStorageSlotInMap(new Fr(BASE.cancelled), pollKey)).toString(),
-};
-
-console.log(JSON.stringify(result, null, 2));
+if (args.write) {
+  if (!Number.isInteger(args.maxPoll) || args.maxPoll < 1 || args.maxPoll > 1024) {
+    throw new Error(`Invalid --max-poll: ${args.maxPoll}`);
+  }
+  const table = {};
+  for (let pollId = 1; pollId <= args.maxPoll; pollId++) {
+    table[String(pollId)] = await computePollStorageSlots(pollId, args.options);
+  }
+  writeFileSync(outPath, `${JSON.stringify(table, null, 2)}\n`);
+  console.log(`Wrote ${args.maxPoll} polls × ${args.options} option slots → ${outPath}`);
+} else {
+  const result = await computePollStorageSlots(args.pollId, args.options);
+  console.log(JSON.stringify({ pollId: String(args.pollId), optionsCount: args.options, ...result }, null, 2));
+}

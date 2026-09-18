@@ -15,12 +15,15 @@
 | [03-PRIVACY-MODEL.md](./03-PRIVACY-MODEL.md) | Private / open ballots, sealed tallies, identity |
 | [04-ZKPASSPORT.md](./04-ZKPASSPORT.md) | Personhood / eligibility via ZKPassport |
 | [05-DEVELOPMENT-PLAN.md](./05-DEVELOPMENT-PLAN.md) | Iteration plan and status |
-| [09-HOSTING.md](./09-HOSTING.md) | Domain, public APIs, SEO |
+| [06-TECH-SETUP.md](./06-TECH-SETUP.md) | Toolchain, local network, env |
+| [07-EXECUTION-LOG.md](./07-EXECUTION-LOG.md) | Session changelog |
+| [08-TESTNET-RUNBOOK.md](./08-TESTNET-RUNBOOK.md) | Testnet deploy |
+| [09-HOSTING.md](./09-HOSTING.md) | DNS, Vercel, CSP, APIs |
 | [10-TESTNET-ADDRESSES.md](./10-TESTNET-ADDRESSES.md) | Live Testnet 5.1.0 addresses |
 | [11-USER-GUIDE.md](./11-USER-GUIDE.md) | How to connect and vote |
 | [12-UI-UX.md](./12-UI-UX.md) | Landing, vote page, ZKPassport gate, SEO |
 | [13-LEGAL.md](./13-LEGAL.md) | Terms, Privacy, Cookies, Data Safety, GDPR |
-| [../../AGENTS.md](../../AGENTS.md) | AI / CLI rules ([Aztec AI tooling](https://docs.aztec.network/developers/ai_tooling)) |
+| [../../AGENTS.md](../../../AGENTS.md) | AI / CLI rules ([Aztec AI tooling](https://docs.aztec.network/developers/ai_tooling)) |
 
 ## Product vision
 
@@ -42,7 +45,7 @@ A minimal voting portal for **any topic**: binary sentiment (Happy/Sad), multi-o
 
 ## Live status (2026-09-02)
 
-Single contract `HappyVote` on **Aztec Testnet 5.1.0**: [`0x2e10858cf6750c003489a62f570535966fb940bb10d18a0c146a36cac64713b6`](https://testnet.aztecscan.xyz/address/0x2e10858cf6750c003489a62f570535966fb940bb10d18a0c146a36cac64713b6). Polls `/p/1` Happy/Sad, `/p/2` single-choice, `/p/3` ZKPassport personhood, `/p/4` sealed tallies. Noir tests **48/48**. Frontend: https://aztec.happyvote.xyz.
+Single contract `HappyVote` on **Aztec Testnet 5.1.0**: [`0x2e10858cf6750c003489a62f570535966fb940bb10d18a0c146a36cac64713b6`](https://testnet.aztecscan.xyz/address/0x2e10858cf6750c003489a62f570535966fb940bb10d18a0c146a36cac64713b6). Polls `/p/1` Happy/Sad, `/p/2` single-choice, `/p/3` ZKPassport personhood, `/p/4` sealed tallies, `/p/5` gated catalog poll. Noir tests **48/48**. Frontend: https://aztec.happyvote.xyz.
 
 ## Official sources
 

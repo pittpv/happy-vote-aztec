@@ -8,13 +8,13 @@
  *
  * Persistence: embedded seed + optional Vercel Blob overlay (`BLOB_READ_WRITE_TOKEN`).
  */
-import seedCatalog from "../data/polls-catalog.json" with { type: "json" };
-
-const BLOB_PATHNAME = "happyvote/polls-catalog.json";
-
-function loadSeed() {
-  return seedCatalog || { version: 1, updatedAt: null, polls: {} };
-}
+import {
+  loadSeed,
+  mergeCatalogs,
+  readBlobCatalog,
+  writeBlobCatalog,
+} from "./poll-catalog.js";
+import { fallbackSlots, isUsableSlotEntry } from "./poll-slots.js";
 
 function cors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -84,6 +84,8 @@ function normalizePoll(raw) {
     throw new Error("endsAt must be after startsAt");
   }
 
+  const storageSlots = normalizeStorageSlots(raw.storageSlots, options.length);
+
   return {
     id,
     title,
@@ -108,7 +110,36 @@ function normalizePoll(raw) {
     homeRank: Number.isFinite(Number(raw.homeRank)) ? Number(raw.homeRank) : Number(id),
     metadataHash: raw.metadataHash != null ? String(raw.metadataHash) : null,
     publishedAt: raw.publishedAt || new Date().toISOString(),
+    storageSlots,
   };
+}
+
+const SLOT_HEX = /^0x[0-9a-fA-F]{1,64}$/;
+const SLOT_KEYS = ["total", "policy", "voteEnded", "sealed", "startsAt", "endsAt", "cancelled"];
+
+function normalizeStorageSlots(raw, optionsCount) {
+  if (raw == null) {
+    throw new Error("storageSlots is required when publishing a poll");
+  }
+  if (typeof raw !== "object") throw new Error("storageSlots must be an object");
+  if (!Array.isArray(raw.tallies) || raw.tallies.length < optionsCount) {
+    throw new Error("storageSlots.tallies is incomplete");
+  }
+  const hex = (value, label) => {
+    const text = String(value ?? "").trim();
+    if (!SLOT_HEX.test(text)) throw new Error(`Invalid ${label} storage slot`);
+    return text.toLowerCase();
+  };
+  return {
+    tallies: raw.tallies.map((slot, i) => hex(slot, `tallies[${i}]`)),
+    ...Object.fromEntries(SLOT_KEYS.map((key) => [key, hex(raw[key], key)])),
+  };
+}
+
+function publicPoll(poll) {
+  if (!poll || typeof poll !== "object") return poll;
+  const { storageSlots, ...rest } = poll;
+  return rest;
 }
 
 function normalizeHomepageEntries(raw) {
@@ -136,68 +167,18 @@ function applyHomepage(mergedPolls, overlayPolls, entries) {
   for (const entry of entries) {
     const existing = mergedPolls[entry.id] || next[entry.id];
     if (!existing) throw new Error(`Unknown poll ${entry.id}`);
+    const optionCount = Array.isArray(existing.options) ? existing.options.length : 0;
+    const storageSlots = isUsableSlotEntry(existing.storageSlots, optionCount)
+      ? existing.storageSlots
+      : fallbackSlots(entry.id, Math.max(optionCount, 2));
     next[entry.id] = {
       ...existing,
       showOnHome: entry.showOnHome,
       homeRank: entry.homeRank,
+      ...(storageSlots ? { storageSlots } : {}),
     };
   }
   return next;
-}
-
-async function readBlobCatalog() {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) return null;
-  try {
-    const { list } = await import("@vercel/blob");
-    const result = await list({ prefix: "happyvote/polls-catalog", token, limit: 10 });
-    const match =
-      result.blobs?.find((b) => b.pathname === BLOB_PATHNAME) || result.blobs?.[0];
-    if (!match?.url) return null;
-    const response = await fetch(match.url, { cache: "no-store" });
-    if (!response.ok) return null;
-    return await response.json();
-  } catch (error) {
-    console.error("[polls] blob read failed", error);
-    return null;
-  }
-}
-
-async function writeBlobCatalog(catalog) {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
-    const err = new Error("BLOB_READ_WRITE_TOKEN is not configured");
-    err.code = "NO_BLOB";
-    throw err;
-  }
-  const { put } = await import("@vercel/blob");
-  const body = JSON.stringify(catalog, null, 2);
-  const blob = await put(BLOB_PATHNAME, body, {
-    access: "public",
-    contentType: "application/json",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    token,
-  });
-  return blob;
-}
-
-function mergeCatalogs(seed, overlay) {
-  const polls = { ...(seed.polls || {}) };
-  if (overlay?.polls && typeof overlay.polls === "object") {
-    for (const [id, meta] of Object.entries(overlay.polls)) {
-      polls[String(id)] = meta;
-    }
-  }
-  return {
-    version: Math.max(Number(seed.version || 1), Number(overlay?.version || 1)),
-    updatedAt: overlay?.updatedAt || seed.updatedAt || null,
-    polls,
-    sources: {
-      seed: true,
-      blob: Boolean(overlay),
-    },
-  };
 }
 
 export default async function handler(req, res) {
@@ -215,9 +196,11 @@ export default async function handler(req, res) {
         const poll = catalog.polls[String(id)];
         if (!poll) return res.status(404).json({ ok: false, error: "Poll not found" });
         res.setHeader("Cache-Control", "public, s-maxage=30, stale-while-revalidate=120");
-        return res.status(200).json({ ok: true, poll, sources: catalog.sources });
+        return res.status(200).json({ ok: true, poll: publicPoll(poll), sources: catalog.sources });
       }
-      const polls = Object.values(catalog.polls).sort((a, b) => Number(a.id) - Number(b.id));
+      const polls = Object.values(catalog.polls)
+        .map(publicPoll)
+        .sort((a, b) => Number(a.id) - Number(b.id));
       res.setHeader("Cache-Control", "public, s-maxage=30, stale-while-revalidate=120");
       return res.status(200).json({
         ok: true,
@@ -286,7 +269,7 @@ export default async function handler(req, res) {
         const blob = await writeBlobCatalog(next);
         return res.status(200).json({
           ok: true,
-          poll,
+          poll: publicPoll(poll),
           persisted: true,
           blobUrl: blob.url,
           totalPolls: Object.keys(mergedForClients.polls).length,
@@ -297,7 +280,7 @@ export default async function handler(req, res) {
             ok: false,
             error:
               "BLOB_READ_WRITE_TOKEN is not configured — poll saved only in the admin browser. Add Vercel Blob to publish globally.",
-            poll,
+            poll: publicPoll(poll),
             persisted: false,
           });
         }

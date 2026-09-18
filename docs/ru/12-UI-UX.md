@@ -63,4 +63,4 @@ flowchart LR
 
 ## SEO
 
-Title, description, canonical, OG, JSON-LD, `robots.txt`, `sitemap.xml` (включая `/polls`). Стороннего счётчика нет. Есть свои cookieless дневные агрегаты (`POST /api/site-stats`).
+Title, description, canonical, OG, JSON-LD, `robots.txt`, `sitemap.xml` (включая `/polls` и `/p/1`–`/p/5`). Стороннего счётчика нет. Есть свои cookieless дневные агрегаты (`POST /api/site-stats`).

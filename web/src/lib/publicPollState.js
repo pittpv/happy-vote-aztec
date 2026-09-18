@@ -2,20 +2,7 @@ import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { Fr } from "@aztec/aztec.js/fields";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { deriveStorageSlotInMap } from "@aztec/stdlib/hash";
-
-/** HappyVote storage layout (must match codegen `HappyVoteContract.storage`). */
-const STORAGE_SLOTS = {
-  privacy_policy: 3n,
-  tally: 6n,
-  total_votes: 7n,
-  vote_ended: 8n,
-  sealed: 13n,
-  starts_at: 14n,
-  ends_at: 15n,
-  cancelled: 16n,
-  /** Contract-level PublicMutable, not a per-poll map. */
-  paused: 18n,
-};
+import { POLL_MAP_SLOTS } from "./pollStorageSlots.js";
 
 function asFieldBigInt(value) {
   if (typeof value === "bigint") return value;
@@ -82,7 +69,7 @@ export async function fetchPublicPollState({
   const pollKey = { toField: () => pollField };
   const node = createAztecNodeClient(nodeUrl);
 
-  const tallyRoot = await deriveStorageSlotInMap(new Fr(STORAGE_SLOTS.tally), pollKey);
+  const tallyRoot = await deriveStorageSlotInMap(new Fr(POLL_MAP_SLOTS.tally), pollKey);
   const optionSlots = await Promise.all(
     Array.from({ length: optionsCount }, (_, i) =>
       deriveStorageSlotInMap(tallyRoot, { toField: () => new Fr(i) }),
@@ -97,13 +84,13 @@ export async function fetchPublicPollState({
     endsAtSlot,
     cancelledSlot,
   ] = await Promise.all([
-    deriveStorageSlotInMap(new Fr(STORAGE_SLOTS.total_votes), pollKey),
-    deriveStorageSlotInMap(new Fr(STORAGE_SLOTS.privacy_policy), pollKey),
-    deriveStorageSlotInMap(new Fr(STORAGE_SLOTS.vote_ended), pollKey),
-    deriveStorageSlotInMap(new Fr(STORAGE_SLOTS.sealed), pollKey),
-    deriveStorageSlotInMap(new Fr(STORAGE_SLOTS.starts_at), pollKey),
-    deriveStorageSlotInMap(new Fr(STORAGE_SLOTS.ends_at), pollKey),
-    deriveStorageSlotInMap(new Fr(STORAGE_SLOTS.cancelled), pollKey),
+    deriveStorageSlotInMap(new Fr(POLL_MAP_SLOTS.total_votes), pollKey),
+    deriveStorageSlotInMap(new Fr(POLL_MAP_SLOTS.privacy_policy), pollKey),
+    deriveStorageSlotInMap(new Fr(POLL_MAP_SLOTS.vote_ended), pollKey),
+    deriveStorageSlotInMap(new Fr(POLL_MAP_SLOTS.sealed), pollKey),
+    deriveStorageSlotInMap(new Fr(POLL_MAP_SLOTS.starts_at), pollKey),
+    deriveStorageSlotInMap(new Fr(POLL_MAP_SLOTS.ends_at), pollKey),
+    deriveStorageSlotInMap(new Fr(POLL_MAP_SLOTS.cancelled), pollKey),
   ]);
 
   const [
@@ -129,7 +116,7 @@ export async function fetchPublicPollState({
         node.getPublicStorageAt("latest", address, startsAtSlot),
         node.getPublicStorageAt("latest", address, endsAtSlot),
         node.getPublicStorageAt("latest", address, cancelledSlot),
-        node.getPublicStorageAt("latest", address, new Fr(STORAGE_SLOTS.paused)),
+        node.getPublicStorageAt("latest", address, new Fr(POLL_MAP_SLOTS.paused)),
       ]),
     { label: "getPublicStorageAt" },
   );

@@ -6,7 +6,8 @@
   "functions": {
     "api/poll-state.js": {
       "memory": 1024,
-      "maxDuration": 30
+      "maxDuration": 30,
+      "includeFiles": "{api/poll-catalog.js,api/poll-slots.js,data/precomputed-slots.json,data/polls-catalog.json}"
     },
     "api/zkpassport-verify.js": {
       "memory": 2048,
@@ -15,7 +16,8 @@
     },
     "api/polls.js": {
       "memory": 1024,
-      "maxDuration": 30
+      "maxDuration": 30,
+      "includeFiles": "{api/poll-catalog.js,api/poll-slots.js,data/precomputed-slots.json,data/polls-catalog.json}"
     },
     "api/client-error.js": {
       "memory": 512,

@@ -91,7 +91,7 @@ Effective date: **15 August 2026**. Contact: **legal@happyvote.xyz**. See [13-LE
 
 ## SEO
 
-Per-route `document.title`, meta description, canonical, Open Graph, Twitter card, JSON-LD (`Organization`, `Person`, `WebSite`, `WebApplication`, `WebPage`). `robots.txt` allows indexing of public pages. `sitemap.xml` lists home, **All polls** `/polls`, demo polls `/p/1` `/p/2` `/p/3` `/p/4`, and legal URLs.
+Per-route `document.title`, meta description, canonical, Open Graph, Twitter card, JSON-LD (`Organization`, `Person`, `WebSite`, `WebApplication`, `WebPage`). `robots.txt` allows indexing of public pages. `sitemap.xml` lists home, **All polls** `/polls`, poll pages `/p/1` `/p/2` `/p/3` `/p/4` `/p/5`, and legal URLs.
 
 No third-party analytics counter on this subdomain. First-party cookieless daily aggregates only (`POST /api/site-stats`).
 

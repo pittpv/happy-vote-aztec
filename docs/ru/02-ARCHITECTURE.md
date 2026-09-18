@@ -160,7 +160,7 @@ Vite + React. Маршруты:
 
 | Endpoint | Роль |
 |----------|------|
-| `GET /api/poll-state` | Batch `node_getPublicStorageAt`, кэш ~15с |
+| `GET /api/poll-state` | Batch `node_getPublicStorageAt`, кэш ~15с. Poseidon-слоты из метаданных каталога (любой poll id) |
 | `GET /api/polls` | Seed JSON + опциональный Blob (`showOnHome` / `homeRank` для `/`). Фильтр стран на `/polls` также берёт страны из Dashboard policy, если задан `policyId`. |
 | `POST /api/polls` | Публикация метаданных каталога (только оператор) |
 | `POST /api/zkpassport-verify` | Server re-verify |
@@ -196,6 +196,8 @@ Vite + React. Маршруты:
 ```
 
 `countries` — ISO alpha-3 для фильтра All polls. Self-served правила заполняют его из `nationalityIn` / `issuedBy`. Если задан только `policyId`, в каталоге эти массивы пустые — UI читает `nationality` и `issuing_country` (`eq` / `in`) из публичного конфига ZKPassport Dashboard для `aztec.happyvote.xyz`.
+
+Гостевой `/api/poll-state` читает Poseidon-слоты, сохранённые с опросом при публикации, поэтому любой poll id работает без правки API. Публичный `GET /api/polls` эти слоты не отдаёт.
 
 ## 4. Аккаунты и комиссии
 
