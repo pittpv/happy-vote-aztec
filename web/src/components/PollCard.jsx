@@ -1,6 +1,6 @@
 import { pollOptionLabels } from "../lib/polls.js";
 import { countryLabel } from "../lib/countries.js";
-import { countriesFromRequirements, ELIGIBILITY_MODE } from "../lib/zkRequirements.js";
+import { pollCountryCodes, ELIGIBILITY_MODE } from "../lib/zkRequirements.js";
 import { getPollSchedule, scheduleBadge, scheduleSummary } from "../lib/pollSchedule.js";
 import { navigate, pollPath } from "../lib/routing.js";
 
@@ -11,7 +11,7 @@ function optionKindLabel(poll) {
 }
 
 export function PollCard({ poll, now }) {
-  const codes = poll.countries || countriesFromRequirements(poll.zkRequirements);
+  const codes = pollCountryCodes(poll);
   const schedule = getPollSchedule(poll, now);
   const badge = scheduleBadge(schedule);
   const summary = scheduleSummary(schedule);

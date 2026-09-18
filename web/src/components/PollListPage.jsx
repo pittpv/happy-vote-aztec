@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { listPolls, refreshSharedCatalog } from "../lib/polls.js";
 import { countryLabel } from "../lib/countries.js";
-import { countriesFromRequirements } from "../lib/zkRequirements.js";
+import { pollCountryCodes } from "../lib/zkRequirements.js";
 import { useNow } from "../hooks/useNow.js";
 import { SITE_NAME } from "../lib/site.js";
 import { metaDescription, pageTitle, webPageJsonLd } from "../lib/seo.js";
@@ -52,7 +52,7 @@ export function PollListPage({ walletConnect }) {
   const countries = useMemo(() => {
     const set = new Set();
     for (const p of polls) {
-      for (const c of p.countries || countriesFromRequirements(p.zkRequirements)) {
+      for (const c of pollCountryCodes(p)) {
         set.add(c);
       }
     }
@@ -64,7 +64,7 @@ export function PollListPage({ walletConnect }) {
     return polls.filter((p) => {
       if (topic !== "all" && !(p.topics || []).includes(topic)) return false;
       if (country !== "all") {
-        const codes = p.countries || countriesFromRequirements(p.zkRequirements);
+        const codes = pollCountryCodes(p);
         if (!codes.includes(country)) return false;
       }
       if (eligibility === "open" && p.requiresZkPassport) return false;

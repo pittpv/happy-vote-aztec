@@ -7,7 +7,7 @@ UI notes: [12-UI-UX.md](./12-UI-UX.md)
 
 1. Open https://aztec.happyvote.xyz.
 2. Read the short mission / privacy pillars (optional).
-3. Under **Featured polls**, open a card, or go to **All polls** (`/polls`) to search and filter the full catalog.
+3. Under **Featured polls**, open a card, or go to **All polls** (`/polls`) to search and filter the full catalog (topic, country, eligibility). Country includes ZKPassport Dashboard policy countries when the poll uses a `policyId`.
 
 The header menu (desktop and mobile) has Home, All polls, and wallet connect / connected address.
 

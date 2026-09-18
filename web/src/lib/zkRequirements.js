@@ -5,7 +5,7 @@
  * Query mapping mirrors @zkpassport/sdk builder (Dashboard Create Policy UI).
  */
 
-import { DOCUMENT_TYPE_OPTIONS } from "./countries.js";
+import { coerceCountryCode, DOCUMENT_TYPE_OPTIONS } from "./countries.js";
 import { fieldFromDigest } from "./fieldFromDigest.js";
 
 export const ELIGIBILITY_MODE = {
@@ -291,11 +291,12 @@ export function canonicalizeZkRequirements(req) {
   });
 }
 
-export function describeZkRequirements(req) {
+export function describeZkRequirements(req, policyQuery = null) {
   const r = normalizeZkRequirements(req);
   const lines = [];
   if (r.policyId) {
     lines.push(`Dashboard policy ${r.policyId}`);
+    lines.push(...describePolicyQuery(policyQuery));
     return lines;
   }
   if (r.personhood) lines.push("Unique personhood (anti-sybil)");
@@ -372,6 +373,69 @@ export function hashZkRequirementsToHex(req) {
   return `0x${part(h0)}${part(h1)}${part(h0 ^ h1)}${part(~h0 >>> 0)}${part(h0)}${part(h1)}${part(h0 ^ 0xabcdef)}${part(h1 ^ 0x123456)}`;
 }
 
+function collectPolicyCountryRaw(query) {
+  if (!query || typeof query !== "object") return [];
+  const raw = [];
+  for (const field of ["nationality", "issuing_country"]) {
+    const node = query[field];
+    if (!node || typeof node !== "object") continue;
+    if (node.eq != null) raw.push(node.eq);
+    if (Array.isArray(node.in)) raw.push(...node.in);
+  }
+  return raw;
+}
+
+/** Country codes from a ZKPassport Dashboard policy query (eq / in only). */
+export function countriesFromPolicyQuery(query) {
+  const out = [];
+  const seen = new Set();
+  for (const item of collectPolicyCountryRaw(query)) {
+    const code = coerceCountryCode(item);
+    if (!code || seen.has(code)) continue;
+    seen.add(code);
+    out.push(code);
+  }
+  return out.sort();
+}
+
+function describePolicyQuery(query) {
+  if (!query || typeof query !== "object") return [];
+  const lines = [];
+  const age = query.age;
+  if (age?.gte != null) lines.push(`Age ≥ ${age.gte}`);
+  if (age?.lte != null) lines.push(`Age ≤ ${age.lte}`);
+  const nationality = query.nationality;
+  if (nationality?.eq != null) {
+    lines.push(`Nationality ${String(nationality.eq)}`);
+  } else if (Array.isArray(nationality?.in) && nationality.in.length) {
+    lines.push(`Nationality in: ${nationality.in.join(", ")}`);
+  }
+  const issued = query.issuing_country;
+  if (issued?.eq != null) {
+    lines.push(`Issued by ${String(issued.eq)}`);
+  } else if (Array.isArray(issued?.in) && issued.in.length) {
+    lines.push(`Issued by: ${issued.in.join(", ")}`);
+  }
+  if (query.facematch?.mode) {
+    lines.push(`FaceMatch (${query.facematch.mode})`);
+  }
+  return lines;
+}
+
+function uniqueCountryCodes(lists) {
+  const out = [];
+  const seen = new Set();
+  for (const list of lists) {
+    for (const raw of list || []) {
+      const code = coerceCountryCode(raw);
+      if (!code || seen.has(code)) continue;
+      seen.add(code);
+      out.push(code);
+    }
+  }
+  return out.sort();
+}
+
 /** Country codes referenced by requirements (for catalog filters). */
 export function countriesFromRequirements(req) {
   if (!req) return [];
@@ -381,4 +445,17 @@ export function countriesFromRequirements(req) {
   } catch {
     return [];
   }
+}
+
+/**
+ * Catalog filter countries: published tags, local predicates, and/or a Dashboard policy query.
+ * Empty `poll.countries` is treated as unset.
+ */
+export function pollCountryCodes(poll, policyQuery = null) {
+  const tagged = Array.isArray(poll?.countries) ? poll.countries : [];
+  return uniqueCountryCodes([
+    tagged,
+    countriesFromRequirements(poll?.zkRequirements),
+    countriesFromPolicyQuery(policyQuery),
+  ]);
 }

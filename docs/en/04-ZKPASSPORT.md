@@ -24,6 +24,8 @@ Open-eligibility polls do **not** use ZKPassport. They only bind one vote per Az
 
 Production: SDK + QR (`ZKPassportQRCode`), domain registered, default Dashboard policy id `vote-identity-verification` (RU elections template) when `policyId` is set for important polls.
 
+When `policyId` is set, the widget query is Dashboard-locked (`.policy(id)` only). Self-served predicates in catalog JSON are not sent. The All polls **country** filter still needs those countries: if catalog `countries` / `nationalityIn` / `issuedBy` are empty, the UI loads the public Dashboard project for `aztec.happyvote.xyz` and uses `nationality` and `issuing_country` (`eq` / `in`).
+
 ## 3. Query examples
 
 Personhood only:
@@ -81,6 +83,7 @@ Keep server re-verify enabled. Mock passports are for local development only; pr
 
 - Several IDs per person → “one ID ↔ one vote”, not perfect uniqueness.
 - Stronger personhood: FaceMatch `strict` + salted unique identifier (ZKPassport docs).
+- FaceMatch on iOS uses Apple App Attest inside the ZKPassport app. A DeviceCheck / key-attestation error is on that app and Apple, not HappyVote.
 - User needs the ZKPassport app.
 
 ## 8. When to require it
@@ -111,15 +114,17 @@ Stored in catalog / `localStorage`; SHA-256 of canonical JSON, reduced into a Fi
 
 `eligibility_mode`: `1` personhood-only · `2` if age / nationality / sanctions / FaceMatch / `policyId` is set.
 
-## 10. UI (2026-08-13)
+## 10. UI (2026-09-18)
 
 The QR widget is drop-in `@zkpassport/ui`. HappyVote wraps it in portal chrome (teal / amber / Sora). SDK `display` hides the duplicate widget title.
+
+`--zkp-bg` on the card must stay an **opaque** ink color: the widget paints **Try again** (and Open in app) with that variable. Transparent `--zkp-bg` made the retry label invisible after a failed scan.
 
 After success:
 
 - QR is removed (bridge no longer needed);
 - compact **Identity verified** banner;
-- details (checks + personhood id) expand on click.
+- details (checks + personhood id, and Dashboard policy predicates when `policyId` is set) expand on click.
 
 ## 11. Checklist
 
@@ -131,5 +136,6 @@ After success:
 - [x] `/api/zkpassport-verify`
 - [x] `identity_commitment` + `identity_claims`
 - [x] Portal-styled gate + collapse on success
+- [x] Catalog country filter from Dashboard policy `nationality` / `issuing_country`
 - [x] Noir: same identity, two accounts fails
 - [ ] Real-device E2E on Testnet

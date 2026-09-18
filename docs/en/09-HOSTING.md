@@ -86,7 +86,7 @@ Never put a freshly constructed `AztecAddress` in a React `useEffect` dependency
 | Publish | Authenticated `POST /api/polls` (operator-only; poll body or `homepage` flags) |
 | Seed | `web/data/polls-catalog.json` |
 | Overlay | Optional object storage overlay on the host |
-| Home | Catalog fields `showOnHome` and `homeRank` select cards on `/`; `/polls` lists every poll |
+| Home | Catalog fields `showOnHome` and `homeRank` select cards on `/`; `/polls` lists every poll. Country filter also uses public Dashboard policy `nationality` / `issuing_country` when `policyId` is set. |
 
 Without Blob, everyone still sees the seed catalog.
 

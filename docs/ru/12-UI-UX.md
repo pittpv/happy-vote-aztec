@@ -17,7 +17,7 @@ Pillars: Private by design · Verified, not doxed · Safer where votes are risky
 
 ## Все опросы (`/polls`)
 
-Та же сетка карточек, что на главной, плюс поиск и фильтры. Нужна, когда опросов больше, чем короткий featured-список.
+Та же сетка карточек, что на главной, плюс поиск и фильтры (тема, страна, eligibility). Список **стран** берёт ISO-коды из тегов каталога, self-served `nationalityIn` / `issuedBy` и — если у опроса есть Dashboard `policyId` — из `nationality` / `issuing_country` этой политики.
 
 ## Голосование (`/p/:id`)
 
@@ -39,7 +39,7 @@ flowchart LR
 
 ## ZKPassport
 
-Обёртка в стиле портала. После успеха — баннер **Identity verified**. На мобильных Connect не перекрывает бюллетень огромным sticky-слоем.
+Обёртка в стиле портала. После неудачного скана **Try again** остаётся читаемым. После успеха — баннер **Identity verified**. На мобильных Connect не перекрывает бюллетень огромным sticky-слоем.
 
 ## Ballot privacy
 

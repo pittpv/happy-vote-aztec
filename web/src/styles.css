@@ -2459,7 +2459,8 @@ body::before {
 
 .zk-qr .zkp-card,
 .zk-qr .zkp-card[data-theme="dark"] {
-  --zkp-bg: transparent;
+  /* Must stay opaque: @zkpassport/ui paints .zkp-retry / .zkp-open-app text as var(--zkp-bg). */
+  --zkp-bg: var(--ink);
   --zkp-fg: var(--foam);
   --zkp-muted: var(--mist);
   --zkp-border: var(--line);
@@ -2539,11 +2540,17 @@ body::before {
   margin: 0;
 }
 
-.zk-qr .zkp-retry {
-  margin-top: 0 !important;
-  background: var(--amber) !important;
-  color: var(--ink) !important;
-  border-radius: 4px !important;
+/* Same layer as @zkpassport/ui so these !important rules actually win. */
+@layer zkpassport {
+  .zk-qr .zkp-retry {
+    margin-top: 0 !important;
+    background: var(--amber) !important;
+    color: var(--ink) !important;
+  }
+
+  .zk-qr .zkp-open-app {
+    color: var(--ink) !important;
+  }
 }
 
 .sr-only {

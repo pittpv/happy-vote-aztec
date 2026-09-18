@@ -10,7 +10,7 @@ import {
 } from "../lib/zkRequirements.js";
 import { DOCUMENT_TYPE_OPTIONS } from "../lib/countries.js";
 import { PRIVACY, Fr, asFieldBigInt } from "../lib/aztecClient.js";
-import { savePollMeta, publishPollMeta, normalizePollOptions } from "../lib/polls.js";
+import { savePollMeta, publishPollMeta, normalizePollOptions, catalogCountriesForPublish } from "../lib/polls.js";
 import { datetimeLocalToIso, isoToUnixSeconds, normalizePollWindow } from "../lib/pollSchedule.js";
 import { CountryPicker } from "./CountryPicker.jsx";
 import { explainError } from "../lib/userMessages.js";
@@ -239,10 +239,12 @@ export function AdminCreatePollForm({
 
     let requirements = null;
     let metadataHash = new Fr(pollIdNum);
+    let catalogCountries = [];
     try {
       if (important) {
         requirements = normalizeZkRequirements(draftRequirements);
         metadataHash = await hashZkRequirementsToField(requirements, Fr);
+        catalogCountries = await catalogCountriesForPublish(requirements);
       }
     } catch (error) {
       setStatus({
@@ -288,6 +290,7 @@ export function AdminCreatePollForm({
         title: title.trim(),
         description: description.trim() || undefined,
         topics,
+        countries: catalogCountries,
         options,
         template: options.length === 2 ? "binary" : "single_choice",
         requiresZkPassport: important,
@@ -832,7 +835,8 @@ export function AdminCreatePollForm({
               {policyLocks ? (
                 <p className="meta">
                   Policy id locks the query — age / nationality / document rows above are ignored
-                  until you clear it.
+                  until you clear it. The All polls country filter uses countries from that
+                  Dashboard policy.
                 </p>
               ) : null}
             </PolicySection>

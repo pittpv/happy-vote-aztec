@@ -164,7 +164,7 @@ Guest tallies: same-origin `/api/poll-state` only (public Testnet RPC rate-limit
 | Endpoint | Role |
 |----------|------|
 | `GET /api/poll-state?pollId=&optionsCount=` | Batch `node_getPublicStorageAt`, ~15s cache |
-| `GET /api/polls` | Seed JSON + optional Blob overlay (`showOnHome` / `homeRank` for `/`) |
+| `GET /api/polls` | Seed JSON + optional Blob overlay (`showOnHome` / `homeRank` for `/`). The `/polls` country filter also uses Dashboard policy countries when `policyId` is set. |
 | `POST /api/polls` | Authenticated catalog publish (operator-only) |
 | `POST /api/zkpassport-verify` | Server re-verify `@zkpassport/sdk` |
 | `POST /api/client-error` | Boot / vote errors → Vercel logs |
@@ -184,6 +184,7 @@ Guest tallies: same-origin `/api/poll-state` only (public Testnet RPC rate-limit
   "sealed": false,
   "startsAt": null,
   "endsAt": null,
+  "countries": [],
   "zkRequirements": {
     "personhood": true,
     "minAge": null,
@@ -196,6 +197,8 @@ Guest tallies: same-origin `/api/poll-state` only (public Testnet RPC rate-limit
   }
 }
 ```
+
+`countries` is ISO alpha-3 for the All polls filter. Self-served rules fill it from `nationalityIn` / `issuedBy`. When only `policyId` is set, those arrays stay empty in the catalog — the UI then reads `nationality` and `issuing_country` (`eq` / `in`) from the public ZKPassport Dashboard config for `aztec.happyvote.xyz`.
 
 ## 4. Accounts and fees
 

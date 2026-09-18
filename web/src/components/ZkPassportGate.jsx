@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ZKPassportQRCode } from "@zkpassport/ui/react";
 import "@zkpassport/ui/styles.css";
 import {
@@ -7,6 +7,7 @@ import {
   resolveEffectiveZkRequirements,
 } from "../lib/zkRequirements.js";
 import { reverifyZkPassport } from "../lib/zkIdentity.js";
+import { fetchZkPassportPolicies, zkPassportPublicDomain } from "../lib/zkPassportDashboard.js";
 import { Notice } from "./Notice.jsx";
 import { explainError, softenTechnicalText } from "../lib/userMessages.js";
 
@@ -38,6 +39,7 @@ export function ZkPassportGate({
   const domain =
     import.meta.env.VITE_ZKPASSPORT_DOMAIN ||
     (typeof window !== "undefined" ? window.location.hostname : "aztec.happyvote.xyz");
+  const [policyQuery, setPolicyQuery] = useState(null);
   const devMode =
     import.meta.env.VITE_ZKPASSPORT_DEV_MODE === "true" ||
     (import.meta.env.DEV && import.meta.env.VITE_ZKPASSPORT_DEV_MODE !== "false");
@@ -48,7 +50,27 @@ export function ZkPassportGate({
     [requirements],
   );
   const scope = effective.policyId ? undefined : `poll:${pollId}`;
-  const lines = describeZkRequirements(effective);
+  const lines = describeZkRequirements(effective, policyQuery);
+
+  useEffect(() => {
+    if (!effective.policyId) {
+      setPolicyQuery(null);
+      return;
+    }
+    let cancelled = false;
+    fetchZkPassportPolicies(zkPassportPublicDomain())
+      .then((policies) => {
+        const match = policies.find((p) => p?.id === effective.policyId);
+        if (!cancelled) setPolicyQuery(match?.query ?? null);
+      })
+      .catch((error) => {
+        console.error(error);
+        if (!cancelled) setPolicyQuery(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [effective.policyId]);
 
   const [seenPollId, setSeenPollId] = useState(pollId);
   if (seenPollId !== pollId) {

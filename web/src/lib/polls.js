@@ -8,9 +8,18 @@ import {
   countriesFromRequirements,
   defaultZkRequirements,
   normalizeZkRequirements,
+  pollCountryCodes,
 } from "./zkRequirements.js";
 import { pollPath as routePollPath } from "./routing.js";
 import { isDailyVote, utcDayIndex, VOTE_FREQUENCY } from "./voteFrequency.js";
+import {
+  fetchZkPassportPolicies,
+  findDashboardPolicy,
+  zkPassportPublicDomain,
+} from "./zkPassportDashboard.js";
+
+/** @type {Map<string, object>} */
+let dashboardPolicyQueries = new Map();
 
 export const EXPLORER_TX_BASE = "https://testnet.aztecscan.xyz/txns";
 export const EXPLORER_ADDR_BASE = "https://testnet.aztecscan.xyz/address";
@@ -208,7 +217,9 @@ function mergedMap() {
 }
 
 export function listPolls() {
-  return Object.values(mergedMap()).sort((a, b) => Number(a.id) - Number(b.id));
+  return Object.values(mergedMap())
+    .map((poll) => hydrateMeta(poll))
+    .sort((a, b) => Number(a.id) - Number(b.id));
 }
 
 function homeRankValue(meta) {
@@ -219,7 +230,6 @@ function homeRankValue(meta) {
 
 export function listHomePolls() {
   return listPolls()
-    .map((poll) => hydrateMeta(poll))
     .filter((poll) => poll.showOnHome)
     .sort((a, b) => {
       const byRank = homeRankValue(a) - homeRankValue(b);
@@ -253,6 +263,28 @@ export function getPollMeta(pollId) {
   });
 }
 
+async function loadDashboardPolicyQueries() {
+  const policies = await fetchZkPassportPolicies(zkPassportPublicDomain());
+  dashboardPolicyQueries = new Map(policies.map((p) => [p.id, p.query]));
+}
+
+/**
+ * Catalog country tags for publish. Dashboard policy countries are included when policyId is set.
+ * @param {object|null} requirements
+ */
+export async function catalogCountriesForPublish(requirements) {
+  const fromReq = countriesFromRequirements(requirements);
+  const policyId = requirements?.policyId;
+  if (!policyId) return fromReq;
+  const policies = await fetchZkPassportPolicies(zkPassportPublicDomain());
+  const policy = findDashboardPolicy(policies, policyId);
+  dashboardPolicyQueries.set(policy.id, policy.query);
+  return pollCountryCodes(
+    { countries: fromReq, zkRequirements: requirements },
+    policy.query,
+  );
+}
+
 /**
  * Fetch shared catalog from /api/polls and cache in memory.
  * @returns {Promise<object[]>}
@@ -267,11 +299,15 @@ export async function refreshSharedCatalog() {
       if (poll?.id != null) next[String(poll.id)] = poll;
     }
     sharedCatalog = next;
-    return listPolls();
   } catch (error) {
     console.warn("[polls] shared catalog fetch failed", error);
-    return listPolls();
   }
+  try {
+    await loadDashboardPolicyQueries();
+  } catch (error) {
+    console.error("[polls] dashboard policy countries", error);
+  }
+  return listPolls();
 }
 
 /**
@@ -420,9 +456,13 @@ function hydrateMeta(meta) {
   const topics = Array.isArray(meta.topics)
     ? meta.topics.map((t) => String(t).trim().toLowerCase()).filter(Boolean)
     : [];
-  const countries = Array.isArray(meta.countries)
-    ? meta.countries
-    : countriesFromRequirements(zkRequirements);
+  const countries = pollCountryCodes(
+    {
+      countries: meta.countries,
+      zkRequirements,
+    },
+    zkRequirements?.policyId ? dashboardPolicyQueries.get(zkRequirements.policyId) ?? null : null,
+  );
 
   const options = normalizePollOptions(meta.options);
 

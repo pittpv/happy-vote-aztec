@@ -161,7 +161,7 @@ Vite + React. Маршруты:
 | Endpoint | Роль |
 |----------|------|
 | `GET /api/poll-state` | Batch `node_getPublicStorageAt`, кэш ~15с |
-| `GET /api/polls` | Seed JSON + опциональный Blob (`showOnHome` / `homeRank` для `/`) |
+| `GET /api/polls` | Seed JSON + опциональный Blob (`showOnHome` / `homeRank` для `/`). Фильтр стран на `/polls` также берёт страны из Dashboard policy, если задан `policyId`. |
 | `POST /api/polls` | Публикация метаданных каталога (только оператор) |
 | `POST /api/zkpassport-verify` | Server re-verify |
 | `POST /api/client-error` | Ошибки в логи Vercel |
@@ -181,6 +181,7 @@ Vite + React. Маршруты:
   "sealed": false,
   "startsAt": null,
   "endsAt": null,
+  "countries": [],
   "zkRequirements": {
     "personhood": true,
     "minAge": null,
@@ -193,6 +194,8 @@ Vite + React. Маршруты:
   }
 }
 ```
+
+`countries` — ISO alpha-3 для фильтра All polls. Self-served правила заполняют его из `nationalityIn` / `issuedBy`. Если задан только `policyId`, в каталоге эти массивы пустые — UI читает `nationality` и `issuing_country` (`eq` / `in`) из публичного конфига ZKPassport Dashboard для `aztec.happyvote.xyz`.
 
 ## 4. Аккаунты и комиссии
 

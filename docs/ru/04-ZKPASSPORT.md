@@ -20,6 +20,8 @@
 
 Production: SDK + QR, домен зарегистрирован, default policy `vote-identity-verification`.
 
+Если задан `policyId`, query в виджете только `.policy(id)` — self-served предикаты из JSON каталога не уходят в ZKPassport. Фильтр стран на All polls всё равно нужен: при пустых `countries` / `nationalityIn` / `issuedBy` UI читает публичный Dashboard-проект `aztec.happyvote.xyz` и берёт `nationality` и `issuing_country` (`eq` / `in`).
+
 ## 3. Пример query
 
 Personhood: `query={(q) => q.done()}`, `scope={poll:${pollId}}`.  
@@ -61,7 +63,7 @@ Server re-verify должен быть включён. Mock-паспорта —
 
 ## 7. Ограничения
 
-Несколько ID у одного человека → «один ID ↔ один голос». Нужно приложение ZKPassport.
+Несколько ID у одного человека → «один ID ↔ один голос». FaceMatch на iOS использует Apple App Attest внутри приложения ZKPassport; ошибка DeviceCheck / key attestation — на стороне приложения и Apple, не HappyVote. Нужно приложение ZKPassport.
 
 ## 8. Когда требовать
 
@@ -84,14 +86,15 @@ Fun / Happy/Sad — open. Community — personhood желателен. Поли�
 }
 ```
 
-## 10. UI (2026-08-13)
+## 10. UI (2026-09-18)
 
-QR — drop-in `@zkpassport/ui`, обёртка в стиле портала. После успеха QR снимается, баннер **Identity verified**, детали по клику.
+QR — drop-in `@zkpassport/ui`, обёртка в стиле портала. `--zkp-bg` на карточке должен быть **непрозрачным**: виджет красит **Try again** этим цветом. Прозрачный `--zkp-bg` прятал подпись после неудачного скана. После успеха QR снимается, баннер **Identity verified**, детали по клику (включая предикаты Dashboard policy).
 
 ## 11. Чеклист
 
 - [x] SDK + UI, домен, gate, `eligibility_mode` + `metadata_hash`
 - [x] `/api/zkpassport-verify`, identity claim
 - [x] Стилизация + сворачивание
+- [x] Фильтр стран каталога из Dashboard policy
 - [x] Noir: один identity, два аккаунта — fail
 - [ ] E2E на устройстве

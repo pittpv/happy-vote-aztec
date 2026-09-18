@@ -25,7 +25,7 @@ Author in the footer: Peter Ploskikh — [X](https://x.com/pittpv), [LinkedIn](h
 
 ## All polls (`/polls`)
 
-Same card grid as home, with search and filters. Use this when the catalog grows beyond a short featured list.
+Same card grid as home, with search and filters (topic, country, eligibility). The **country** list includes ISO codes from catalog tags, self-served `nationalityIn` / `issuedBy`, and — when a poll uses a Dashboard `policyId` — `nationality` / `issuing_country` from that policy.
 
 ## Vote (`/p/:id`)
 
@@ -59,7 +59,7 @@ flowchart LR
 
 ## ZKPassport gate
 
-Portal chrome (teal / amber / Sora) wraps `@zkpassport/ui`. Duplicate widget title is hidden. After success:
+Portal chrome (teal / amber / Sora) wraps `@zkpassport/ui`. Duplicate widget title is hidden. **Try again** after a failed scan stays readable (opaque card `--zkp-bg`; the widget uses that variable as the retry label color). After success:
 
 - QR is removed;
 - compact **Identity verified** banner;

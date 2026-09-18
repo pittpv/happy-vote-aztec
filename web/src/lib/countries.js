@@ -21,3 +21,17 @@ export function countryLabel(code) {
   const c = String(code || "").toUpperCase();
   return countries.getName(c, "en") || c;
 }
+
+/**
+ * Accept ISO alpha-3 or an English country name. Unknown values are ignored.
+ * @param {unknown} raw
+ * @returns {string|null}
+ */
+export function coerceCountryCode(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return null;
+  const upper = s.toUpperCase();
+  if (/^[A-Z]{3}$/.test(upper) && countries.getName(upper, "en")) return upper;
+  const fromName = countries.getAlpha3Code(s, "en");
+  return fromName || null;
+}
