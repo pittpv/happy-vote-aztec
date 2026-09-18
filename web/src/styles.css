@@ -2089,8 +2089,12 @@ body::before {
 
 .admin-tabs {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(8.6rem, 1fr));
   gap: 0.55rem;
+}
+
+.admin-form .meta code {
+  font-size: 0.85em;
 }
 
 .admin-tab {

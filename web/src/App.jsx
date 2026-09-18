@@ -36,6 +36,7 @@ import { AdminCreatePollForm } from "./components/AdminCreatePollForm.jsx";
 import { AdminContractControls } from "./components/AdminContractControls.jsx";
 import { AdminSiteStats } from "./components/AdminSiteStats.jsx";
 import { AdminHomePolls } from "./components/AdminHomePolls.jsx";
+import { AdminPolicyIdForm } from "./components/AdminPolicyIdForm.jsx";
 import { AdminPanel, AdminTabs, parseAdminTab } from "./components/AdminTabs.jsx";
 import { trackPageview } from "./lib/siteStats.js";
 import { PollListPage } from "./components/PollListPage.jsx";
@@ -335,6 +336,14 @@ function AdminRoute({ walletConnect }) {
               setBusy={setBusy}
               setStatus={setStatus}
               onCreated={(meta) => navigate(pollPath(meta.id))}
+            />
+          </AdminPanel>
+          <AdminPanel id="policy" active={adminTab}>
+            <AdminPolicyIdForm
+              active={adminTab === "policy"}
+              busy={busy}
+              setBusy={setBusy}
+              setStatus={setStatus}
             />
           </AdminPanel>
           <AdminPanel id="home" active={adminTab}>

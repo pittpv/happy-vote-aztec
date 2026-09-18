@@ -7,6 +7,7 @@ import {
   ELIGIBILITY_MODE,
   countriesFromRequirements,
   defaultZkRequirements,
+  normalizePolicyId,
   normalizeZkRequirements,
   pollCountryCodes,
 } from "./zkRequirements.js";
@@ -388,6 +389,67 @@ export async function publishHomepage(entries, publishToken) {
     persisted: Boolean(data.persisted),
     error: data.error || (!response.ok ? `HTTP ${response.status}` : null),
     blobUrl: data.blobUrl || null,
+  };
+}
+
+/**
+ * Change Dashboard PolicyID for an existing ZKPassport poll (catalog only).
+ * @param {string} pollId
+ * @param {string|null} policyId
+ */
+export async function publishPollPolicyId(pollId, policyId, publishToken) {
+  const token =
+    publishToken ||
+    import.meta.env.VITE_POLLS_PUBLISH_TOKEN ||
+    (typeof sessionStorage !== "undefined" ? sessionStorage.getItem("happyvote.publishToken") : null);
+  if (!token) {
+    return {
+      ok: false,
+      persisted: false,
+      error: "Missing publish token (set VITE_POLLS_PUBLISH_TOKEN or paste token in Admin).",
+    };
+  }
+  const id = String(pollId || "").trim();
+  if (!/^\d+$/.test(id)) {
+    throw new Error("poll id must be a positive integer");
+  }
+  const normalized =
+    policyId == null || String(policyId).trim() === ""
+      ? null
+      : normalizePolicyId(String(policyId).trim());
+  if (normalized) {
+    const policies = await fetchZkPassportPolicies(zkPassportPublicDomain());
+    findDashboardPolicy(policies, normalized);
+  }
+  const response = await fetch("/api/polls", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ policy: { id, policyId: normalized } }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (response.ok && data.ok && data.persisted) {
+    const stored = readStoredPolls()[id];
+    if (stored) {
+      const prevReq =
+        stored.zkRequirements && typeof stored.zkRequirements === "object"
+          ? stored.zkRequirements
+          : { personhood: true };
+      savePollMeta({
+        ...stored,
+        zkRequirements: { ...prevReq, policyId: normalized },
+      });
+    }
+    await refreshSharedCatalog();
+  }
+  return {
+    ok: Boolean(data.ok),
+    persisted: Boolean(data.persisted),
+    error: data.error || (!response.ok ? `HTTP ${response.status}` : null),
+    blobUrl: data.blobUrl || null,
+    policyId: data.policyId ?? normalized,
   };
 }
 

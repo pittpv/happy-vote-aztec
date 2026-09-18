@@ -1,5 +1,6 @@
 const TABS = [
   { id: "create", label: "Create poll", description: "New poll and eligibility" },
+  { id: "policy", label: "Policy ID", description: "Change Dashboard policy" },
   { id: "home", label: "Homepage", description: "Featured poll cards" },
   { id: "visits", label: "Visits", description: "Cookieless site totals" },
   { id: "contract", label: "Contract", description: "Pause, end, transfer" },

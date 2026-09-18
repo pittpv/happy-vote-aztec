@@ -165,7 +165,7 @@ Guest tallies: same-origin `/api/poll-state` only (public Testnet RPC rate-limit
 |----------|------|
 | `GET /api/poll-state?pollId=&optionsCount=` | Batch `node_getPublicStorageAt`, ~15s cache. Poseidon map slots from catalog metadata (any poll id) |
 | `GET /api/polls` | Seed JSON + optional Blob overlay (`showOnHome` / `homeRank` for `/`). The `/polls` country filter also uses Dashboard policy countries when `policyId` is set. |
-| `POST /api/polls` | Authenticated catalog publish (operator-only) |
+| `POST /api/polls` | Authenticated catalog publish (operator-only): new poll body, `homepage` flags, or `policyId` on an existing ZKPassport poll |
 | `POST /api/zkpassport-verify` | Server re-verify `@zkpassport/sdk` |
 | `POST /api/client-error` | Boot / vote errors → Vercel logs |
 | `POST /api/site-stats` | Cookieless pageview ingest; daily aggregates only (no IP, no poll id) |
@@ -199,6 +199,8 @@ Guest tallies: same-origin `/api/poll-state` only (public Testnet RPC rate-limit
 ```
 
 `countries` is ISO alpha-3 for the All polls filter. Self-served rules fill it from `nationalityIn` / `issuedBy`. When only `policyId` is set, those arrays stay empty in the catalog — the UI then reads `nationality` and `issuing_country` (`eq` / `in`) from the public ZKPassport Dashboard config for `aztec.happyvote.xyz`.
+
+The vote widget uses the **current** catalog `zkRequirements.policyId`. Operators can replace that id on an existing ZKPassport poll through authenticated catalog publish. On-chain `eligibility_mode` and `metadata_hash` stay the values from `create_poll` (`PublicImmutable`).
 
 Guest `/api/poll-state` reads Poseidon map slots stored with the poll when it is published, so any poll id works without an API code change. Public `GET /api/polls` does not return those slots.
 

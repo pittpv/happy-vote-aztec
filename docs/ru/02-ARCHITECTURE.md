@@ -162,7 +162,7 @@ Vite + React. Маршруты:
 |----------|------|
 | `GET /api/poll-state` | Batch `node_getPublicStorageAt`, кэш ~15с. Poseidon-слоты из метаданных каталога (любой poll id) |
 | `GET /api/polls` | Seed JSON + опциональный Blob (`showOnHome` / `homeRank` для `/`). Фильтр стран на `/polls` также берёт страны из Dashboard policy, если задан `policyId`. |
-| `POST /api/polls` | Публикация метаданных каталога (только оператор) |
+| `POST /api/polls` | Публикация метаданных каталога (только оператор): тело опроса, флаги `homepage` или `policyId` у существующего ZKPassport-опроса |
 | `POST /api/zkpassport-verify` | Server re-verify |
 | `POST /api/client-error` | Ошибки в логи Vercel |
 | `POST /api/site-stats` | Cookieless ingest просмотров; только дневные агрегаты |
@@ -196,6 +196,8 @@ Vite + React. Маршруты:
 ```
 
 `countries` — ISO alpha-3 для фильтра All polls. Self-served правила заполняют его из `nationalityIn` / `issuedBy`. Если задан только `policyId`, в каталоге эти массивы пустые — UI читает `nationality` и `issuing_country` (`eq` / `in`) из публичного конфига ZKPassport Dashboard для `aztec.happyvote.xyz`.
+
+Виджет голосования берёт **текущий** каталожный `zkRequirements.policyId`. Операторы могут сменить этот id у уже созданного ZKPassport-опроса через аутентифицированную публикацию каталога. On-chain `eligibility_mode` и `metadata_hash` остаются значениями из `create_poll` (`PublicImmutable`).
 
 Гостевой `/api/poll-state` читает Poseidon-слоты, сохранённые с опросом при публикации, поэтому любой poll id работает без правки API. Публичный `GET /api/polls` эти слоты не отдаёт.
 

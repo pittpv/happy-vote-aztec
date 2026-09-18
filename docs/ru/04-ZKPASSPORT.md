@@ -20,7 +20,7 @@
 
 Production: SDK + QR, домен зарегистрирован, default policy `vote-identity-verification`.
 
-Если задан `policyId`, query в виджете только `.policy(id)` — self-served предикаты из JSON каталога не уходят в ZKPassport. Фильтр стран на All polls всё равно нужен: при пустых `countries` / `nationalityIn` / `issuedBy` UI читает публичный Dashboard-проект `aztec.happyvote.xyz` и берёт `nationality` и `issuing_country` (`eq` / `in`).
+Если в каталоге задан `policyId`, query в виджете только `.policy(id)`, а query `scope` не передаётся — self-served предикаты из JSON каталога не уходят в ZKPassport. Фильтр стран на All polls всё равно нужен: при пустых `countries` / `nationalityIn` / `issuedBy` UI читает публичный Dashboard-проект `aztec.happyvote.xyz` и берёт `nationality` и `issuing_country` (`eq` / `in`). Виджет использует актуальный каталожный `policyId`; on-chain `metadata_hash` задаётся в `create_poll` и не меняется, если id в каталоге позже заменят.
 
 ## 3. Пример query
 
@@ -71,7 +71,7 @@ Fun / Happy/Sad — open. Community — personhood желателен. Поли�
 
 ## 9. Off-chain JSON требований
 
-В каталоге; SHA-256 канонического JSON, reduction в Field → `metadata_hash` (в браузере digest сначала в Node `Buffer`, затем `fromBufferReduce`). `eligibility_mode`: `1` только personhood · `2` если есть age / nationality / sanctions / FaceMatch / `policyId`.
+В каталоге. При `create_poll` SHA-256 канонического JSON сводится в Field → on-chain `metadata_hash` (в браузере digest сначала в Node `Buffer`, затем `fromBufferReduce`). Хеш — `PublicImmutable`. Поздняя смена каталожного `policyId` меняет query виджета, но не это on-chain поле. `eligibility_mode`: `1` только personhood · `2` если есть age / nationality / sanctions / FaceMatch / `policyId`.
 
 ```json
 {

@@ -84,10 +84,10 @@ Never put a freshly constructed `AztecAddress` in a React `useEffect` dependency
 |------|-------|
 | List | `GET /api/polls` |
 | One | `GET /api/polls?id=3` |
-| Publish | Authenticated `POST /api/polls` (operator-only; poll body or `homepage` flags) |
+| Publish | Authenticated `POST /api/polls` (operator-only; poll body, `homepage` flags, or `policyId` on an existing ZKPassport poll) |
 | Seed | `web/data/polls-catalog.json` |
 | Overlay | Optional object storage overlay on the host |
-| Home | Catalog fields `showOnHome` and `homeRank` select cards on `/`; `/polls` lists every poll. Country filter also uses public Dashboard policy `nationality` / `issuing_country` when `policyId` is set. |
+| Home | Catalog fields `showOnHome` and `homeRank` select cards on `/`; `/polls` lists every poll. Country filter also uses public Dashboard policy `nationality` / `issuing_country` when `policyId` is set. Replacing catalog `policyId` on an existing poll does not rewrite on-chain `metadata_hash`. |
 
 Without Blob, everyone still sees the seed catalog.
 

@@ -24,7 +24,7 @@ Open-eligibility polls do **not** use ZKPassport. They only bind one vote per Az
 
 Production: SDK + QR (`ZKPassportQRCode`), domain registered, default Dashboard policy id `vote-identity-verification` (RU elections template) when `policyId` is set for important polls.
 
-When `policyId` is set, the widget query is Dashboard-locked (`.policy(id)` only). Self-served predicates in catalog JSON are not sent. The All polls **country** filter still needs those countries: if catalog `countries` / `nationalityIn` / `issuedBy` are empty, the UI loads the public Dashboard project for `aztec.happyvote.xyz` and uses `nationality` and `issuing_country` (`eq` / `in`).
+When catalog `policyId` is set, the widget query is Dashboard-locked (`.policy(id)` only) and query `scope` is omitted. Self-served predicates in catalog JSON are not sent. The All polls **country** filter still needs those countries: if catalog `countries` / `nationalityIn` / `issuedBy` are empty, the UI loads the public Dashboard project for `aztec.happyvote.xyz` and uses `nationality` and `issuing_country` (`eq` / `in`). The live catalog `policyId` is what the widget uses; on-chain `metadata_hash` is set at `create_poll` and does not change if the catalog id is later replaced.
 
 ## 3. Query examples
 
@@ -97,7 +97,7 @@ Keep server re-verify enabled. Mock passports are for local development only; pr
 
 ## 9. Off-chain requirements JSON
 
-Stored in catalog / `localStorage`; SHA-256 of canonical JSON, reduced into a Field → `metadata_hash` (browser digest bytes go through a Node `Buffer` before `fromBufferReduce`).
+Stored in catalog / `localStorage`. At `create_poll`, SHA-256 of canonical JSON is reduced into a Field → on-chain `metadata_hash` (browser digest bytes go through a Node `Buffer` before `fromBufferReduce`). The hash is `PublicImmutable`. A later catalog `policyId` change updates the widget query, not that on-chain field.
 
 ```json
 {

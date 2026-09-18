@@ -5,6 +5,7 @@
  * GET  /api/polls?id=3     → single poll
  * POST /api/polls          → upsert poll (Authorization: Bearer POLLS_PUBLISH_TOKEN)
  * POST /api/polls { homepage: [{ id, showOnHome, homeRank }] } → featured flags for `/`
+ * POST /api/polls { policy: { id, policyId } } → Dashboard PolicyID for an existing poll
  *
  * Persistence: embedded seed + optional Vercel Blob overlay (`BLOB_READ_WRITE_TOKEN`).
  */
@@ -162,20 +163,71 @@ function normalizeHomepageEntries(raw) {
   });
 }
 
+const POLICY_ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{1,120}$/;
+
+function isZkPassportPoll(poll) {
+  const mode = Number(poll?.eligibilityMode ?? 0);
+  return mode > 0 || Boolean(poll?.requiresZkPassport) || Boolean(poll?.zkRequirements);
+}
+
+function overlayPollRecord(mergedPolls, overlayPolls, id) {
+  const existing = mergedPolls[id] || overlayPolls[id];
+  if (!existing) throw new Error(`Unknown poll ${id}`);
+  const optionCount = Array.isArray(existing.options) ? existing.options.length : 0;
+  const storageSlots = isUsableSlotEntry(existing.storageSlots, optionCount)
+    ? existing.storageSlots
+    : fallbackSlots(id, Math.max(optionCount, 2));
+  return {
+    existing,
+    nextRecord: {
+      ...existing,
+      ...(storageSlots ? { storageSlots } : {}),
+    },
+  };
+}
+
+function normalizePolicyPatch(raw) {
+  if (!raw || typeof raw !== "object") throw new Error("Invalid policy patch");
+  const id = String(raw.id || "").trim();
+  if (!/^\d+$/.test(id)) throw new Error("policy poll id must be a positive integer string");
+  const trimmed = raw.policyId == null ? "" : String(raw.policyId).trim();
+  if (trimmed && !POLICY_ID_RE.test(trimmed)) {
+    throw new Error(
+      "Invalid policy id — use Dashboard id (pol_…) or slug (e.g. vote-identity-verification)",
+    );
+  }
+  return { id, policyId: trimmed || null };
+}
+
+function applyPolicyId(mergedPolls, overlayPolls, patch) {
+  const { existing, nextRecord } = overlayPollRecord(mergedPolls, overlayPolls, patch.id);
+  if (!isZkPassportPoll(existing)) {
+    throw new Error(`Poll ${patch.id} is open eligibility. PolicyID applies only to ZKPassport polls.`);
+  }
+  const prev =
+    existing.zkRequirements && typeof existing.zkRequirements === "object"
+      ? existing.zkRequirements
+      : { personhood: true };
+  return {
+    ...overlayPolls,
+    [patch.id]: {
+      ...nextRecord,
+      zkRequirements: {
+        ...prev,
+        policyId: patch.policyId,
+      },
+    },
+  };
+}
+
 function applyHomepage(mergedPolls, overlayPolls, entries) {
   const next = { ...overlayPolls };
   for (const entry of entries) {
-    const existing = mergedPolls[entry.id] || next[entry.id];
-    if (!existing) throw new Error(`Unknown poll ${entry.id}`);
-    const optionCount = Array.isArray(existing.options) ? existing.options.length : 0;
-    const storageSlots = isUsableSlotEntry(existing.storageSlots, optionCount)
-      ? existing.storageSlots
-      : fallbackSlots(entry.id, Math.max(optionCount, 2));
+    const { nextRecord } = overlayPollRecord(mergedPolls, next, entry.id);
     next[entry.id] = {
-      ...existing,
+      ...nextRecord,
       showOnHome: entry.showOnHome,
       homeRank: entry.homeRank,
-      ...(storageSlots ? { storageSlots } : {}),
     };
   }
   return next;
@@ -250,6 +302,46 @@ export default async function handler(req, res) {
               error:
                 "BLOB_READ_WRITE_TOKEN is not configured — homepage selection saved only in this browser until Blob is configured.",
               persisted: false,
+            });
+          }
+          throw error;
+        }
+      }
+
+      if (body.policy && typeof body.policy === "object") {
+        let patch;
+        let patchedPolls;
+        try {
+          patch = normalizePolicyPatch(body.policy);
+          patchedPolls = applyPolicyId(merged.polls, overlay.polls || {}, patch);
+        } catch (error) {
+          return res.status(400).json({ ok: false, error: error?.message || String(error) });
+        }
+        const next = {
+          version: Number(overlay.version || 1),
+          updatedAt: new Date().toISOString(),
+          polls: patchedPolls,
+        };
+        const mergedForClients = mergeCatalogs(seed, next);
+        const poll = publicPoll(mergedForClients.polls[patch.id]);
+        try {
+          const blob = await writeBlobCatalog(next);
+          return res.status(200).json({
+            ok: true,
+            persisted: true,
+            blobUrl: blob.url,
+            poll,
+            policyId: poll?.zkRequirements?.policyId ?? null,
+          });
+        } catch (error) {
+          if (error?.code === "NO_BLOB") {
+            return res.status(503).json({
+              ok: false,
+              error:
+                "BLOB_READ_WRITE_TOKEN is not configured — PolicyID saved only in this browser until Blob is configured.",
+              persisted: false,
+              poll,
+              policyId: poll?.zkRequirements?.policyId ?? null,
             });
           }
           throw error;
