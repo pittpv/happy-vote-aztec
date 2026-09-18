@@ -129,7 +129,7 @@ sequenceDiagram
 
 ### 2.4 Хеширование
 
-В Aztec.nr — **Poseidon2**. `metadata_hash` каталога: SHA-256 → Field (`fromBufferReduce`).
+В Aztec.nr — **Poseidon2**. `metadata_hash` каталога (и не-hex ZKPassport `uniqueIdentifier` → `identity_commitment`): SHA-256 байт, reduction в Field (`fromBufferReduce`). WebCrypto отдаёт `Uint8Array`; его нужно обернуть в Node `Buffer` — `Uint8Array#toString("hex")` даёт десятичные числа через запятую, и `BigInt` это не разбирает.
 
 ### 2.5 Проверки
 

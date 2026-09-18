@@ -6,6 +6,7 @@
  */
 
 import { DOCUMENT_TYPE_OPTIONS } from "./countries.js";
+import { fieldFromDigest } from "./fieldFromDigest.js";
 
 export const ELIGIBILITY_MODE = {
   OPEN: 0,
@@ -355,13 +356,7 @@ export async function hashZkRequirementsToField(req, Fr) {
   const canonical = canonicalizeZkRequirements(req);
   const bytes = new TextEncoder().encode(canonical);
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
-  // SHA-256 can exceed BN254 modulus — reduce into the field.
-  if (typeof Fr.fromBufferReduce === "function") {
-    return Fr.fromBufferReduce(digest);
-  }
-  const hex = [...digest].map((b) => b.toString(16).padStart(2, "0")).join("");
-  const reduced = BigInt(`0x${hex}`) % Fr.MODULUS;
-  return new Fr(reduced);
+  return fieldFromDigest(digest, Fr);
 }
 
 export function hashZkRequirementsToHex(req) {

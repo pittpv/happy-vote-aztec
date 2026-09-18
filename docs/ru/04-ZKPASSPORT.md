@@ -69,7 +69,7 @@ Fun / Happy/Sad — open. Community — personhood желателен. Поли�
 
 ## 9. Off-chain JSON требований
 
-В каталоге; SHA-256 → `metadata_hash`. `eligibility_mode`: `1` только personhood · `2` если есть age / nationality / sanctions / FaceMatch / `policyId`.
+В каталоге; SHA-256 канонического JSON, reduction в Field → `metadata_hash` (в браузере digest сначала в Node `Buffer`, затем `fromBufferReduce`). `eligibility_mode`: `1` только personhood · `2` если есть age / nationality / sanctions / FaceMatch / `policyId`.
 
 ```json
 {

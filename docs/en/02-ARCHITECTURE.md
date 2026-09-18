@@ -132,7 +132,7 @@ sequenceDiagram
 
 ### 2.4 Hashing
 
-Application hashes in Aztec.nr use **Poseidon2**. Catalog `metadata_hash` uses SHA-256 → Field (`fromBufferReduce`) so the browser and catalog publisher share one digest.
+Application hashes in Aztec.nr use **Poseidon2**. Catalog `metadata_hash` (and a non-hex ZKPassport `uniqueIdentifier` → `identity_commitment`) is SHA-256 of the bytes, reduced into a Field (`fromBufferReduce`) so the browser and catalog publisher share one digest. WebCrypto returns a `Uint8Array`; wrap it in a Node `Buffer` first — `Uint8Array#toString("hex")` is comma-separated decimals, which `BigInt` cannot parse.
 
 ### 2.5 Safety checks
 

@@ -3,6 +3,8 @@
  * Prefer hex Field strings; otherwise SHA-256 the UTF-8 bytes into a Field.
  */
 
+import { fieldFromDigest } from "./fieldFromDigest.js";
+
 /**
  * @param {string} uniqueIdentifier
  * @param {typeof import("@aztec/aztec.js/fields").Fr} Fr
@@ -25,11 +27,7 @@ export async function identityCommitmentFromUid(uniqueIdentifier, Fr) {
 
   const bytes = new TextEncoder().encode(raw);
   const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
-  if (typeof Fr.fromBufferReduce === "function") {
-    return Fr.fromBufferReduce(digest);
-  }
-  const hex = [...digest].map((b) => b.toString(16).padStart(2, "0")).join("");
-  return new Fr(BigInt(`0x${hex}`) % Fr.MODULUS);
+  return fieldFromDigest(digest, Fr);
 }
 
 /**

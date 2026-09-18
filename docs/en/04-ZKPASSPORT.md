@@ -94,7 +94,7 @@ Keep server re-verify enabled. Mock passports are for local development only; pr
 
 ## 9. Off-chain requirements JSON
 
-Stored in catalog / `localStorage`; SHA-256 → `metadata_hash`.
+Stored in catalog / `localStorage`; SHA-256 of canonical JSON, reduced into a Field → `metadata_hash` (browser digest bytes go through a Node `Buffer` before `fromBufferReduce`).
 
 ```json
 {
