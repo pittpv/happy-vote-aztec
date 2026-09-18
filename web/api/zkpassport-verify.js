@@ -33,7 +33,6 @@ export default async function handler(req, res) {
       queryResult,
       scope,
       domain,
-      devMode,
       pollId,
     } = body;
 
@@ -51,7 +50,6 @@ export default async function handler(req, res) {
       "aztec.happyvote.xyz";
 
     const allowDev =
-      devMode === true ||
       process.env.ZKPASSPORT_DEV_MODE === "true" ||
       process.env.VITE_ZKPASSPORT_DEV_MODE === "true";
 

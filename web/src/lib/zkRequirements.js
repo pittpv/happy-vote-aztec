@@ -295,7 +295,7 @@ export function describeZkRequirements(req, policyQuery = null) {
   const r = normalizeZkRequirements(req);
   const lines = [];
   if (r.policyId) {
-    lines.push(`Dashboard policy ${r.policyId}`);
+    lines.push(`Dashboard policy: ${r.policyId}`);
     lines.push(...describePolicyQuery(policyQuery));
     return lines;
   }

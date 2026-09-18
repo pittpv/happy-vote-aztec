@@ -182,7 +182,7 @@ export function ZkPassportGate({
               {effective.policyId ? (
                 <>
                   {" "}
-                  · policy <code>{effective.policyId}</code>
+                  · policy: <code>{effective.policyId}</code>
                 </>
               ) : (
                 <>
@@ -202,7 +202,7 @@ export function ZkPassportGate({
         <div className="zk-gate-head">
           <h2>Identity check</h2>
           {effective.policyId ? (
-            <code className="zk-scope">policy {effective.policyId}</code>
+            <code className="zk-scope">policy: {effective.policyId}</code>
           ) : (
             <code className="zk-scope">poll:{pollId}</code>
           )}
