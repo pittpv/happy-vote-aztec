@@ -1,4 +1,5 @@
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
+import { createAztecNodeClient, waitForTx } from "@aztec/aztec.js/node";
+import { NO_WAIT } from "@aztec/aztec.js/contracts";
 import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { Fr } from "@aztec/aztec.js/fields";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
@@ -10,6 +11,25 @@ import { getContractInstanceFromInstantiationParams } from "@aztec/aztec.js/cont
 import { openTmpStore } from "@aztec/kv-store/deprecated/indexeddb";
 import { HappyVoteContract } from "../contracts/HappyVote.ts";
 import { bbProverOptionsForBrowser } from "./browser.js";
+
+/**
+ * Browser-session prove uses one Barretenberg singleton. The first initSingleton
+ * call wins, so this must pass the same iOS memory options as the PXE prover.
+ * A failed warmup is discarded inside bb.js; the vote still proves on send().
+ */
+let browserProverWarmup;
+
+export function warmBrowserProver() {
+  if (import.meta.env.VITE_PROVER_ENABLED !== "true") return;
+  if (browserProverWarmup) return;
+  browserProverWarmup = (async () => {
+    const { Barretenberg } = await import("@aztec/bb.js");
+    await Barretenberg.initSingleton(bbProverOptionsForBrowser());
+  })().catch((error) => {
+    browserProverWarmup = undefined;
+    console.error(error);
+  });
+}
 
 /** WaitOpts.timeout is seconds. Config values may be ms. */
 function waitTimeoutSeconds(raw = 600_000) {
@@ -253,6 +273,34 @@ export const voteInclusionWait = {
   timeout: 600,
   waitForStatus: TxStatus.PROPOSED,
 };
+
+/**
+ * Submit a proven ballot, then wait until it is in a proposed L2 block.
+ * `onStep` runs after the proof is submitted, before the inclusion wait.
+ */
+export async function submitProvenBallot(method, { from, txOptions, onStep }) {
+  if (!method?.send) throw new Error("Ballot method is required");
+  if (!from) throw new Error("Account address is required");
+  if (!txOptions) throw new Error("Sponsored fee options are required");
+  if (typeof onStep !== "function") throw new Error("Ballot progress callback is required");
+
+  const sent = await method.send({
+    from,
+    ...txOptions,
+    wait: NO_WAIT,
+  });
+  const txHash = sent?.txHash ?? sent?.hash ?? sent;
+  if (txHash == null || txHash === "") {
+    throw new Error("Vote send did not return a transaction hash");
+  }
+
+  onStep({
+    button: "Waiting for block…",
+    text: "The ballot is on the network. Waiting until it is in a proposed L2 block.",
+  });
+  const receipt = await waitForTx(createAztecNodeClient(getNodeUrl()), txHash, voteInclusionWait);
+  return { receipt, txHash };
+}
 
 /** Reuse a recent 2× fee cap so a vote click does not wait on two block RPCs. */
 const SPONSORED_FEE_TTL_MS = 60_000;

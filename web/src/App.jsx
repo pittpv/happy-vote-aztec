@@ -10,8 +10,9 @@ import {
   registerStandardContracts,
   getSponsoredPaymentMethod,
   sponsoredTxOptions,
-  voteInclusionWait,
+  submitProvenBallot,
   createWallet,
+  warmBrowserProver,
   createSessionAccount,
   importAccount,
   pollIdFromRaw,
@@ -188,6 +189,8 @@ export default function App() {
 
 function AppWalletModal({ walletConnect, allowAdminImport }) {
   async function connectSession(importedKeys) {
+    // Same in-page prover the ballot will use. Does not run for Azguard or Web Wallet.
+    warmBrowserProver();
     walletConnect.setProgress("Creating browser wallet…");
     const onProgress = (text) => walletConnect.setProgress(text);
     try {
@@ -474,6 +477,7 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
   const [selected, setSelected] = useState(0);
   const [privacyMode, setPrivacyMode] = useState("private");
   const [busy, setBusy] = useState(false);
+  const [voteActivity, setVoteActivity] = useState("");
   const [tallies, setTallies] = useState(() => optionLabels.map(() => 0));
   const [total, setTotal] = useState(0);
   const [policy, setPolicy] = useState(PRIVACY.VOTER_CHOICE);
@@ -829,13 +833,13 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
     }
     setBusy(true);
     setLastTxHash(null);
-    setStatus({
-      text:
-        privacyMode === "private"
-          ? "Approve private ballot in your wallet…"
-          : "Approve open ballot in your wallet…",
-      tone: "neutral",
-    });
+    const inPageProver =
+      walletConnect.phase.kind === "connected" &&
+      typeof walletConnect.phase.wallet?.createSchnorrInitializerlessAccount === "function";
+    const showStep = (button, text) => {
+      setVoteActivity(button);
+      setStatus({ text, tone: "neutral" });
+    };
     try {
       const eligibility =
         pollMeta.eligibilityMode != null
@@ -848,9 +852,17 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
         if (!zkId) {
           throw new Error("ZKPassport uniqueIdentifier required for this poll");
         }
+        showStep(
+          "Checking identity…",
+          "Turning the ZKPassport identifier into the on-chain commitment.",
+        );
         identityCommitment = await identityCommitmentFromUid(zkId, Fr);
       }
 
+      showStep(
+        "Preparing fee…",
+        "Reading the sponsored fee cap so the proof still pays under the current base fee.",
+      );
       const period = new Fr(dailyVote ? utcDayIndex() : 0);
       const supportsPeriod = typeof contract.methods.get_vote_frequency === "function";
       const method =
@@ -868,11 +880,17 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
             : contract.methods.cast_vote_open(pollId, new Fr(selected), identityCommitment);
 
       const txOpts = await sponsoredTxOptions(paymentMethod);
-      // sendTx simulates once (gas + authwits) before proving. A separate simulate() repeats that work.
-      const receipt = await method.send({
+      showStep(
+        "Proving ballot…",
+        inPageProver
+          ? "Simulating the private ballot in this browser, then building the zero-knowledge proof."
+          : "Approve the ballot in your wallet. The wallet simulates it and builds the proof.",
+      );
+      // send() with NO_WAIT still simulates once, then proves, then submits. The wait is separate.
+      const { receipt } = await submitProvenBallot(method, {
         from: accountAddress,
-        ...txOpts,
-        wait: voteInclusionWait,
+        txOptions: txOpts,
+        onStep: ({ button, text }) => showStep(button, text),
       });
       const txHash = extractTxHash(receipt);
       if (txHash) setLastTxHash(txHash);
@@ -890,6 +908,7 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
         setTotal(total + 1);
       }
       try {
+        showStep("Updating results…", "Reading the public tally.");
         const result = await readPublicPollState(pollId, optionLabels.length, { fresh: true });
         if (
           optimisticTallies &&
@@ -936,6 +955,7 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
       }
     } finally {
       setBusy(false);
+      setVoteActivity("");
     }
   }
 
@@ -1193,7 +1213,7 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                   onClick={vote}
                 >
                   {busy
-                    ? "Working…"
+                    ? voteActivity || "Proving ballot…"
                     : privacyMode === "private"
                       ? "Vote privately"
                       : "Vote openly"}
@@ -1269,7 +1289,11 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                 ) : null}
               </Notice>
             ) : busy ? (
-              <p className="status" data-tone={status.tone === "neutral" ? undefined : status.tone}>
+              <p
+                className="status"
+                aria-live="polite"
+                data-tone={status.tone === "neutral" ? undefined : status.tone}
+              >
                 {status.text}
               </p>
             ) : null}

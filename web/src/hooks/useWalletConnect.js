@@ -310,7 +310,7 @@ export function useWalletConnect() {
   }, []);
 
   const setProgress = useCallback((text) => {
-    setPhase({ kind: "creating-session", text: String(text || "Working…") });
+    setPhase({ kind: "creating-session", text: String(text || "Creating browser wallet…") });
   }, []);
 
   const adoptSession = useCallback((wallet, address) => {

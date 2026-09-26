@@ -879,7 +879,7 @@ export function AdminCreatePollForm({
       </fieldset>
 
       <button type="submit" className="btn btn-primary" disabled={busy}>
-        {busy ? "Working…" : "Create poll on-chain"}
+        {busy ? "Creating poll…" : "Create poll on-chain"}
       </button>
     </form>
   );

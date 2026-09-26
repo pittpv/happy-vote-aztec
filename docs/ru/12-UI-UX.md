@@ -17,7 +17,11 @@ Pillars: Private by design · Verified, not doxed · Safer where votes are risky
 
 ## Все опросы (`/polls`)
 
-Та же сетка карточек, что на главной, плюс поиск и фильтры (тема, страна, eligibility). Список **стран** берёт ISO-коды из тегов каталога, self-served `nationalityIn` / `issuedBy` и — если у опроса есть Dashboard `policyId` — из `nationality` / `issuing_country` этой политики.
+Та же сетка карточек, что на главной, плюс поиск и фильтры (тема, страна, eligibility). Подходящие опросы разделены на **Active** и **Ended**.
+
+**Ended** — у опроса в каталоге уже прошла `endsAt`. Без даты окончания опрос остаётся в **Active** (открыт, пока его не закроют через `end_poll` или `cancel_poll`). Ещё не начавшийся опрос тоже в **Active**. Поиск и фильтры действуют на обе группы. Карточка завершённого опроса открывается; Connect и Vote на странице остаются закрыты.
+
+Список **стран** берёт ISO-коды из тегов каталога, self-served `nationalityIn` / `issuedBy` и — если у опроса есть Dashboard `policyId` — из `nationality` / `issuing_country` этой политики.
 
 ## Голосование (`/p/:id`)
 

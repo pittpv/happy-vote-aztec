@@ -7,7 +7,7 @@ UI notes: [12-UI-UX.md](./12-UI-UX.md)
 
 1. Open https://aztec.happyvote.xyz.
 2. Read the short mission / privacy pillars (optional).
-3. Under **Featured polls**, open a card, or go to **All polls** (`/polls`) to search and filter the full catalog (topic, country, eligibility). Country includes ZKPassport Dashboard policy countries when the poll uses a `policyId`.
+3. Under **Featured polls**, open a card, or go to **All polls** (`/polls`) to search and filter the full catalog (topic, country, eligibility). The list is split into **Active** and **Ended** (catalog end time already passed). Country includes ZKPassport Dashboard policy countries when the poll uses a `policyId`.
 
 The header menu (desktop and mobile) has Home, All polls, and wallet connect / connected address.
 
@@ -15,7 +15,7 @@ Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data
 
 ## Without a wallet
 
-- Browse featured polls on home, or the full catalog at `/polls`, then open any poll
+- Browse featured polls on home, or the full catalog at `/polls` (**Active** and **Ended**), then open any poll
 - See **start/end times** and a live countdown when a poll is scheduled
 - View **Live results** (public tallies; hidden while a poll is sealed and still open — option buttons show labels only, no zeros)
 - If the contract is paused or a poll is cancelled, the ballot stays locked; the question remains readable

@@ -533,6 +533,19 @@ body::before {
   }
 }
 
+.catalog-group {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.catalog-group .section-title {
+  margin-bottom: 0;
+}
+
+.catalog-group + .catalog-group {
+  margin-top: 0.85rem;
+}
+
 .catalog {
   display: grid;
   gap: 1.25rem;
@@ -643,13 +656,21 @@ body::before {
 }
 
 .poll-card-desc {
+  display: block;
   margin: 0;
+  min-width: 0;
+  max-height: calc(1.45em * 3);
+  overflow: hidden;
   color: var(--mist);
   font-size: 0.9rem;
   line-height: 1.45;
+}
+
+.poll-card-desc-text {
   display: -webkit-box;
-  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
   overflow: hidden;
 }
 

@@ -25,7 +25,11 @@ Author in the footer: Peter Ploskikh — [X](https://x.com/pittpv), [LinkedIn](h
 
 ## All polls (`/polls`)
 
-Same card grid as home, with search and filters (topic, country, eligibility). The **country** list includes ISO codes from catalog tags, self-served `nationalityIn` / `issuedBy`, and — when a poll uses a Dashboard `policyId` — `nationality` / `issuing_country` from that policy.
+Same cards as home, with search and filters (topic, country, eligibility). Matching polls are split into **Active** and **Ended**.
+
+**Ended** means the catalog `endsAt` is already in the past. A poll with no catalog end date stays under **Active** (it stays open until `end_poll` or `cancel_poll`). A poll that has not started yet also stays under **Active**. Search and filters apply to both groups. An ended card still opens; Connect and Vote on that page stay locked.
+
+The **country** list includes ISO codes from catalog tags, self-served `nationalityIn` / `issuedBy`, and — when a poll uses a Dashboard `policyId` — `nationality` / `issuing_country` from that policy.
 
 ## Vote (`/p/:id`)
 

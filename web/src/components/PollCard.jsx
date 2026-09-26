@@ -38,7 +38,11 @@ export function PollCard({ poll, now }) {
         </div>
       </div>
       <h2 className="poll-card-title">{poll.title}</h2>
-      {poll.description ? <p className="poll-card-desc">{poll.description}</p> : null}
+      {poll.description ? (
+        <span className="poll-card-desc">
+          <span className="poll-card-desc-text">{poll.description}</span>
+        </span>
+      ) : null}
       {summary ? <p className="poll-card-schedule">{summary}</p> : null}
       <div className="poll-card-meta">
         <span>{(poll.options || []).length} options</span>

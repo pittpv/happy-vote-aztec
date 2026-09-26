@@ -9,6 +9,7 @@ import { usePageSeo } from "../hooks/usePageSeo.js";
 import { SiteFooter } from "./SiteFooter.jsx";
 import { SiteHeader } from "./SiteHeader.jsx";
 import { PollCard } from "./PollCard.jsx";
+import { getPollSchedule, POLL_PHASE } from "../lib/pollSchedule.js";
 
 const POLLS_DESCRIPTION =
   "Browse every HappyVote poll on Aztec Testnet. Search by title or topic, filter by country and eligibility, then open a ballot.";
@@ -76,6 +77,16 @@ export function PollListPage({ walletConnect }) {
       return true;
     });
   }, [polls, topic, country, eligibility, query]);
+
+  const activePolls = [];
+  const endedPolls = [];
+  for (const poll of filtered) {
+    if (getPollSchedule(poll, now).phase === POLL_PHASE.CLOSED) endedPolls.push(poll);
+    else activePolls.push(poll);
+  }
+
+  const filtersOn =
+    topic !== "all" || country !== "all" || eligibility !== "all" || query.trim() !== "";
 
   const pollsTitle = pageTitle("All polls");
   usePageSeo({
@@ -153,11 +164,40 @@ export function PollListPage({ walletConnect }) {
         {filtered.length === 0 ? (
           <p className="meta">No polls match these filters.</p>
         ) : (
-          <div className="poll-grid">
-            {filtered.map((poll) => (
-              <PollCard key={poll.id} poll={poll} now={now} />
-            ))}
-          </div>
+          <>
+            <section className="catalog-group" aria-labelledby="catalog-active">
+              <h2 id="catalog-active" className="section-title">
+                Active
+              </h2>
+              {activePolls.length === 0 ? (
+                <p className="meta">
+                  {filtersOn ? "No active polls match these filters." : "No active polls."}
+                </p>
+              ) : (
+                <div className="poll-grid">
+                  {activePolls.map((poll) => (
+                    <PollCard key={poll.id} poll={poll} now={now} />
+                  ))}
+                </div>
+              )}
+            </section>
+            <section className="catalog-group" aria-labelledby="catalog-ended">
+              <h2 id="catalog-ended" className="section-title">
+                Ended
+              </h2>
+              {endedPolls.length === 0 ? (
+                <p className="meta">
+                  {filtersOn ? "No ended polls match these filters." : "No ended polls."}
+                </p>
+              ) : (
+                <div className="poll-grid">
+                  {endedPolls.map((poll) => (
+                    <PollCard key={poll.id} poll={poll} now={now} />
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
         )}
       </section>
 
