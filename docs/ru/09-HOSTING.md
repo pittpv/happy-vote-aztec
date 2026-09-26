@@ -17,7 +17,7 @@ CNAME `aztec` → Vercel, HTTPS. Тот же домен в ZKPassport Dashboard.
 
 ## `vercel.json`
 
-COOP/COEP для WASM proving. CSP: RPC, CRS CDN, ZKPassport. `frame-src` и `child-src` также разрешают `https://demo-wallet.aztec-labs.com`: Web Wallet ищет Demo Wallet скрытым iframe и ждёт `WALLET_READY` до 10 секунд. Записи в `connect-src` для iframe недостаточно — без `frame-src` Connect сообщает, что кошелёк недоступен, хотя хост отвечает HTTP 200. SPA rewrite не глотает `/api/*`, `robots.txt`, `sitemap.xml`.
+COOP/COEP для WASM proving. CSP: RPC, CRS CDN, ZKPassport. `frame-src` и `child-src` также разрешают `https://demo-wallet.aztec-labs.com`: Web Wallet ищет Demo Wallet скрытым iframe и ждёт `WALLET_READY` до 30 секунд (бандл кошелька большой, 10 секунд не хватает на холодную загрузку). Аккаунт внутри iframe не создаётся: его заводят на сайте кошелька и завершают в панели. Записи в `connect-src` для iframe недостаточно — без `frame-src` Connect сообщает, что кошелёк недоступен, хотя хост отвечает HTTP 200. SPA rewrite не глотает `/api/*`, `robots.txt`, `sitemap.xml`.
 
 ## API
 

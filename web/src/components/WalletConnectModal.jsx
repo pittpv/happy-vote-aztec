@@ -223,7 +223,7 @@ function DiscoveringBody({ providers, pickProvider, reset, retry, choice }) {
   const [attempt, setAttempt] = useState(0);
   const [timedOut, setTimedOut] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setTimedOut(true), 10_000);
+    const t = setTimeout(() => setTimedOut(true), choice === "web" ? 30_000 : 10_000);
     return () => clearTimeout(t);
   }, [attempt]);
 
@@ -233,7 +233,7 @@ function DiscoveringBody({ providers, pickProvider, reset, retry, choice }) {
       <div className="wc-stack">
         <p className="wc-hint">
           {isWeb
-            ? "Couldn't reach the Aztec Demo Wallet. Check that demo-wallet.aztec-labs.com is reachable, then retry."
+            ? "Couldn't reach the Aztec Demo Wallet. The first load can take about half a minute. If this stays up, open demo-wallet.aztec-labs.com in a new tab, then retry."
             : "No Aztec extension found. Unlock Azguard and retry, or install it."}
         </p>
         <button
@@ -267,7 +267,11 @@ function DiscoveringBody({ providers, pickProvider, reset, retry, choice }) {
   return (
     <div className="wc-stack">
       {providers.length === 0 ? (
-        <p className="wc-hint">Looking for wallets…</p>
+        <p className="wc-hint">
+          {choice === "web"
+            ? "Loading the Demo Wallet… the first time can take about half a minute."
+            : "Looking for wallets…"}
+        </p>
       ) : (
         providers.map((p) => (
           <button

@@ -33,6 +33,14 @@ async function resolveGrantedAccounts(wallet) {
   return [];
 }
 
+function withTimeout(promise, ms, message) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 function swallowDisconnect(provider) {
   void Promise.resolve()
     .then(() => provider?.disconnect())
@@ -120,6 +128,15 @@ export function useWalletConnect() {
           choice,
           10_000,
         );
+        void sessionRef.current.done?.catch((err) => {
+          if (discoveryGenRef.current !== gen) return;
+          const failed = explainError(err, "connect");
+          setPhase({
+            kind: "error",
+            title: failed.title,
+            message: failed.text,
+          });
+        });
       } catch (err) {
         if (discoveryGenRef.current !== gen) return;
         const explained = explainError(err, "connect");
@@ -170,7 +187,20 @@ export function useWalletConnect() {
     if (current.kind !== "verifying") return;
     try {
       const wallet = await confirmConnection(current.pending);
-      const rawAccounts = await resolveGrantedAccounts(wallet);
+      const isWeb = current.provider?.type === "web";
+      if (isWeb) {
+        setPhase({
+          kind: "creating-session",
+          text: "Use the Demo Wallet panel. If it has no account, open demo-wallet.aztec-labs.com in a new tab, create one, then click I've created an account in the panel.",
+        });
+      }
+      const rawAccounts = await withTimeout(
+        resolveGrantedAccounts(wallet),
+        isWeb ? 120_000 : 30_000,
+        isWeb
+          ? "The Demo Wallet did not return an account. Open https://demo-wallet.aztec-labs.com, create an account, then reconnect and finish setup in the wallet panel."
+          : "The wallet did not return an account in time. Reconnect and approve the request.",
+      );
 
       if (rawAccounts.length === 0) {
         let version = "";
@@ -182,7 +212,9 @@ export function useWalletConnect() {
         teardownConnection();
         const explained = explainError(
           new Error(
-            `Your wallet connected but has no account on the current testnet${version ? ` (rollup ${version})` : ""}. Switch network or create an account, then reconnect.`,
+            isWeb
+              ? "The Demo Wallet has no account in this browser yet. Open https://demo-wallet.aztec-labs.com, create an account, then reconnect."
+              : `Your wallet connected but has no account on the current testnet${version ? ` (rollup ${version})` : ""}. Switch network or create an account, then reconnect.`,
           ),
           "connect",
         );

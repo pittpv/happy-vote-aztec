@@ -50,7 +50,7 @@
           "key": "Content-Security-Policy",
           "value": "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; script-src 'self' 'wasm-unsafe-eval' 'unsafe-eval'; worker-src 'self' blob:; child-src 'self' blob: https://demo-wallet.aztec-labs.com; frame-src 'self' blob: https://demo-wallet.aztec-labs.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https://*.zkpassport.id https://zkpassport.id; connect-src 'self' blob: data: https://v5.testnet.rpc.aztec-labs.com https://aztec-mainnet.drpc.org https://*.aztec-labs.com https://crs.aztec-cdn.foundation https://*.aztec-cdn.foundation https://aztec-faucet.nethermind.io https://demo-wallet.aztec-labs.com https://fonts.googleapis.com https://fonts.gstatic.com https://*.zkpassport.id https://zkpassport.id wss://bridge.zkpassport.id wss://*.zkpassport.id https://eth-sepolia.g.alchemy.com https://eth-mainnet.g.alchemy.com https://base-mainnet.g.alchemy.com; object-src 'none'"
         },
-        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=(), storage-access=(self \"https://demo-wallet.aztec-labs.com\")" }
       ]
     },
     {
