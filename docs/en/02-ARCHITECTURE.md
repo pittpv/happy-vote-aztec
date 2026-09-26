@@ -216,13 +216,13 @@ Guest `/api/poll-state` reads Poseidon map slots stored with the poll when it is
 
 ### 4.1 Wallet types (Testnet UI)
 
-Desktop Connect lists **Azguard** first and prefers the browser extension. **Browser session** and **Web Wallet** stay as alternatives. On iPhone the UI prefers Web Wallet.
+Desktop Connect lists **Azguard** first. **Browser session** is how to vote in the tab. **Web Wallet** stays in the list, but the UI does not recommend it: the Labs Demo Wallet cannot prove a HappyVote ballot yet. On iPhone the modal selects Browser session.
 
 | Source | What it is | Address | On Alpha |
 |--------|------------|---------|----------|
 | **Browser extension** | Azguard (Aztec 5.2.0) or a later Aztec wallet. | Persistent if the user keeps that account. | Default path once the wallet matches the network. |
 | **Browser session** | In-page PXE (`EmbeddedWallet`, ephemeral). Creates an **initializerless** Schnorr account — no on-chain account-deploy tx. | **New on every Connect** (keys are not restored after the tab session). | Optional “vote without installing a wallet”, not a lasting identity. |
-| **Web Wallet** | Aztec Labs Demo Wallet (`demo-wallet.aztec-labs.com`). Discovery is a hidden iframe; the site CSP must allow that origin in `frame-src`. | Reuses the wallet’s current account if the user kept it; a new account there is a new address. | Not intended as the production wallet. |
+| **Web Wallet** | Aztec Labs Demo Wallet (`demo-wallet.aztec-labs.com`). Can connect. Cannot prove a ballot: its PXE has no `authorizeUtilityCall` hook for the Auth Registry read inside SingleUseClaim. | Reuses the wallet’s current account if the user kept it. | Not a mainnet wallet. |
 
 `cast_vote_private` and `cast_vote_open` are private entrypoints on HappyVote, so a session account does not need a public account deploy to vote.
 

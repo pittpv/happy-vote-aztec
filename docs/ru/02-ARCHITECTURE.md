@@ -213,13 +213,13 @@ Vite + React. Маршруты:
 
 ### 4.1 Типы кошельков (UI на Testnet)
 
-На десктопе Connect ставит **Azguard** первым и рекомендует расширение. **Browser session** и **Web Wallet** остаются альтернативами. На iPhone UI предпочитает Web Wallet.
+На десктопе Connect ставит **Azguard** первым. **Browser session** — способ проголосовать во вкладке. **Web Wallet** остаётся в списке, но UI его не рекомендует: Demo Wallet Labs не может доказать бюллетень HappyVote. На iPhone модалка выбирает Browser session.
 
 | Источник | Что это | Адрес | На Alpha |
 |----------|---------|-------|----------|
 | **Browser extension** | Azguard (Aztec 5.2.0) или следующий кошелёк Aztec. | Постоянный, если аккаунт сохранён. | Основной путь, когда кошелёк совпадает с сетью. |
 | **Browser session** | In-page PXE (`EmbeddedWallet`, эфемерный). Создаёт **initializerless** Schnorr — без on-chain tx деплоя аккаунта. | **Новый на каждый Connect** (ключи сессии вкладки не восстанавливаются). | Опционально «проголосовать без установки кошелька», не постоянная личность. |
-| **Web Wallet** | Demo Wallet Aztec Labs (`demo-wallet.aztec-labs.com`). Поиск — скрытый iframe; CSP сайта должен разрешить этот origin в `frame-src`. | Тот же аккаунт, если пользователь его сохранил; новый аккаунт в кошельке — новый адрес. | Не задуман как боевой кошелёк. |
+| **Web Wallet** | Demo Wallet Aztec Labs (`demo-wallet.aztec-labs.com`). Подключение возможно. Доказать бюллетень нельзя: в PXE нет хука `authorizeUtilityCall` для чтения Auth Registry внутри SingleUseClaim. | Тот же аккаунт, если пользователь его сохранил. | Не кошелёк для mainnet. |
 
 `cast_vote_private` и `cast_vote_open` — private entrypoints HappyVote, поэтому session-аккаунту не нужен публичный деплой, чтобы голосовать.
 

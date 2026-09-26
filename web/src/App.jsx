@@ -1346,9 +1346,9 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
             </li>
             <li>
               Click <strong>Connect Aztec wallet</strong>. Prefer <em>Azguard</em> on desktop
-              (browser extension, persistent account). <em>Browser session</em> is an in-tab
-              alternative without an on-chain deploy (a new address each time). On iPhone, prefer
-              Web Wallet; identity stays saved if Safari reloads.
+              (browser extension, persistent account). <em>Browser session</em> is the in-tab way to
+              vote without an on-chain deploy (a new address each time). Web Wallet can connect, but
+              it cannot cast a ballot yet.
             </li>
             <li>Choose an option, pick Private or Open, then vote. Proving the ballot can take several minutes.</li>
             <li>

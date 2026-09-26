@@ -26,7 +26,7 @@ Smoke creates poll `1` with the deploy account. **Browser session** creates an *
 - Poll pages `/p/:id` — 1080px, ballot | live results; catalog-only ids load via `GET /api/polls?id=`
 - Private vs open ballot (when policy = voter_choice)
 - Public tallies without a wallet (`/api/poll-state`)
-- Connect Aztec account (desktop prefers Azguard; Browser session is an initializerless in-tab alternative; Demo Wallet on iPhone)
+- Connect Aztec account (desktop prefers Azguard; Browser session is the in-tab way to vote; Web Wallet can connect but cannot cast a ballot yet)
 - ZKPassport gate + server re-verify + collapse to **Identity verified**
 - On-chain identity claim for personhood/gated polls
 - Sealed tallies hidden until close

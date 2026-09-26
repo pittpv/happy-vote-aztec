@@ -57,7 +57,7 @@ VITE_ZKPASSPORT_DEFAULT_POLICY=vote-identity-verification
 
 Without CRS hosts in `connect-src`, proving fails with opaque `Failed to fetch`.
 
-**Web Wallet** discovery loads `https://demo-wallet.aztec-labs.com` in a hidden iframe and waits up to 30 seconds for `WALLET_READY`. The hosted wallet bundle is large, so a 10 second probe reports the wallet as unreachable on a cold load. `connect-src` does not allow that frame. If `frame-src` omits the wallet origin, Connect reports that the Demo Wallet could not be reached even when the host returns HTTP 200. The wallet cannot create an account inside the iframe; the voter creates one on the wallet site, then finishes in the panel.
+**Web Wallet** discovery loads `https://demo-wallet.aztec-labs.com` in a hidden iframe and waits up to 30 seconds for `WALLET_READY`. The hosted wallet bundle is large, so a 10 second probe reports the wallet as unreachable on a cold load. `connect-src` does not allow that frame. If `frame-src` omits the wallet origin, Connect reports that the Demo Wallet could not be reached even when the host returns HTTP 200. The wallet cannot create an account inside the iframe. The UI does not recommend Web Wallet: it can connect, but it cannot prove a HappyVote ballot.
 
 ## Guest tallies API
 

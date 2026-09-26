@@ -50,16 +50,16 @@ function Modal({ title, children, onClose }) {
 
 function ChooseSourceBody({ beginDiscovery, beginSession, onImportKeys, allowAdminImport }) {
   const ios = isIosBrowser();
-  const [selected, setSelected] = useState(ios ? "web" : "extension");
+  const [selected, setSelected] = useState(ios ? "session" : "extension");
   const sessionOption = {
     choice: "session",
     name: "Browser session",
-    hint: ios ? "Heavy on iPhone — may reload this tab" : "New voter account",
+    hint: ios ? "Use this to vote on iPhone" : "New voter account",
   };
   const webOption = {
     choice: "web",
     name: "Web Wallet",
-    hint: ios ? "Recommended on iPhone" : "Aztec Demo Wallet",
+    hint: "Cannot cast a ballot yet",
   };
   const importOption = {
     choice: "import",
@@ -72,15 +72,15 @@ function ChooseSourceBody({ beginDiscovery, beginSession, onImportKeys, allowAdm
     hint: ios ? "Desktop browser extension" : "Recommended",
   };
   const options = ios
-    ? [webOption, sessionOption, ...(allowAdminImport ? [importOption] : []), extensionOption]
+    ? [sessionOption, extensionOption, ...(allowAdminImport ? [importOption] : []), webOption]
     : [extensionOption, sessionOption, webOption, ...(allowAdminImport ? [importOption] : [])];
   return (
     <div className="wc-stack">
       <p className="wc-hint">
         {ios ? (
           <>
-            On iPhone prefer <strong>Web Wallet</strong>. Stay in Safari until it returns you here.
-            Identity verification is saved if this tab reloads.
+            On iPhone use <strong>Browser session</strong> to vote. Web Wallet can connect, but it
+            cannot prove a ballot yet. Identity verification is saved if this tab reloads.
           </>
         ) : (
           <>
