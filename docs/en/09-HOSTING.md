@@ -50,11 +50,14 @@ VITE_ZKPASSPORT_DEFAULT_POLICY=vote-identity-verification
 | COOP `same-origin` + COEP `credentialless` | SharedArrayBuffer / bb.js WASM proving |
 | CORP on `/assets/*` | Cross-origin isolation |
 | CSP `connect-src` | Node RPC, CRS CDN, faucet, demo-wallet, fonts, ZKPassport, Alchemy registry |
+| CSP `frame-src` / `child-src` | `'self'`, `blob:`, and `https://demo-wallet.aztec-labs.com` |
 | CSP `script-src` | `'wasm-unsafe-eval'` / `'unsafe-eval'` for prover |
 | SPA rewrite | `/((?!api/\|robots.txt\|sitemap.xml\|favicon.svg).*)` → `/index.html` |
 | Permissions-Policy | camera/mic/geo off |
 
 Without CRS hosts in `connect-src`, proving fails with opaque `Failed to fetch`.
+
+**Web Wallet** discovery loads `https://demo-wallet.aztec-labs.com` in a hidden iframe and waits up to 10 seconds for `WALLET_READY`. `connect-src` does not allow that frame. If `frame-src` omits the wallet origin, Connect reports that the Demo Wallet could not be reached even when the host returns HTTP 200.
 
 ## Guest tallies API
 
@@ -118,7 +121,7 @@ No third-party analytics counter. A first-party cookieless endpoint `POST /api/s
 - [x] DNS CNAME → `aztec.happyvote.xyz`
 - [x] Vercel production
 - [x] Testnet contract in env
-- [x] CSP includes CRS CDN + ZKPassport
+- [x] CSP includes CRS CDN, ZKPassport, and the Demo Wallet iframe (`frame-src`)
 - [x] Guest public tallies without wallet
 - [x] Legal pages, sitemap, robots, JSON-LD
 - [ ] End-to-end vote smoke on production URL (manual Connect)

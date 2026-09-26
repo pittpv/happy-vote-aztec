@@ -89,6 +89,12 @@ export function explainError(error, context = "generic") {
         text: "Disconnect Azguard, reconnect, and approve the new request. Voting uses the Sponsored FPC to pay fees.",
       };
     }
+    if (/dropped by p2p|was dropped\. reason:/i.test(blob)) {
+      return {
+        title: "Testnet dropped the transaction",
+        text: "The ballot was proven and sent, but the network did not include it. You can vote again. If this keeps happening, try Browser session.",
+      };
+    }
     if (looksTechnical(blob)) {
       return {
         title: "The network rejected this ballot",

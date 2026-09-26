@@ -222,7 +222,7 @@ Desktop Connect lists **Azguard** first and prefers the browser extension. **Bro
 |--------|------------|---------|----------|
 | **Browser extension** | Azguard (Aztec 5.2.0) or a later Aztec wallet. | Persistent if the user keeps that account. | Default path once the wallet matches the network. |
 | **Browser session** | In-page PXE (`EmbeddedWallet`, ephemeral). Creates an **initializerless** Schnorr account — no on-chain account-deploy tx. | **New on every Connect** (keys are not restored after the tab session). | Optional “vote without installing a wallet”, not a lasting identity. |
-| **Web Wallet** | Aztec Labs Demo Wallet (`demo-wallet.aztec-labs.com`). | Reuses the wallet’s current account if the user kept it; a new account there is a new address. | Not intended as the production wallet. |
+| **Web Wallet** | Aztec Labs Demo Wallet (`demo-wallet.aztec-labs.com`). Discovery is a hidden iframe; the site CSP must allow that origin in `frame-src`. | Reuses the wallet’s current account if the user kept it; a new account there is a new address. | Not intended as the production wallet. |
 
 `cast_vote_private` and `cast_vote_open` are private entrypoints on HappyVote, so a session account does not need a public account deploy to vote.
 
