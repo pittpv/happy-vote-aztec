@@ -124,10 +124,12 @@ sequenceDiagram
     API-->>UI: OK
   end
   U->>UI: Connect Aztec account
+  Note over UI: Register contracts once per address
   U->>UI: Option + Private/Open
-  UI->>PXE: simulate + prove + send
+  UI->>UI: GET /api/poll-state
+  UI->>PXE: send (simulate once, then prove)
   PXE->>C: SingleUseClaim + enqueue tally
-  C-->>UI: mined
+  C-->>UI: proposed L2 block
 ```
 
 ### 2.4 Hashing
@@ -157,13 +159,13 @@ Vite + React. Routes:
 | `/p/:id` | Vote |
 | `/legal/:slug` | Terms, Privacy, Data Safety, Cookies, GDPR |
 
-Guest tallies: same-origin `/api/poll-state` only (public Testnet RPC rate-limits browsers). Vote pages that are not in the client seed fetch `GET /api/polls?id=` first and wait for real option labels before reading tallies. ZKPassport Dashboard country tags load in the background so a share link is not blocked on that request.
+Guest and connected tallies both use same-origin `/api/poll-state` (public Testnet RPC rate-limits browsers). A connected wallet does not re-simulate each view, and contract registration runs once per address for the tab. `send()` runs the single pre-prove simulation (gas and authwits); the app does not call `simulate()` again before that. The receipt wait stops when the ballot is in a proposed L2 block. Vote pages that are not in the client seed fetch `GET /api/polls?id=` first and wait for real option labels before reading tallies. ZKPassport Dashboard country tags load in the background so a share link is not blocked on that request.
 
 ### 3.2 APIs
 
 | Endpoint | Role |
 |----------|------|
-| `GET /api/poll-state?pollId=&optionsCount=` | Batch `node_getPublicStorageAt`, ~15s cache. Poseidon map slots from catalog metadata (any poll id) |
+| `GET /api/poll-state?pollId=&optionsCount=` | Batch `node_getPublicStorageAt`, ~15s cache. `fresh=1` skips that cache (`Cache-Control: no-store`) after a ballot and on Refresh. Poseidon map slots from catalog metadata (any poll id) |
 | `GET /api/polls` | Seed JSON + optional Blob overlay (`showOnHome` / `homeRank` for `/`). `GET /api/polls?id=` hydrates a single poll (used by `/p/:id`). The `/polls` country filter also uses Dashboard policy countries when `policyId` is set. |
 | `POST /api/polls` | Authenticated catalog publish (operator-only): new poll body, `homepage` flags, or `policyId` on an existing ZKPassport poll |
 | `POST /api/zkpassport-verify` | Server re-verify `@zkpassport/sdk` |

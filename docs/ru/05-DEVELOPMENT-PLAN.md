@@ -32,7 +32,7 @@ AI / CLI: https://docs.aztec.network/developers/ai_tooling
 | 5.3 | Юридические страницы | Готово |
 | 5.4 | Security review | Готово |
 | 5.5 | Client errors | Готово |
-| 5.6 | Performance | Частично |
+| 5.6 | Performance | Страница голоса: один `/api/poll-state`, регистрация контрактов один раз на адрес, одна симуляция перед prove внутри `send` |
 | 5.7 | Production + SEO | Готово |
 | 5.8 | Mobile CTA + option bars | Готово |
 | 5.9 | ZKPassport в стиле портала | Готово |

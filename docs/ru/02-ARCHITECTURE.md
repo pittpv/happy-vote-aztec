@@ -121,10 +121,12 @@ sequenceDiagram
     API-->>UI: OK
   end
   U->>UI: Connect Aztec
+  Note over UI: Регистрация контрактов один раз на адрес
   U->>UI: Вариант + Private/Open
-  UI->>PXE: simulate + prove + send
+  UI->>UI: GET /api/poll-state
+  UI->>PXE: send (одна simulate, затем prove)
   PXE->>C: SingleUseClaim + enqueue tally
-  C-->>UI: mined
+  C-->>UI: proposed L2 block
 ```
 
 ### 2.4 Хеширование
@@ -154,13 +156,13 @@ Vite + React. Маршруты:
 | `/p/:id` | Голосование |
 | `/legal/:slug` | Terms, Privacy, Data Safety, Cookies, GDPR |
 
-Гостевые tallies только через same-origin `/api/poll-state`. Страницы опросов, которых нет в клиентском seed, сначала берут `GET /api/polls?id=` и ждут реальные подписи вариантов, прежде чем читать tallies. Страны из ZKPassport Dashboard подгружаются в фоне, чтобы шаринговая ссылка не ждала этот запрос.
+И гость, и подключённый кошелёк читают tallies через same-origin `/api/poll-state`. Подключённый кошелёк не гоняет отдельный `simulate()` на каждый view, а регистрация контрактов выполняется один раз на адрес в этой вкладке. `send()` сам делает одну симуляцию перед prove (газ и authwits); приложение не вызывает `simulate()` ещё раз. Ожидание receipt заканчивается, когда бюллетень попал в proposed L2-блок. Страницы опросов, которых нет в клиентском seed, сначала берут `GET /api/polls?id=` и ждут реальные подписи вариантов, прежде чем читать tallies. Страны из ZKPassport Dashboard подгружаются в фоне, чтобы шаринговая ссылка не ждала этот запрос.
 
 ### 3.2 API
 
 | Endpoint | Роль |
 |----------|------|
-| `GET /api/poll-state` | Batch `node_getPublicStorageAt`, кэш ~15с. Poseidon-слоты из метаданных каталога (любой poll id) |
+| `GET /api/poll-state` | Batch `node_getPublicStorageAt`, кэш ~15с. `fresh=1` обходит кэш (`Cache-Control: no-store`) после бюллетеня и по Refresh. Poseidon-слоты из метаданных каталога (любой poll id) |
 | `GET /api/polls` | Seed JSON + опциональный Blob (`showOnHome` / `homeRank` для `/`). `GET /api/polls?id=` гидратирует один опрос (страница `/p/:id`). Фильтр стран на `/polls` также берёт страны из Dashboard policy, если задан `policyId`. |
 | `POST /api/polls` | Публикация метаданных каталога (только оператор): тело опроса, флаги `homepage` или `policyId` у существующего ZKPassport-опроса |
 | `POST /api/zkpassport-verify` | Server re-verify |

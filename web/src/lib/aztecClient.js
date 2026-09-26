@@ -3,6 +3,7 @@ import { EmbeddedWallet } from "@aztec/wallets/embedded";
 import { Fr } from "@aztec/aztec.js/fields";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
+import { TxStatus } from "@aztec/stdlib/tx";
 import { SponsoredFPCContractArtifact } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { getContractInstanceFromInstantiationParams } from "@aztec/aztec.js/contracts";
 // IndexedDB: sqlite-opfs WASM worker init hangs in some Chromium embeds / after COEP.
@@ -232,6 +233,123 @@ export async function getSponsoredPaymentMethod(wallet) {
   return new SponsoredFeePaymentMethod(sponsoredFPC.address);
 }
 
+function gasFeeFromBlock(block, blockNumber) {
+  const fees = block?.header?.globalVariables?.gasFees;
+  if (!fees) {
+    throw new Error(`Block ${blockNumber} is missing gasFees`);
+  }
+  return {
+    feePerDaGas: asFieldBigInt(fees.feePerDaGas),
+    feePerL2Gas: asFieldBigInt(fees.feePerL2Gas),
+  };
+}
+
+/**
+ * Return when the ballot is in a proposed L2 block.
+ * The default wait is checkpointed, which holds until the block is published to L1.
+ * EmbeddedWallet already upgrades an omitted status to proposed; external wallets do not.
+ */
+export const voteInclusionWait = {
+  timeout: 600,
+  waitForStatus: TxStatus.PROPOSED,
+};
+
+/** Reuse a recent 2× fee cap so a vote click does not wait on two block RPCs. */
+const SPONSORED_FEE_TTL_MS = 60_000;
+let sponsoredFeeCache = null;
+
+/**
+ * Fee + PXE scopes for vote (and other) txs paid by the Testnet Sponsored FPC.
+ * Caps maxFeesPerGas at 2× the latest block so a long prove does not lose a
+ * base-fee race (Azguard then reports "Tx dropped by P2P node").
+ */
+export async function sponsoredTxOptions(paymentMethod) {
+  if (!paymentMethod) {
+    throw new Error("Sponsored fee payment method is required");
+  }
+  const now = Date.now();
+  let maxFeesPerGas = null;
+  if (sponsoredFeeCache && now - sponsoredFeeCache.at < SPONSORED_FEE_TTL_MS) {
+    maxFeesPerGas = sponsoredFeeCache.maxFeesPerGas;
+  } else {
+    const node = createAztecNodeClient(getNodeUrl());
+    const blockNumber = await node.getBlockNumber();
+    const block = await node.getBlock(blockNumber);
+    if (!block) {
+      throw new Error(`Aztec node did not return block ${blockNumber}`);
+    }
+    const { feePerDaGas, feePerL2Gas } = gasFeeFromBlock(block, blockNumber);
+    if (feePerL2Gas === 0n) {
+      throw new Error(`Block ${blockNumber} reported a zero L2 base fee`);
+    }
+    maxFeesPerGas = {
+      feePerDaGas: feePerDaGas * 2n,
+      feePerL2Gas: feePerL2Gas * 2n,
+    };
+    sponsoredFeeCache = { at: now, maxFeesPerGas };
+  }
+  return {
+    fee: {
+      paymentMethod,
+      gasSettings: { maxFeesPerGas },
+    },
+    additionalScopes: [getSponsoredFpcAddress()],
+  };
+}
+
+/**
+ * One registration per wallet address for the life of the page.
+ * Opening another poll must not upload artifacts or re-simulate views.
+ */
+let voteSessionGeneration = 0;
+const readyVoteSessions = new Map();
+const pendingVoteSessions = new Map();
+
+export function peekVoteSession(address) {
+  if (!address) return null;
+  return readyVoteSessions.get(String(address)) ?? null;
+}
+
+export function clearVoteSession() {
+  voteSessionGeneration += 1;
+  readyVoteSessions.clear();
+  pendingVoteSessions.clear();
+}
+
+export function prepareVoteSession(wallet, from) {
+  if (!wallet) throw new Error("Wallet is required");
+  if (!from) throw new Error("Account address is required");
+  const key = from.toString();
+  const ready = readyVoteSessions.get(key);
+  if (ready) return Promise.resolve(ready);
+  const pending = pendingVoteSessions.get(key);
+  if (pending) return pending;
+
+  const generation = voteSessionGeneration;
+  const task = (async () => {
+    await registerStandardContracts(wallet);
+    if (generation !== voteSessionGeneration) return null;
+    const paymentMethod = await getSponsoredPaymentMethod(wallet);
+    if (generation !== voteSessionGeneration) return null;
+    const contract = await registerHappyVote(wallet);
+    if (generation !== voteSessionGeneration) return null;
+    const session = { contract, paymentMethod };
+    readyVoteSessions.set(key, session);
+    pendingVoteSessions.delete(key);
+    // Warm the fee cap. A failure here must not fail registration; vote() fetches again.
+    void sponsoredTxOptions(paymentMethod).catch((error) => {
+      console.error(error);
+    });
+    return session;
+  })();
+
+  pendingVoteSessions.set(key, task);
+  return task.catch((error) => {
+    if (pendingVoteSessions.get(key) === task) pendingVoteSessions.delete(key);
+    throw error;
+  });
+}
+
 /**
  * Register HappyVote from the node's published instance.
  * A reconstructed dummy instance (wrong salt / constructor args) makes PXE
@@ -283,7 +401,7 @@ export async function getContract(wallet, address) {
  * Prefers same-origin `/api/poll-state` (server cache) so guests are not blocked by
  * public Aztec RPC rate limits; falls back to direct node storage reads.
  */
-export async function readPublicPollState(pollId, optionsCount) {
+export async function readPublicPollState(pollId, optionsCount, { fresh = false } = {}) {
   const address = getContractAddress();
   if (!address) {
     throw new Error("VITE_HAPPY_VOTE_CONTRACT_ADDRESS is not set");
@@ -301,7 +419,8 @@ export async function readPublicPollState(pollId, optionsCount) {
       pollId: pollIdStr,
       optionsCount: String(optionsCount),
     });
-    const response = await fetch(`/api/poll-state?${qs}`);
+    if (fresh) qs.set("fresh", "1");
+    const response = await fetch(`/api/poll-state?${qs}`, fresh ? { cache: "no-store" } : undefined);
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
       throw new Error(body.error || `HTTP ${response.status}`);
@@ -322,6 +441,7 @@ export async function readPublicPollState(pollId, optionsCount) {
   });
 }
 
+/** One wallet simulation per tally. The vote page reads public storage in one request instead. */
 export async function readTallies(contract, pollId, optionsCount, from) {
   const tallies = [];
   for (let i = 0; i < optionsCount; i++) {

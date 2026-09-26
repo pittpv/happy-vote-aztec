@@ -57,7 +57,7 @@ SDK + QR gate + server re-verify + on-chain `identity_commitment`. Domain `aztec
 | 5.3 | Legal pages | Done — Terms, Privacy, Data Safety, Cookies, GDPR |
 | 5.4 | Security review | Done — option_id truncation; XSS/boot; ZKPassport mock gated to DEV |
 | 5.5 | Client error ingest | Done — `POST /api/client-error` |
-| 5.6 | Performance | Partial — CRS CSP, IndexedDB PXE |
+| 5.6 | Performance | Vote page: one `/api/poll-state` read, contract registration once per connected address, one pre-prove simulation inside `send`. CRS CSP and IndexedDB PXE unchanged |
 | 5.7 | Production frontend | Done — CSP, APIs, SEO |
 | 5.8 | Mobile vote CTA + option bars | Done |
 | 5.9 | ZKPassport portal chrome | Done — collapse after success |

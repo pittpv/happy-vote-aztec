@@ -64,7 +64,7 @@ Public Aztec Labs RPC rate-limits browsers (HTTP 429).
 |------|-------|
 | Endpoint | `GET /api/poll-state?pollId=1&optionsCount=2` |
 | File | `web/api/poll-state.js` |
-| Behavior | Batch `node_getPublicStorageAt`, cache ~15s |
+| Behavior | Batch `node_getPublicStorageAt`, cache ~15s. `?fresh=1` skips the cache and sends `Cache-Control: no-store` (after a ballot and on Refresh) |
 | Map slots | Stored with catalog metadata at publish (any poll id). A baked JSON file is only a fallback for older records |
 | Frontend | `readPublicPollState()` → same-origin fetch only |
 

@@ -2,13 +2,15 @@ import { Component, lazy, Suspense, useEffect, useState } from "react";
 import {
   PRIVACY,
   getNodeUrl,
-  readTallies,
   readPublicPollState,
-  asFieldBigInt,
+  prepareVoteSession,
+  peekVoteSession,
+  clearVoteSession,
   registerHappyVote,
   registerStandardContracts,
   getSponsoredPaymentMethod,
   sponsoredTxOptions,
+  voteInclusionWait,
   createWallet,
   createSessionAccount,
   importAccount,
@@ -119,6 +121,26 @@ export default function App() {
   useEffect(() => {
     trackPageview(window.location.pathname);
   }, [route]);
+
+  const walletAddress =
+    walletConnect.phase.kind === "connected" ? String(walletConnect.phase.address) : null;
+
+  useEffect(() => {
+    if (walletConnect.phase.kind !== "connected" || !walletAddress) {
+      clearVoteSession();
+      return;
+    }
+    // Admin registers on its own page. Starting a second registration here races the wallet DB.
+    if (route.kind === "admin") return;
+    const wallet = walletConnect.phase.wallet;
+    let cancelled = false;
+    prepareVoteSession(wallet, AztecAddress.fromStringUnsafe(walletAddress)).catch((error) => {
+      if (!cancelled) console.error(error);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [route.kind, walletAddress, walletConnect.phase.kind, walletConnect.phase.wallet]);
 
   if (route.kind === "home") {
     return (
@@ -429,15 +451,26 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
   const requiresZk =
     Boolean(pollMeta.requiresZkPassport) || envRequiresZkPassport();
 
-  const [status, setStatus] = useState(() =>
+  const initialFrom =
     walletConnect.phase.kind === "connected"
-      ? { text: "Restoring wallet session…", tone: "neutral" }
-      : { text: "Read-only mode · connect a wallet to vote", tone: "neutral" },
-  );
+      ? AztecAddress.fromStringUnsafe(String(walletConnect.phase.address))
+      : null;
+  const initialSession = initialFrom ? peekVoteSession(initialFrom) : null;
+  const [status, setStatus] = useState(() => {
+    if (initialSession && initialFrom) {
+      return { text: `Connected · ${shortAddr(initialFrom.toString())}`, tone: "ok" };
+    }
+    if (walletConnect.phase.kind === "connected") {
+      return { text: "Preparing wallet…", tone: "neutral" };
+    }
+    return { text: "Read-only mode · connect a wallet to vote", tone: "neutral" };
+  });
   const [lastTxHash, setLastTxHash] = useState(null);
-  const [accountAddress, setAccountAddress] = useState(null);
-  const [paymentMethod, setPaymentMethod] = useState(null);
-  const [contract, setContract] = useState(null);
+  const [accountAddress, setAccountAddress] = useState(() => (initialSession ? initialFrom : null));
+  const [paymentMethod, setPaymentMethod] = useState(() => initialSession?.paymentMethod ?? null);
+  const [contract, setContract] = useState(() => initialSession?.contract ?? null);
+  const [sessionPending, setSessionPending] = useState(() => Boolean(initialFrom) && !initialSession);
+  const [publicReady, setPublicReady] = useState(false);
   const [selected, setSelected] = useState(0);
   const [privacyMode, setPrivacyMode] = useState("private");
   const [busy, setBusy] = useState(false);
@@ -466,6 +499,7 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
     const savedZk = loadZkSession(routePollId);
     setZkId(savedZk?.uniqueIdentifier ?? null);
     setZkServerVerified(Boolean(savedZk?.serverVerified));
+    setPublicReady(false);
   }
   const [shareHint, setShareHint] = useState("");
   const now = useNow(1000);
@@ -557,8 +591,11 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
   const pollId = pollIdFromRaw(routePollId);
   const pollKnown = hasKnownPollMeta(routePollId);
   const identityOk = pollKnown && (!requiresZk || Boolean(zkId));
+  const preparingWallet =
+    walletConnect.phase.kind === "connected" && (!accountAddress || sessionPending);
   const canVote =
     votingOpen &&
+    publicReady &&
     Boolean(accountAddress && contract && identityOk && !busy) &&
     (policy === PRIVACY.VOTER_CHOICE ||
       (policy === PRIVACY.PRIVATE_ONLY && privacyMode === "private") ||
@@ -600,21 +637,9 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
     let cancelled = false;
     (async () => {
       try {
-        setStatus({ text: "Loading public tallies…", tone: "neutral" });
         const result = await readPublicPollState(pollId, optionsCount);
         if (cancelled) return;
-        setTallies(result.tallies);
-        setTotal(result.total);
-        setPolicy(result.policy);
-        if (result.policy === PRIVACY.PRIVATE_ONLY) setPrivacyMode("private");
-        if (result.policy === PRIVACY.PUBLIC_ONLY) setPrivacyMode("open");
-        if (result.sealed != null) setOnChainSealed(Boolean(result.sealed));
-        if (result.voteEnded != null) setVoteEnded(Boolean(result.voteEnded));
-        if (result.cancelled != null) setCancelled(Boolean(result.cancelled));
-        if (result.paused != null) setPaused(Boolean(result.paused));
-        if (result.startsAt != null) setChainStartsAt(result.startsAt);
-        if (result.endsAt != null) setChainEndsAt(result.endsAt);
-        if (result.voteFrequency != null) setVoteFrequency(Number(result.voteFrequency));
+        applyPublicPoll(result);
         setStatus({
           text:
             walletConnect.phase.kind === "connected"
@@ -640,16 +665,39 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
   useEffect(() => {
     if (walletConnect.phase.kind !== "connected") return;
     const { wallet: nextWallet, address } = walletConnect.phase;
+    const from = AztecAddress.fromStringUnsafe(String(address));
     let cancelled = false;
 
+    const apply = (session) => {
+      setAccountAddress(from);
+      setPaymentMethod(session.paymentMethod);
+      setContract(session.contract);
+      setSessionPending(false);
+      setStatus({
+        text: `Connected · ${shortAddr(from.toString())}`,
+        tone: "ok",
+      });
+    };
+
+    const cached = peekVoteSession(from);
+    if (cached) {
+      apply(cached);
+      return;
+    }
+
+    setAccountAddress(null);
+    setPaymentMethod(null);
+    setContract(null);
+    setSessionPending(true);
     (async () => {
       try {
-        await finishConnect(nextWallet, AztecAddress.fromStringUnsafe(String(address)), {
-          onCancelCheck: () => cancelled,
-        });
+        const session = await prepareVoteSession(nextWallet, from);
+        if (cancelled || !session) return;
+        apply(session);
       } catch (error) {
         if (cancelled) return;
         console.error(error);
+        setSessionPending(false);
         setStatus({ tone: "error", ...explainError(error, "connect") });
         walletConnect.disconnectWallet();
       }
@@ -664,11 +712,12 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
   useEffect(() => {
     if (walletConnect.phase.kind === "disconnected") {
       clearSession();
+      setSessionPending(false);
       setStatus({
         text: "Wallet disconnected · public tallies stay visible · reconnect to vote",
         tone: "neutral",
       });
-      void refreshTallies(null, null).catch((error) => {
+      void reloadPublic().catch((error) => {
         console.error(error);
       });
     }
@@ -698,6 +747,29 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
     setAccountAddress(null);
     setPaymentMethod(null);
     setContract(null);
+    setSessionPending(false);
+  }
+
+  function applyPublicPoll(result) {
+    setTallies(result.tallies);
+    setTotal(result.total);
+    setPolicy(result.policy);
+    if (result.policy === PRIVACY.PRIVATE_ONLY) setPrivacyMode("private");
+    if (result.policy === PRIVACY.PUBLIC_ONLY) setPrivacyMode("open");
+    if (result.sealed != null) setOnChainSealed(Boolean(result.sealed));
+    if (result.voteEnded != null) setVoteEnded(Boolean(result.voteEnded));
+    if (result.cancelled != null) setCancelled(Boolean(result.cancelled));
+    if (result.paused != null) setPaused(Boolean(result.paused));
+    if (result.startsAt != null) setChainStartsAt(result.startsAt);
+    if (result.endsAt != null) setChainEndsAt(result.endsAt);
+    if (result.voteFrequency != null) setVoteFrequency(Number(result.voteFrequency));
+    setPublicReady(true);
+  }
+
+  async function reloadPublic({ fresh = false } = {}) {
+    const result = await readPublicPollState(pollId, optionLabels.length, { fresh });
+    applyPublicPoll(result);
+    return result;
   }
 
   async function copyShareLink() {
@@ -708,102 +780,6 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
     } catch {
       setShareHint(url);
     }
-  }
-
-  async function finishConnect(nextWallet, from, { onCancelCheck } = {}) {
-    setBusy(true);
-    setStatus({ text: "Registering contracts in wallet…", tone: "neutral" });
-    try {
-      await registerStandardContracts(nextWallet);
-      if (onCancelCheck?.()) return;
-      const nextPayment = await getSponsoredPaymentMethod(nextWallet);
-      if (onCancelCheck?.()) return;
-
-      if (!contractAddress) {
-        setAccountAddress(from);
-        setPaymentMethod(nextPayment);
-        setStatus({
-          text: `Wallet connected · ${shortAddr(from.toString())}. Set contract address env to vote.`,
-          tone: "ok",
-        });
-        return;
-      }
-
-      setStatus({ text: "Registering HappyVote in wallet…", tone: "neutral" });
-      const nextContract = await registerHappyVote(nextWallet);
-      if (onCancelCheck?.()) return;
-
-      setAccountAddress(from);
-      setPaymentMethod(nextPayment);
-      setContract(nextContract);
-
-      const pol = Number(
-        asFieldBigInt(
-          await nextContract.methods.get_privacy_policy(pollId).simulate({ from }),
-        ),
-      );
-      if (onCancelCheck?.()) return;
-      setPolicy(pol);
-      if (pol === PRIVACY.PRIVATE_ONLY) setPrivacyMode("private");
-      if (pol === PRIVACY.PUBLIC_ONLY) setPrivacyMode("open");
-      await refreshTallies(nextContract, from);
-      setStatus({
-        text: `Connected · ${shortAddr(from.toString())} · node ${getNodeUrl()}`,
-        tone: "ok",
-      });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function refreshTallies(activeContract, from) {
-    if (activeContract && from) {
-      try {
-        const sealedRaw = await activeContract.methods.get_sealed(pollId).simulate({ from });
-        const endedRaw = await activeContract.methods.get_vote_ended(pollId).simulate({ from });
-        const unwrap = (v) =>
-          v && typeof v === "object" && "result" in v ? v.result : v;
-        setOnChainSealed(Boolean(unwrap(sealedRaw)));
-        setVoteEnded(Boolean(unwrap(endedRaw)));
-        try {
-          const startsRaw = await activeContract.methods.get_starts_at(pollId).simulate({ from });
-          const endsRaw = await activeContract.methods.get_ends_at(pollId).simulate({ from });
-          const cancelledRaw = await activeContract.methods.get_cancelled(pollId).simulate({ from });
-          setChainStartsAt(Number(asFieldBigInt(startsRaw)));
-          setChainEndsAt(Number(asFieldBigInt(endsRaw)));
-          setCancelled(Boolean(unwrap(cancelledRaw)));
-          if (typeof activeContract.methods.get_paused === "function") {
-            const pausedRaw = await activeContract.methods.get_paused().simulate({ from });
-            setPaused(Boolean(unwrap(pausedRaw)));
-          }
-          if (typeof activeContract.methods.get_vote_frequency === "function") {
-            const freqRaw = await activeContract.methods.get_vote_frequency(pollId).simulate({
-              from,
-            });
-            setVoteFrequency(Number(asFieldBigInt(freqRaw)));
-          }
-        } catch {
-          /* optional views on older deployments */
-        }
-      } catch {
-        /* optional views on older deployments */
-      }
-      const result = await readTallies(activeContract, pollId, optionLabels.length, from);
-      setTallies(result.tallies);
-      setTotal(result.total);
-      return;
-    }
-    const result = await readPublicPollState(pollId, optionLabels.length);
-    setTallies(result.tallies);
-    setTotal(result.total);
-    setPolicy(result.policy);
-    setOnChainSealed(Boolean(result.sealed ?? pollMeta.sealed));
-    if (result.voteEnded != null) setVoteEnded(Boolean(result.voteEnded));
-    if (result.cancelled != null) setCancelled(Boolean(result.cancelled));
-    if (result.paused != null) setPaused(Boolean(result.paused));
-    if (result.startsAt != null) setChainStartsAt(result.startsAt);
-    if (result.endsAt != null) setChainEndsAt(result.endsAt);
-    if (result.voteFrequency != null) setVoteFrequency(Number(result.voteFrequency));
   }
 
   function extractTxHash(sendResult) {
@@ -892,17 +868,44 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
             : contract.methods.cast_vote_open(pollId, new Fr(selected), identityCommitment);
 
       const txOpts = await sponsoredTxOptions(paymentMethod);
-      await method.simulate({ from: accountAddress, ...txOpts });
+      // sendTx simulates once (gas + authwits) before proving. A separate simulate() repeats that work.
       const receipt = await method.send({
         from: accountAddress,
         ...txOpts,
-        wait: { timeout: 600 },
+        wait: voteInclusionWait,
       });
       const txHash = extractTxHash(receipt);
       if (txHash) setLastTxHash(txHash);
       markVoted(routePollId, { frequency: voteFrequency });
       setReceiptNonce((n) => n + 1);
-      await refreshTallies(contract, accountAddress);
+      const hideCounts =
+        (onChainSealed || pollMeta.sealed) &&
+        !closedOnChain &&
+        schedule.phase !== POLL_PHASE.CLOSED;
+      const optimisticTallies = hideCounts
+        ? null
+        : tallies.map((count, index) => (index === selected ? count + 1 : count));
+      if (optimisticTallies) {
+        setTallies(optimisticTallies);
+        setTotal(total + 1);
+      }
+      try {
+        const result = await readPublicPollState(pollId, optionLabels.length, { fresh: true });
+        if (
+          optimisticTallies &&
+          Number(result.total) < total + 1
+        ) {
+          applyPublicPoll({
+            ...result,
+            tallies: optimisticTallies,
+            total: total + 1,
+          });
+        } else {
+          applyPublicPoll(result);
+        }
+      } catch (refreshError) {
+        console.error(refreshError);
+      }
       setStatus({
         title: "Vote recorded",
         text: dailyVote
@@ -1177,10 +1180,10 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                 <button
                   type="button"
                   className="btn btn-primary"
-                  disabled={busy || !identityOk}
+                  disabled={busy || !identityOk || preparingWallet}
                   onClick={walletConnect.start}
                 >
-                  Connect Aztec wallet
+                  {preparingWallet ? "Preparing wallet…" : "Connect Aztec wallet"}
                 </button>
               ) : (
                 <button
@@ -1196,21 +1199,17 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                       : "Vote openly"}
                 </button>
               )}
-              {accountAddress && contract ? (
+              {contractAddress ? (
                 <button
                   type="button"
                   className="btn btn-ghost"
                   disabled={busy}
-                  onClick={() => refreshTallies(contract, accountAddress)}
-                >
-                  Refresh
-                </button>
-              ) : contractAddress ? (
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  disabled={busy}
-                  onClick={() => refreshTallies(null, null)}
+                  onClick={() => {
+                    void reloadPublic({ fresh: true }).catch((error) => {
+                      console.error(error);
+                      setStatus({ tone: "error", ...explainError(error, "generic") });
+                    });
+                  }}
                 >
                   Refresh
                 </button>

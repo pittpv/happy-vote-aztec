@@ -33,7 +33,7 @@ Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data
    - **Browser session** is an in-page PXE alternative. It creates an initializerless Schnorr account in this tab — no on-chain account-deploy tx. Proving the ballot itself can still take several minutes. Each new Browser session is a **new Aztec address**.
    - **Web Wallet** is the Aztec Labs Demo Wallet (recommended on iPhone). It can reuse an account you already created there.
 6. Under **Your ballot** pick an option. Under **Ballot privacy** choose **Private** (default) or **Open**.
-7. Submit and wait for proving + inclusion. Status sits next to the CTA; use **Open tx** when shown.
+7. Submit and wait for the proof. The wallet proves the ballot once; the page then waits until it is in a proposed L2 block. Proving can still take several minutes. Opening another poll with the same connected wallet does not set the wallet up again. Status sits next to the CTA; use **Open tx** when shown.
 8. Expand **Fees on testnet** only if a fee error appears — claim Fee Juice at https://aztec-faucet.nethermind.io and paste your Aztec address.
 9. Expand **How to vote** for the short checklist.
 

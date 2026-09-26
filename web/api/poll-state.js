@@ -135,7 +135,8 @@ export default async function handler(req, res) {
 
     const cacheKey = `${contractAddress}:${pollId}:${optionsCount}`;
     const now = Date.now();
-    if (memoryCache && memoryCache.key === cacheKey && now - memoryCache.at < CACHE_TTL_MS) {
+    const fresh = url.searchParams.get("fresh") === "1";
+    if (!fresh && memoryCache && memoryCache.key === cacheKey && now - memoryCache.at < CACHE_TTL_MS) {
       res.setHeader("Cache-Control", "public, s-maxage=15, stale-while-revalidate=60");
       res.setHeader("X-Cache", "HIT");
       res.status(200).json(memoryCache.data);
@@ -219,8 +220,12 @@ export default async function handler(req, res) {
     };
 
     memoryCache = { key: cacheKey, at: now, data };
-    res.setHeader("Cache-Control", "public, s-maxage=15, stale-while-revalidate=60");
-    res.setHeader("X-Cache", "MISS");
+    if (fresh) {
+      res.setHeader("Cache-Control", "no-store");
+    } else {
+      res.setHeader("Cache-Control", "public, s-maxage=15, stale-while-revalidate=60");
+    }
+    res.setHeader("X-Cache", fresh ? "BYPASS" : "MISS");
     res.status(200).json(data);
   } catch (error) {
     console.error("poll-state", error);
