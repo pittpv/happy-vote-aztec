@@ -1513,11 +1513,8 @@ body::before {
   100% {
     transform: translateY(0);
   }
-  35% {
-    transform: translateY(0.28em);
-  }
-  65% {
-    transform: translateY(-0.06em);
+  40% {
+    transform: translateY(-0.42em);
   }
 }
 

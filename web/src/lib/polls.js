@@ -22,7 +22,7 @@ import {
 /** @type {Map<string, object>} */
 let dashboardPolicyQueries = new Map();
 
-export const EXPLORER_TX_BASE = "https://testnet.aztecscan.xyz/txns";
+export const EXPLORER_TX_BASE = "https://testnet.aztecscan.xyz/tx-effects";
 export const EXPLORER_ADDR_BASE = "https://testnet.aztecscan.xyz/address";
 
 const STORAGE_KEY = "happyvote.aztec.polls.v1";
