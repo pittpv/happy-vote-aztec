@@ -39,7 +39,7 @@ The **country** list includes ISO codes from catalog tags, self-served `national
 | Compact brand mark in the page | Site header + **← All polls** back to `/polls`; poll title as `h1` |
 | Single stack | Ballot column + live-results column (≥860px) |
 | Fees + how-to always visible | Collapsed `<details>` |
-| No step hint | Ready/Verify → Connect → Vote |
+| No step hint | Ready/Verify → Connect → Vote. A finished step is green; **Vote** turns green after this browser records a ballot |
 
 ### Interaction
 

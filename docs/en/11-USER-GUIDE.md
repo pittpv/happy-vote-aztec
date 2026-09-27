@@ -26,7 +26,7 @@ Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data
 
 1. Open a poll from home or https://aztec.happyvote.xyz/polls (for example https://aztec.happyvote.xyz/p/1).
 2. If the poll is scheduled, wait for the countdown: Connect and Vote stay locked until the start time, then a countdown to the end runs while voting is open. The same lock applies if voting is paused or the poll is cancelled.
-3. Progress chips: **Ready/Verify → Connect → Vote**.
+3. Progress chips: **Ready/Verify → Connect → Vote**. A finished step turns green. **Vote** turns green after this browser records a ballot, and on a daily poll it returns to the current step the next UTC day.
 4. If the poll requires ZKPassport, complete verification first (QR on desktop, ZKPassport app on the phone). After success the block collapses to **Identity verified**.
 5. Click **Connect Aztec wallet**.
    - Prefer **[Azguard](https://azguardwallet.io/)** on desktop (browser extension, Aztec 5.2.0). It keeps a persistent account. Testnet ballots are sponsored — you do not need Fee Juice for the vote itself. After an Azguard or site update, disconnect and reconnect if the wallet asks again or if a permission error appears.

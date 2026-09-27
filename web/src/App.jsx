@@ -1092,7 +1092,12 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
             <li className={voteStep === 2 ? "is-current" : ""} data-done={Boolean(accountAddress) || undefined}>
               Connect
             </li>
-            <li className={voteStep === 3 ? "is-current" : ""}>Vote</li>
+            <li
+              className={voteStep === 3 && !votedReceipt ? "is-current" : ""}
+              data-done={votedReceipt || undefined}
+            >
+              Vote
+            </li>
           </ol>
 
           {requiresZk && votingOpen ? (
