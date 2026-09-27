@@ -1478,6 +1478,55 @@ body::before {
   background: var(--amber-deep);
 }
 
+.btn.is-working:disabled {
+  opacity: 1;
+  cursor: progress;
+}
+
+.working-label {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.working-dots {
+  display: inline-flex;
+  width: 0.95em;
+  justify-content: space-between;
+  margin-left: 0.02em;
+}
+
+.working-dots span {
+  display: inline-block;
+  animation: working-dot 1.05s ease-in-out infinite;
+}
+
+.working-dots span:nth-child(2) {
+  animation-delay: 0.14s;
+}
+
+.working-dots span:nth-child(3) {
+  animation-delay: 0.28s;
+}
+
+@keyframes working-dot {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  35% {
+    transform: translateY(0.28em);
+  }
+  65% {
+    transform: translateY(-0.06em);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .working-dots span {
+    animation: none;
+  }
+}
+
 .btn-ghost {
   background: transparent;
   color: var(--foam);

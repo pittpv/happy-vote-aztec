@@ -444,6 +444,21 @@ function AdminRoute({ walletConnect }) {
   );
 }
 
+function WorkingLabel({ text }) {
+  const base = String(text ?? "").replace(/(?:\u2026|\.{1,3})\s*$/, "").trimEnd();
+  return (
+    <span className="working-label">
+      {base}
+      <span className="sr-only">…</span>
+      <span className="working-dots" aria-hidden="true">
+        <span>.</span>
+        <span>.</span>
+        <span>.</span>
+      </span>
+    </span>
+  );
+}
+
 function PollVoteRoute({ pollId: routePollId, walletConnect }) {
   const [pollMeta, setPollMeta] = useState(() => getPollMeta(routePollId));
   const [metaPending, setMetaPending] = useState(() => !hasKnownPollMeta(routePollId));
@@ -1199,24 +1214,28 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
               ) : !accountAddress ? (
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className={preparingWallet ? "btn btn-primary is-working" : "btn btn-primary"}
                   disabled={busy || !identityOk || preparingWallet}
+                  aria-busy={preparingWallet || undefined}
                   onClick={walletConnect.start}
                 >
-                  {preparingWallet ? "Preparing wallet…" : "Connect Aztec wallet"}
+                  {preparingWallet ? <WorkingLabel text="Preparing wallet…" /> : "Connect Aztec wallet"}
                 </button>
               ) : (
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className={busy ? "btn btn-primary is-working" : "btn btn-primary"}
                   disabled={!canVote}
+                  aria-busy={busy || undefined}
                   onClick={vote}
                 >
-                  {busy
-                    ? voteActivity || "Proving ballot…"
-                    : privacyMode === "private"
-                      ? "Vote privately"
-                      : "Vote openly"}
+                  {busy ? (
+                    <WorkingLabel text={voteActivity || "Proving ballot…"} />
+                  ) : privacyMode === "private" ? (
+                    "Vote privately"
+                  ) : (
+                    "Vote openly"
+                  )}
                 </button>
               )}
               {contractAddress ? (
@@ -1235,6 +1254,32 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                 </button>
               ) : null}
             </div>
+
+            {status.tone === "error" || status.title || lastTxHash ? (
+              <Notice tone={status.tone === "error" ? "error" : "ok"} title={status.title}>
+                {status.text}
+                {lastTxHash ? (
+                  <>
+                    {" "}
+                    <a
+                      href={explorerTxUrl(lastTxHash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open tx
+                    </a>
+                  </>
+                ) : null}
+              </Notice>
+            ) : busy ? (
+              <p
+                className="status"
+                aria-live="polite"
+                data-tone={status.tone === "neutral" ? undefined : status.tone}
+              >
+                {status.text}
+              </p>
+            ) : null}
 
             <div className="vote-notes">
               {policy === PRIVACY.VOTER_CHOICE ? (
@@ -1271,32 +1316,6 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                 </p>
               ) : null}
             </div>
-
-            {status.tone === "error" || status.title || lastTxHash ? (
-              <Notice tone={status.tone === "error" ? "error" : "ok"} title={status.title}>
-                {status.text}
-                {lastTxHash ? (
-                  <>
-                    {" "}
-                    <a
-                      href={explorerTxUrl(lastTxHash)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Open tx
-                    </a>
-                  </>
-                ) : null}
-              </Notice>
-            ) : busy ? (
-              <p
-                className="status"
-                aria-live="polite"
-                data-tone={status.tone === "neutral" ? undefined : status.tone}
-              >
-                {status.text}
-              </p>
-            ) : null}
           </div>
         </div>
       </div>
