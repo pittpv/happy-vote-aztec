@@ -235,6 +235,8 @@ Azguard 5.2+ checks **every call** in `sendTx` against the dapp `transaction.sco
 
 Registering the FPC under `type: "contracts"` only allows `registerContract`. The fee-payment function must also be listed in `simulation.transactions.scope` and `transaction.scope`. The grant is `web/src/lib/walletCapabilities.js`. After that grant changes, the user must reconnect so the wallet can approve the new permission.
 
+Azguard also checks `additionalScopes` and `sendMessagesAs` on `sendTx`. Each address there must be an account in the connected session. `sponsor_unconditionally` only marks the Sponsored FPC as the fee payer; it does not read that contract's private notes. The ballot therefore leaves the FPC address out of `additionalScopes`. Listing it makes Azguard reject the transaction with `Unauthorized scope` and the FPC address. Browser session does not apply that check.
+
 ### 4.3 One vote vs cheap accounts
 
 The contract enforces **one ballot per Aztec account** (or per UTC day on daily polls), shared by private and open. After a ballot, the UI may show a **device hint** in this browser (poll id only, no address). That hint does not lock Vote; sending again with the **same account** still fails on-chain.

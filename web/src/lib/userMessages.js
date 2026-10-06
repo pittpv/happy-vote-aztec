@@ -83,6 +83,12 @@ export function explainError(error, context = "generic") {
         text: "Reconnect with Browser session. Demo Wallet and some extensions cannot authorize this prove step yet.",
       };
     }
+    if (/unauthorized scope/i.test(blob)) {
+      return {
+        title: "Wallet blocked the fee scope",
+        text: "Azguard only accepts your account as a private-state scope. Refresh and vote again. Browser session still works.",
+      };
+    }
     if (/not in capability scope|sponsor_unconditionally/i.test(blob)) {
       return {
         title: "Wallet needs an updated permission",

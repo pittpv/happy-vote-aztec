@@ -307,9 +307,15 @@ const SPONSORED_FEE_TTL_MS = 60_000;
 let sponsoredFeeCache = null;
 
 /**
- * Fee + PXE scopes for vote (and other) txs paid by the Testnet Sponsored FPC.
+ * Fee options for vote (and other) txs paid by the Testnet Sponsored FPC.
  * Caps maxFeesPerGas at 2× the latest block so a long prove does not lose a
  * base-fee race (Azguard then reports "Tx dropped by P2P node").
+ *
+ * Do not pass the FPC address as additionalScopes. Azguard (dapp hardening,
+ * 2026-09-29) allows that list only for accounts in the connected session and
+ * rejects anything else with "Unauthorized scope: 0x130925fb…".
+ * sponsor_unconditionally only sets the fee payer; it does not read the FPC's
+ * private notes, so the sender account is the only scope the ballot needs.
  */
 export async function sponsoredTxOptions(paymentMethod) {
   if (!paymentMethod) {
@@ -341,7 +347,6 @@ export async function sponsoredTxOptions(paymentMethod) {
       paymentMethod,
       gasSettings: { maxFeesPerGas },
     },
-    additionalScopes: [getSponsoredFpcAddress()],
   };
 }
 
