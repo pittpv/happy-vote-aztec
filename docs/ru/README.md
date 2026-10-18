@@ -15,9 +15,6 @@
 | [03-PRIVACY-MODEL.md](./03-PRIVACY-MODEL.md) | Модель приватности: private / public / sealed |
 | [04-ZKPASSPORT.md](./04-ZKPASSPORT.md) | Identity verification через ZKPassport |
 | [05-DEVELOPMENT-PLAN.md](./05-DEVELOPMENT-PLAN.md) | План разработки по итерациям |
-| [06-TECH-SETUP.md](./06-TECH-SETUP.md) | Установка toolchain, local network, env |
-| [07-EXECUTION-LOG.md](./07-EXECUTION-LOG.md) | Журнал выполнения |
-| [08-TESTNET-RUNBOOK.md](./08-TESTNET-RUNBOOK.md) | Деплой на Testnet |
 | [09-HOSTING.md](./09-HOSTING.md) | DNS / Vercel / CSP / API |
 | [10-TESTNET-ADDRESSES.md](./10-TESTNET-ADDRESSES.md) | Адреса на Testnet 6.0.0-rc.3 |
 | [11-USER-GUIDE.md](./11-USER-GUIDE.md) | Как подключить аккаунт и проголосовать |

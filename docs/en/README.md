@@ -15,9 +15,6 @@
 | [03-PRIVACY-MODEL.md](./03-PRIVACY-MODEL.md) | Private / open ballots, sealed tallies, identity |
 | [04-ZKPASSPORT.md](./04-ZKPASSPORT.md) | Personhood / eligibility via ZKPassport |
 | [05-DEVELOPMENT-PLAN.md](./05-DEVELOPMENT-PLAN.md) | Iteration plan and status |
-| [06-TECH-SETUP.md](./06-TECH-SETUP.md) | Toolchain, local network, env |
-| [07-EXECUTION-LOG.md](./07-EXECUTION-LOG.md) | Session changelog |
-| [08-TESTNET-RUNBOOK.md](./08-TESTNET-RUNBOOK.md) | Testnet deploy |
 | [09-HOSTING.md](./09-HOSTING.md) | DNS, Vercel, CSP, APIs |
 | [10-TESTNET-ADDRESSES.md](./10-TESTNET-ADDRESSES.md) | Live Testnet 6.0.0-rc.3 addresses |
 | [11-USER-GUIDE.md](./11-USER-GUIDE.md) | How to connect and vote |
