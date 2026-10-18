@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { AZGUARD_STORE_URL } from "../lib/walletClient.js";
+import { AZGUARD_STORE_URL, extraWalletSources } from "../lib/walletClient.js";
 import { parseAdminKeyMaterial } from "../lib/adminKeys.js";
 import { Notice } from "./Notice.jsx";
 import { explainError } from "../lib/userMessages.js";
@@ -50,17 +50,18 @@ function Modal({ title, children, onClose }) {
 
 function ChooseSourceBody({ beginDiscovery, beginSession, onImportKeys, allowAdminImport }) {
   const ios = isIosBrowser();
-  const [selected, setSelected] = useState(ios ? "session" : "extension");
+  const extraSources = extraWalletSources();
+  const [selected, setSelected] = useState("session");
   const sessionOption = {
     choice: "session",
     name: "Browser session",
-    hint: ios ? "Use this to vote on iPhone" : "New voter account",
+    hint: ios ? "Use this to vote on iPhone" : "Use this to vote",
   };
-  const webOption = {
-    choice: "web",
-    name: "Web Wallet",
-    hint: "Cannot cast a ballot yet",
-  };
+  const extraOptions = extraSources.map((source) => ({
+    choice: source.choice,
+    name: source.name,
+    hint: source.hint,
+  }));
   const importOption = {
     choice: "import",
     name: "Import admin keys",
@@ -69,29 +70,32 @@ function ChooseSourceBody({ beginDiscovery, beginSession, onImportKeys, allowAdm
   const extensionOption = {
     choice: "extension",
     name: "Azguard",
-    hint: ios ? "Desktop browser extension" : "Recommended",
+    hint: "Aztec 5.2 build — cannot connect here",
   };
-  const options = ios
-    ? [sessionOption, extensionOption, ...(allowAdminImport ? [importOption] : []), webOption]
-    : [extensionOption, sessionOption, webOption, ...(allowAdminImport ? [importOption] : [])];
+  const options = [
+    sessionOption,
+    extensionOption,
+    ...(allowAdminImport ? [importOption] : []),
+    ...extraOptions,
+  ];
   return (
     <div className="wc-stack">
       <p className="wc-hint">
         {ios ? (
           <>
-            On iPhone use <strong>Browser session</strong> to vote. Web Wallet can connect, but it
-            cannot prove a ballot yet. Identity verification is saved if this tab reloads.
+            On iPhone use <strong>Browser session</strong> to vote. Identity verification is saved
+            if this tab reloads.
           </>
         ) : (
           <>
-            Prefer <strong>Azguard wallet</strong> browser extension for voting
+            Vote with <strong>Browser session</strong>. Azguard’s current release is built for
+            Aztec 5.2.0 and cannot connect to this Testnet (6.0.0-rc.3), even with the correct RPC.
             {allowAdminImport ? (
               <>
-                . Use <strong>Import admin keys</strong> only on a trusted device.
+                {" "}
+                Use <strong>Import admin keys</strong> only on a trusted device.
               </>
-            ) : (
-              "."
-            )}
+            ) : null}
           </>
         )}
       </p>
@@ -219,22 +223,29 @@ function ImportAdminKeysBody({ beginSessionWithKeys, onBack }) {
   );
 }
 
+function isWebWalletChoice(choice) {
+  return choice === "web" || extraWalletSources().some((source) => source.choice === choice);
+}
+
 function DiscoveringBody({ providers, pickProvider, reset, retry, choice }) {
+  const extra = extraWalletSources().find((source) => source.choice === choice);
   const [attempt, setAttempt] = useState(0);
   const [timedOut, setTimedOut] = useState(false);
   useEffect(() => {
-    const t = setTimeout(() => setTimedOut(true), choice === "web" ? 30_000 : 10_000);
+    const t = setTimeout(() => setTimedOut(true), isWebWalletChoice(choice) ? 30_000 : 10_000);
     return () => clearTimeout(t);
-  }, [attempt]);
+  }, [attempt, choice]);
 
   if (providers.length === 0 && timedOut) {
     const isWeb = choice === "web";
     return (
       <div className="wc-stack">
         <p className="wc-hint">
-          {isWeb
-            ? "Couldn't reach the Aztec Demo Wallet. The first load can take about half a minute. If this stays up, open demo-wallet.aztec-labs.com in a new tab, then retry."
-            : "No Aztec extension found. Unlock Azguard and retry, or install it."}
+          {extra?.timeoutHint
+            ? extra.timeoutHint
+            : isWeb
+              ? "Couldn't reach the Aztec Demo Wallet. The first load can take about half a minute. If this stays up, open demo-wallet.aztec-labs.com in a new tab, then retry."
+              : "No Aztec extension found. Unlock Azguard and retry, or install it."}
         </p>
         <button
           type="button"
@@ -247,7 +258,7 @@ function DiscoveringBody({ providers, pickProvider, reset, retry, choice }) {
         >
           Retry
         </button>
-        {!isWeb ? (
+        {!isWebWalletChoice(choice) ? (
           <a
             className="btn btn-ghost wc-full"
             href={AZGUARD_STORE_URL}
@@ -268,9 +279,11 @@ function DiscoveringBody({ providers, pickProvider, reset, retry, choice }) {
     <div className="wc-stack">
       {providers.length === 0 ? (
         <p className="wc-hint">
-          {choice === "web"
-            ? "Loading the Demo Wallet… the first time can take about half a minute."
-            : "Looking for wallets…"}
+          {extra?.loadingHint
+            ? extra.loadingHint
+            : choice === "web"
+              ? "Loading the Demo Wallet… the first time can take about half a minute."
+              : "Looking for wallets…"}
         </p>
       ) : (
         providers.map((p) => (
@@ -286,8 +299,8 @@ function DiscoveringBody({ providers, pickProvider, reset, retry, choice }) {
         ))
       )}
       <p className="wc-fine">
-        {choice === "web"
-          ? "Approve the request in the web wallet"
+        {isWebWalletChoice(choice)
+          ? "Approve the request in the web wallet panel"
           : "Approve the request in your extension"}
       </p>
     </div>

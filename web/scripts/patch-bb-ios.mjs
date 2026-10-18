@@ -11,11 +11,11 @@ import { fileURLToPath } from "node:url";
 const webRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const helperPath = join(
   webRoot,
-  "node_modules/@aztec/bb.js/dest/browser/barretenberg_wasm/helpers/browser/index.js",
+  "node_modules/@aztec-foundation/bb.js/dest/browser/barretenberg_wasm/helpers/browser/index.js",
 );
 
 if (!existsSync(helperPath)) {
-  throw new Error(`@aztec/bb.js browser helpers not found: ${helperPath}`);
+  throw new Error(`@aztec-foundation/bb.js browser helpers not found: ${helperPath}`);
 }
 
 const source = readFileSync(helperPath, "utf8");
@@ -41,7 +41,7 @@ const replacement = `export function getSharedMemoryAvailable() {
 
 if (!source.includes(needle)) {
   throw new Error(
-    `Did not find getSharedMemoryAvailable() in ${helperPath}. @aztec/bb.js may have changed; update scripts/patch-bb-ios.mjs.`,
+    `Did not find getSharedMemoryAvailable() in ${helperPath}. @aztec-foundation/bb.js may have changed; update scripts/patch-bb-ios.mjs.`,
   );
 }
 

@@ -546,6 +546,96 @@ body::before {
   margin-top: 0.85rem;
 }
 
+.archive-network {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.archive-network-name {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--foam);
+}
+
+.archive-contract {
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  padding: 0.8rem 0.95rem;
+}
+
+.archive-contract summary {
+  cursor: pointer;
+  list-style: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  word-break: break-all;
+  color: var(--foam);
+}
+
+.archive-contract summary::-webkit-details-marker {
+  display: none;
+}
+
+.archive-contract summary::before {
+  content: "+";
+  display: inline-block;
+  width: 1.1rem;
+  color: var(--amber);
+}
+
+.archive-contract[open] summary::before {
+  content: "−";
+}
+
+.archive-polls {
+  display: grid;
+  gap: 1rem;
+  margin: 0.9rem 0 0;
+  padding: 0.85rem 0 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.archive-poll {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.archive-poll-title {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+.archive-options {
+  display: grid;
+  gap: 0.28rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.archive-option {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.35rem 0.85rem;
+  align-items: baseline;
+  font-size: 0.9rem;
+}
+
+.archive-option-count {
+  font-variant-numeric: tabular-nums;
+  color: var(--amber);
+}
+
+.archive-total {
+  margin: 0;
+  color: var(--mist);
+  font-size: 0.8rem;
+}
+
 .catalog {
   display: grid;
   gap: 1.25rem;
@@ -2988,4 +3078,59 @@ body::before {
   .vote-steps li {
     padding: 0.2rem 0.45rem 0.2rem 0;
   }
+}
+
+body.zw-body {
+  margin: 0;
+  min-height: 100%;
+  background: #0b1c1a;
+}
+
+.zw-shell {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 1rem 1.1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.zw-kicker {
+  margin: 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mist);
+}
+
+.zw-title {
+  margin: 0;
+  font-family: Fraunces, Georgia, serif;
+  font-size: 1.35rem;
+  color: var(--foam);
+}
+
+.zw-status {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: var(--foam);
+}
+
+.zw-emojis {
+  margin-top: 0.25rem;
+}
+
+.zw-error {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: #f0a097;
+}
+
+.zw-fine {
+  margin: auto 0 0;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--mist);
 }

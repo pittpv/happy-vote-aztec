@@ -1,14 +1,15 @@
-import { createAztecNodeClient, waitForTx } from "@aztec/aztec.js/node";
-import { NO_WAIT } from "@aztec/aztec.js/contracts";
-import { EmbeddedWallet } from "@aztec/wallets/embedded";
-import { Fr } from "@aztec/aztec.js/fields";
-import { AztecAddress } from "@aztec/aztec.js/addresses";
-import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
-import { TxStatus } from "@aztec/stdlib/tx";
-import { SponsoredFPCContractArtifact } from "@aztec/noir-contracts.js/SponsoredFPC";
-import { getContractInstanceFromInstantiationParams } from "@aztec/aztec.js/contracts";
+import { waitForTx } from "@aztec-labs/aztec.js/node";
+import { createHappyVoteNode } from "./nodeClient.js";
+import { NO_WAIT } from "@aztec-labs/aztec.js/contracts";
+import { EmbeddedWallet } from "@aztec-labs/wallets/embedded";
+import { Fr } from "@aztec-labs/aztec.js/fields";
+import { AztecAddress } from "@aztec-labs/aztec.js/addresses";
+import { SponsoredFeePaymentMethod } from "@aztec-labs/aztec.js/fee";
+import { TxStatus } from "@aztec-labs/stdlib/tx";
+import { SponsoredFPCContractArtifact } from "@aztec-labs/noir-contracts.js/SponsoredFPC";
+import { getContractInstanceFromInstantiationParams } from "@aztec-labs/aztec.js/contracts";
 // IndexedDB: sqlite-opfs WASM worker init hangs in some Chromium embeds / after COEP.
-import { openTmpStore } from "@aztec/kv-store/deprecated/indexeddb";
+import { openTmpStore } from "@aztec-labs/kv-store/deprecated/indexeddb";
 import { HappyVoteContract } from "../contracts/HappyVote.ts";
 import { bbProverOptionsForBrowser } from "./browser.js";
 
@@ -23,7 +24,7 @@ export function warmBrowserProver() {
   if (import.meta.env.VITE_PROVER_ENABLED !== "true") return;
   if (browserProverWarmup) return;
   browserProverWarmup = (async () => {
-    const { Barretenberg } = await import("@aztec/bb.js");
+    const { Barretenberg } = await import("@aztec-foundation/bb.js");
     await Barretenberg.initSingleton(bbProverOptionsForBrowser());
   })().catch((error) => {
     browserProverWarmup = undefined;
@@ -51,10 +52,12 @@ export const ELIGIBILITY = {
 const DEFAULT_NODE =
   import.meta.env.VITE_AZTEC_NODE_URL || "http://localhost:8080";
 
+/** Canonical Sponsored FPC on Testnet 6.0.0-rc.3 (salt 0). Confirmed via node_getContract. */
+const TESTNET_SPONSORED_FPC =
+  "0x2adfb70e860909f0db8268b3fec80bce52a94559963444f5c0341816b8412130";
+
 const SPONSORED_FPC =
-  import.meta.env.VITE_SPONSORED_FPC_ADDRESS ||
-  // Local network default from protocol; override via env on testnet
-  "0x130925fbd734a252e3d8ddff87f6c346052dd5c13314eb96026b32baa1923296";
+  import.meta.env.VITE_SPONSORED_FPC_ADDRESS || TESTNET_SPONSORED_FPC;
 
 export function getNodeUrl() {
   return DEFAULT_NODE;
@@ -85,11 +88,11 @@ export function pollIdFromRaw(raw) {
 
 export async function createWallet({ proverEnabled = false, onProgress } = {}) {
   onProgress?.("Opening local PXE (IndexedDB)…");
-  const node = createAztecNodeClient(getNodeUrl());
+  const node = createHappyVoteNode(getNodeUrl());
   const [{ STANDARD_HANDSHAKE_REGISTRY_ADDRESS }, { STANDARD_AUTH_REGISTRY_ADDRESS }] =
     await Promise.all([
-      import("@aztec/standard-contracts/handshake-registry/constants"),
-      import("@aztec/standard-contracts/auth-registry/constants"),
+      import("@aztec-labs/standard-contracts/handshake-registry/constants"),
+      import("@aztec-labs/standard-contracts/auth-registry/constants"),
     ]);
   // Browser EmbeddedWallet defaults to sqlite-opfs for both PXE and wallet DB.
   // That worker's WASM init can hang indefinitely in production; IndexedDB works.
@@ -140,12 +143,12 @@ export async function createWallet({ proverEnabled = false, onProgress } = {}) {
 export async function createSessionAccount(wallet, { onProgress } = {}) {
   if (typeof wallet.createSchnorrInitializerlessAccount !== "function") {
     throw new Error(
-      "This Aztec wallet build is missing createSchnorrInitializerlessAccount. Pin @aztec/wallets to 5.1.0 or newer.",
+      "This Aztec wallet build is missing createSchnorrInitializerlessAccount. Pin @aztec-labs/wallets to 6.0.0-rc.3.",
     );
   }
 
-  const { Fr: Field } = await import("@aztec/aztec.js/fields");
-  const { GrumpkinScalar } = await import("@aztec/foundation/curves/grumpkin");
+  const { Fr: Field } = await import("@aztec-labs/aztec.js/fields");
+  const { GrumpkinScalar } = await import("@aztec-labs/foundation/curves/grumpkin");
 
   onProgress?.("Generating Schnorr keys…");
   const secretKey = Field.random();
@@ -178,9 +181,9 @@ export async function importAccount(wallet, rawKeys, { onProgress, forceDeploy =
     throw new Error("secretKey, signingKey, and salt are all required");
   }
 
-  const { Fr: Field } = await import("@aztec/aztec.js/fields");
-  const { GrumpkinScalar } = await import("@aztec/foundation/curves/grumpkin");
-  const { NO_FROM } = await import("@aztec/aztec.js/account");
+  const { Fr: Field } = await import("@aztec-labs/aztec.js/fields");
+  const { GrumpkinScalar } = await import("@aztec-labs/foundation/curves/grumpkin");
+  const { NO_FROM } = await import("@aztec-labs/aztec.js/account");
 
   const secretKey = Field.fromString(String(rawKeys.secretKey).trim());
   const signingKey = GrumpkinScalar.fromString(String(rawKeys.signingKey).trim());
@@ -201,7 +204,7 @@ export async function importAccount(wallet, rawKeys, { onProgress, forceDeploy =
     return { account, paymentMethod, imported: true };
   }
 
-  const node = createAztecNodeClient(getNodeUrl());
+  const node = createHappyVoteNode(getNodeUrl());
   let existing = null;
   try {
     existing = await node.getContract(account.address);
@@ -298,7 +301,7 @@ export async function submitProvenBallot(method, { from, txOptions, onStep }) {
     button: "Waiting for block…",
     text: "The ballot is on the network. Waiting until it is in a proposed L2 block.",
   });
-  const receipt = await waitForTx(createAztecNodeClient(getNodeUrl()), txHash, voteInclusionWait);
+  const receipt = await waitForTx(createHappyVoteNode(getNodeUrl()), txHash, voteInclusionWait);
   return { receipt, txHash };
 }
 
@@ -313,7 +316,7 @@ let sponsoredFeeCache = null;
  *
  * Do not pass the FPC address as additionalScopes. Azguard (dapp hardening,
  * 2026-09-29) allows that list only for accounts in the connected session and
- * rejects anything else with "Unauthorized scope: 0x130925fb…".
+ * rejects anything else with "Unauthorized scope: <Sponsored FPC address>".
  * sponsor_unconditionally only sets the fee payer; it does not read the FPC's
  * private notes, so the sender account is the only scope the ballot needs.
  */
@@ -326,7 +329,7 @@ export async function sponsoredTxOptions(paymentMethod) {
   if (sponsoredFeeCache && now - sponsoredFeeCache.at < SPONSORED_FEE_TTL_MS) {
     maxFeesPerGas = sponsoredFeeCache.maxFeesPerGas;
   } else {
-    const node = createAztecNodeClient(getNodeUrl());
+    const node = createHappyVoteNode(getNodeUrl());
     const blockNumber = await node.getBlockNumber();
     const block = await node.getBlock(blockNumber);
     if (!block) {
@@ -413,7 +416,7 @@ export async function registerHappyVote(wallet) {
   if (!address) {
     throw new Error("VITE_HAPPY_VOTE_CONTRACT_ADDRESS is not set");
   }
-  const node = createAztecNodeClient(getNodeUrl());
+  const node = createHappyVoteNode(getNodeUrl());
   const instance = await node.getContract(address);
   if (!instance) {
     throw new Error(`Contract not found on node: ${address}`);
@@ -429,9 +432,9 @@ export async function registerHappyVote(wallet) {
 export async function registerStandardContracts(wallet) {
   const [{ getStandardHandshakeRegistry }, { getStandardAuthRegistry }, { getStandardMultiCallEntrypoint }] =
     await Promise.all([
-      import("@aztec/standard-contracts/handshake-registry/lazy"),
-      import("@aztec/standard-contracts/auth-registry/lazy"),
-      import("@aztec/standard-contracts/multi-call-entrypoint/lazy"),
+      import("@aztec-labs/standard-contracts/handshake-registry/lazy"),
+      import("@aztec-labs/standard-contracts/auth-registry/lazy"),
+      import("@aztec-labs/standard-contracts/multi-call-entrypoint/lazy"),
     ]);
 
   const standards = await Promise.all([

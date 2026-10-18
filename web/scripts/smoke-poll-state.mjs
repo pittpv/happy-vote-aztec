@@ -1,8 +1,8 @@
 import { fetchPublicPollState } from "../src/lib/publicPollState.js";
 
 const r = await fetchPublicPollState({
-  nodeUrl: "https://v5.testnet.rpc.aztec-labs.com",
-  contractAddress: "0x1cf26ae917e41fd3085ad79017b2ec6175e80284f0ac066e6f28eb3b878f82df",
+  nodeUrl: "https://aztec-testnet.drpc.org",
+  contractAddress: "0x147d56082a923fb872c9ea28e4e57b3596f27b518f95c51c825839024d61beba",
   pollId: 1,
   optionsCount: 2,
 });

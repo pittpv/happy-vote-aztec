@@ -191,15 +191,18 @@ export function useWalletConnect() {
       if (isWeb) {
         setPhase({
           kind: "creating-session",
-          text: "Use the Demo Wallet panel. If it has no account, open demo-wallet.aztec-labs.com in a new tab, create one, then click I've created an account in the panel.",
+          text:
+            current.provider?.setupHint ||
+            "Use the Demo Wallet panel. If it has no account, open demo-wallet.aztec-labs.com in a new tab, create one, then click I've created an account in the panel.",
         });
       }
       const rawAccounts = await withTimeout(
         resolveGrantedAccounts(wallet),
         isWeb ? 120_000 : 30_000,
-        isWeb
-          ? "The Demo Wallet did not return an account. Open https://demo-wallet.aztec-labs.com, create an account, then reconnect and finish setup in the wallet panel."
-          : "The wallet did not return an account in time. Reconnect and approve the request.",
+        current.provider?.accountTimeoutHint ||
+          (isWeb
+            ? "The Demo Wallet did not return an account. Open https://demo-wallet.aztec-labs.com, create an account, then reconnect and finish setup in the wallet panel."
+            : "The wallet did not return an account in time. Reconnect and approve the request."),
       );
 
       if (rawAccounts.length === 0) {
@@ -212,9 +215,10 @@ export function useWalletConnect() {
         teardownConnection();
         const explained = explainError(
           new Error(
-            isWeb
-              ? "The Demo Wallet has no account in this browser yet. Open https://demo-wallet.aztec-labs.com, create an account, then reconnect."
-              : `Your wallet connected but has no account on the current testnet${version ? ` (rollup ${version})` : ""}. Switch network or create an account, then reconnect.`,
+            current.provider?.noAccountHint ||
+              (isWeb
+                ? "The Demo Wallet has no account in this browser yet. Open https://demo-wallet.aztec-labs.com, create an account, then reconnect."
+                : `Your wallet connected but has no account on the current testnet${version ? ` (rollup ${version})` : ""}. Switch network or create an account, then reconnect.`),
           ),
           "connect",
         );

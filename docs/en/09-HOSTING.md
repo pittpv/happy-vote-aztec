@@ -8,7 +8,7 @@
 | App | `web/` (Vite React) |
 | Host | Vercel |
 
-| Aztec network (prod) | Testnet **5.1.0** → Alpha later |
+| Aztec network (prod) | Testnet **6.0.0-rc.3** (Alpha stays **5.2.0**) |
 
 In the HappyVote monorepo the Vite app is `aztec/web` and Vercel Root Directory is `aztec/web`. In the standalone public repo the Root Directory is `web`.
 
@@ -30,9 +30,9 @@ Build (inside `web/`): `npm install` then `npm run build` → `dist`.
 ### Env (Production)
 
 ```
-VITE_AZTEC_NODE_URL=https://v5.testnet.rpc.aztec-labs.com
-VITE_HAPPY_VOTE_CONTRACT_ADDRESS=0x2e10858cf6750c003489a62f570535966fb940bb10d18a0c146a36cac64713b6
-VITE_SPONSORED_FPC_ADDRESS=0x130925fbd734a252e3d8ddff87f6c346052dd5c13314eb96026b32baa1923296
+VITE_AZTEC_NODE_URL=https://aztec-testnet.drpc.org
+VITE_HAPPY_VOTE_CONTRACT_ADDRESS=0x147d56082a923fb872c9ea28e4e57b3596f27b518f95c51c825839024d61beba
+VITE_SPONSORED_FPC_ADDRESS=0x2adfb70e860909f0db8268b3fec80bce52a94559963444f5c0341816b8412130
 VITE_DEFAULT_POLL_ID=1
 VITE_PROVER_ENABLED=true
 VITE_REQUIRE_ZKPASSPORT=false
@@ -57,7 +57,7 @@ VITE_ZKPASSPORT_DEFAULT_POLICY=vote-identity-verification
 
 Without CRS hosts in `connect-src`, proving fails with opaque `Failed to fetch`.
 
-**Web Wallet** discovery loads `https://demo-wallet.aztec-labs.com` in a hidden iframe and waits up to 30 seconds for `WALLET_READY`. The hosted wallet bundle is large, so a 10 second probe reports the wallet as unreachable on a cold load. `connect-src` does not allow that frame. If `frame-src` omits the wallet origin, Connect reports that the Demo Wallet could not be reached even when the host returns HTTP 200. The wallet cannot create an account inside the iframe. The UI does not recommend Web Wallet: it can connect, but it cannot prove a HappyVote ballot.
+Connect does not open the Labs Demo Wallet. The public build is Aztec 5.0.1, so it cannot finish a 6.0.0-rc.3 handshake, and it cannot prove a HappyVote ballot. `frame-src` still lists `https://demo-wallet.aztec-labs.com`.
 
 ## Guest tallies API
 

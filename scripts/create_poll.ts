@@ -13,16 +13,16 @@
  */
 import "dotenv/config";
 import { HappyVoteContract } from "../src/artifacts/HappyVote.js";
-import { Fr } from "@aztec/aztec.js/fields";
-import { AztecAddress } from "@aztec/aztec.js/addresses";
-import { type Logger, createLogger } from "@aztec/foundation/log";
-import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
+import { Fr } from "@aztec-labs/aztec.js/fields";
+import { AztecAddress } from "@aztec-labs/aztec.js/addresses";
+import { type Logger, createLogger } from "@aztec-labs/foundation/log";
+import { SponsoredFeePaymentMethod } from "@aztec-labs/aztec.js/fee";
 import { setupWallet } from "../src/utils/setup_wallet.js";
 import { getSponsoredFPCInstance } from "../src/utils/sponsored_fpc.js";
-import { SponsoredFPCContractArtifact } from "@aztec/noir-contracts.js/SponsoredFPC";
+import { SponsoredFPCContractArtifact } from "@aztec-labs/noir-contracts.js/SponsoredFPC";
 import { deploySchnorrAccount } from "../src/utils/deploy_account.js";
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
-import { TxStatus } from "@aztec/stdlib/tx";
+import { createHappyVoteNode } from "../src/utils/aztec_node.js";
+import { TxStatus } from "@aztec-labs/stdlib/tx";
 import { getAztecNodeUrl, getTimeouts } from "../config/config.js";
 import { createHash } from "node:crypto";
 
@@ -92,7 +92,7 @@ async function main() {
   const from = accountManager.address;
 
   const address = AztecAddress.fromStringUnsafe(contractAddress);
-  const node = createAztecNodeClient(getAztecNodeUrl());
+  const node = createHappyVoteNode(getAztecNodeUrl());
   const instance = await node.getContract(address);
   if (!instance) {
     throw new Error(`Contract not found on node: ${contractAddress}`);

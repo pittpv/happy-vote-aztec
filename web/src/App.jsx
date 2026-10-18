@@ -549,11 +549,16 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
         const single = await refreshPollMetaById(routePollId);
         if (cancelled) return;
         if (single) {
+          const nextLabels = pollOptionLabels(single.options);
+          const prevCount = pollOptionLabels(getPollMeta(routePollId).options).length;
           setPollMeta(single);
           setVoteFrequency(Number(single.voteFrequency) || VOTE_FREQUENCY.ONCE);
           setOnChainSealed(Boolean(single.sealed));
-          setTallies(pollOptionLabels(single.options).map(() => 0));
-          setTotal(0);
+          // Catalog refresh must not wipe tallies the chain read already applied.
+          if (nextLabels.length !== prevCount) {
+            setTallies(nextLabels.map(() => 0));
+            setTotal(0);
+          }
           setMetaPending(false);
           setCatalogError(null);
         }
@@ -1393,10 +1398,8 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                 : "Review the options and public tallies."}
             </li>
             <li>
-              Click <strong>Connect Aztec wallet</strong>. Prefer <em>Azguard</em> on desktop
-              (browser extension, persistent account). <em>Browser session</em> is the in-tab way to
-              vote without an on-chain deploy (a new address each time). Web Wallet can connect, but
-              it cannot cast a ballot yet.
+              Click <strong>Connect Aztec wallet</strong> and choose <em>Browser session</em>.
+              Azguard’s current release is Aztec 5.2.0 and cannot connect to this Testnet yet.
             </li>
             <li>Choose an option, pick Private or Open, then vote. Proving the ballot can take several minutes.</li>
             <li>

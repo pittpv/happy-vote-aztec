@@ -83,7 +83,7 @@ Important polls should require at least personhood. Details live in catalog JSON
 
 1. Catalog + poll cards (operator-published in Iteration 1).
 2. Poll page: question, options, Vote CTA.
-3. Connect Aztec account. Testnet desktop prefers **Azguard** (persistent extension). **Browser session** is the in-page way to vote (initializerless PXE, new address each Connect). **Web Wallet** is the Labs Demo Wallet and is not recommended: it can connect, but it cannot prove a ballot.
+3. Connect Aztec account. **Browser session** is how to vote (initializerless PXE, new address each Connect). Azguard stays listed, but its current 5.2.0 release cannot connect to Testnet 6.0.0-rc.3. The Labs Demo Wallet is not offered.
 4. Private vote + public tally.
 5. Optional open vote (`voter_choice`).
 6. Double-vote prevention (`SingleUseClaim` + identity claims; optional UTC-day period).
@@ -117,7 +117,7 @@ Permissionless `create_poll`, anti-spam, moderation, discovery, more templates, 
 |------|-------------|
 | Safety | No silent `AztecAddress.ZERO` fallbacks |
 | Privacy | No passport images or MRZ on HappyVote servers |
-| Versions | Pin Aztec **5.1.0** |
+| Versions | Pin Aztec Testnet **6.0.0-rc.3**. Alpha stays **5.2.0**. |
 | Legal | Disclaimer: tech platform, not an official election commission |
 | Analytics | No third-party analytics counter on aztec.happyvote.xyz; first-party cookieless daily aggregates only |
 | UX | Mission on home; vote page 1080px; honest private-vote copy |

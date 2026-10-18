@@ -1,13 +1,13 @@
-import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
+import { SponsoredFeePaymentMethod } from "@aztec-labs/aztec.js/fee";
 import { getSponsoredFPCInstance } from "./sponsored_fpc.js";
-import { SponsoredFPCContractArtifact } from "@aztec/noir-contracts.js/SponsoredFPC";
-import { Fr } from "@aztec/aztec.js/fields";
-import { GrumpkinScalar } from "@aztec/foundation/curves/grumpkin";
-import { type Logger, createLogger } from "@aztec/foundation/log";
+import { SponsoredFPCContractArtifact } from "@aztec-labs/noir-contracts.js/SponsoredFPC";
+import { Fr } from "@aztec-labs/aztec.js/fields";
+import { GrumpkinScalar } from "@aztec-labs/foundation/curves/grumpkin";
+import { type Logger, createLogger } from "@aztec-labs/foundation/log";
 import { setupWallet } from "./setup_wallet.js";
-import { AccountManager } from "@aztec/aztec.js/wallet";
-import { NO_FROM } from "@aztec/aztec.js/account";
-import { EmbeddedWallet } from "@aztec/wallets/embedded";
+import { AccountManager } from "@aztec-labs/aztec.js/wallet";
+import { NO_FROM } from "@aztec-labs/aztec.js/account";
+import { EmbeddedWallet } from "@aztec-labs/wallets/embedded";
 import { getTimeouts } from "../../config/config.js";
 
 function waitSeconds(): number {
@@ -16,29 +16,37 @@ function waitSeconds(): number {
     return raw > 10_000 ? Math.ceil(raw / 1000) : raw;
 }
 
-export async function deploySchnorrAccount(wallet?: EmbeddedWallet): Promise<AccountManager> {
+export async function deploySchnorrAccount(
+    wallet?: EmbeddedWallet,
+    opts?: { fresh?: boolean },
+): Promise<AccountManager> {
     let logger: Logger;
     logger = createLogger('aztec:aztec-starter');
     logger.info('👤 Starting Schnorr account deployment...');
 
     logger.info('🔐 Generating account keys...');
-    const hadEnvKeys = Boolean(
+    const fresh = opts?.fresh === true;
+    const hadEnvKeys = !fresh && Boolean(
         process.env.SECRET_KEY && process.env.SIGNING_KEY && process.env.SALT,
     );
-    const secretKey = process.env.SECRET_KEY ? Fr.fromString(process.env.SECRET_KEY) : Fr.random();
-    const signingKey = process.env.SIGNING_KEY
+    const secretKey = !fresh && process.env.SECRET_KEY ? Fr.fromString(process.env.SECRET_KEY) : Fr.random();
+    const signingKey = !fresh && process.env.SIGNING_KEY
         ? GrumpkinScalar.fromString(process.env.SIGNING_KEY)
         : GrumpkinScalar.random();
-    const salt = process.env.SALT ? Fr.fromString(process.env.SALT) : Fr.random();
-    logger.info(`Save SECRET_KEY / SIGNING_KEY / SALT in .env for future use (values not logged).`);
-    if (!hadEnvKeys) {
-        logger.info(`🔑 Generated new account keys (persisted to process.env for this run).`);
+    const salt = !fresh && process.env.SALT ? Fr.fromString(process.env.SALT) : Fr.random();
+    if (!fresh) {
+        logger.info(`Save account keys in .env for future use (values not logged).`);
+        if (!hadEnvKeys) {
+            logger.info(`🔑 Generated new account keys (persisted to process.env for this run).`);
+        } else {
+            logger.info(`🔑 Reusing account keys from environment.`);
+        }
+        process.env.SECRET_KEY = secretKey.toString();
+        process.env.SIGNING_KEY = signingKey.toString();
+        process.env.SALT = salt.toString();
     } else {
-        logger.info(`🔑 Reusing account keys from environment.`);
+        logger.info(`🔑 Generated a fresh account for this call (env keys left unchanged).`);
     }
-    process.env.SECRET_KEY = secretKey.toString();
-    process.env.SIGNING_KEY = signingKey.toString();
-    process.env.SALT = salt.toString();
 
     const activeWallet = wallet ?? await setupWallet()
     const account = await activeWallet.createSchnorrAccount(secretKey, salt, signingKey)
@@ -65,9 +73,9 @@ export async function deploySchnorrAccount(wallet?: EmbeddedWallet): Promise<Acc
         return account;
     }
 
-    const { createAztecNodeClient } = await import("@aztec/aztec.js/node");
+    const { createHappyVoteNode } = await import("./aztec_node.js");
     const { getAztecNodeUrl } = await import("../../config/config.js");
-    const node = createAztecNodeClient(getAztecNodeUrl());
+    const node = createHappyVoteNode(getAztecNodeUrl());
     const existing = await node.getContract(account.address);
     if (existing) {
         logger.info(`✅ Account already deployed on-chain — skipping account deploy.`);

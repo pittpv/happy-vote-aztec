@@ -30,7 +30,7 @@ flowchart TB
     Bridge[wss://bridge.zkpassport.id]
   end
 
-  subgraph AztecL2["Aztec Network 5.1.0"]
+  subgraph AztecL2["Aztec Testnet 6.0.0-rc.3"]
     HV[Контракт HappyVote]
     PrivateExec["Private: cast_vote_* + SingleUseClaim"]
     PublicExec["Public: tally / open ballot / identity_claims"]
@@ -162,8 +162,8 @@ Vite + React. Маршруты:
 
 | Endpoint | Роль |
 |----------|------|
-| `GET /api/poll-state` | Batch `node_getPublicStorageAt`, кэш ~15с. `fresh=1` обходит кэш (`Cache-Control: no-store`) после бюллетеня и по Refresh. Poseidon-слоты из метаданных каталога (любой poll id) |
-| `GET /api/polls` | Seed JSON + опциональный Blob (`showOnHome` / `homeRank` для `/`). `GET /api/polls?id=` гидратирует один опрос (страница `/p/:id`). Фильтр стран на `/polls` также берёт страны из Dashboard policy, если задан `policyId`. |
+| `GET /api/poll-state` | Batch `node_getPublicStorageAt`, кэш ~15с. `fresh=1` обходит кэш (`Cache-Control: no-store`) после бюллетеня и по Refresh. Poseidon-слоты из метаданных каталога. Id, которого нет на текущем контракте, отвечает 404. |
+| `GET /api/polls` | Seed JSON + опциональный Blob (`showOnHome` / `homeRank` для `/`). В списке только опросы, созданные на текущем контракте. `GET /api/polls?id=` гидратирует один опрос (страница `/p/:id`). Фильтр стран на `/polls` также берёт страны из Dashboard policy, если задан `policyId`. |
 | `POST /api/polls` | Публикация метаданных каталога (только оператор): тело опроса, флаги `homepage` или `policyId` у существующего ZKPassport-опроса |
 | `POST /api/zkpassport-verify` | Server re-verify |
 | `POST /api/client-error` | Ошибки в логи Vercel |
@@ -201,7 +201,9 @@ Vite + React. Маршруты:
 
 Виджет голосования берёт **текущий** каталожный `zkRequirements.policyId`. Операторы могут сменить этот id у уже созданного ZKPassport-опроса через аутентифицированную публикацию каталога. On-chain `eligibility_mode` и `metadata_hash` остаются значениями из `create_poll` (`PublicImmutable`).
 
-Гостевой `/api/poll-state` читает Poseidon-слоты, сохранённые с опросом при публикации, поэтому любой poll id работает без правки API. Публичный `GET /api/polls` эти слоты не отдаёт.
+Гостевой `/api/poll-state` читает Poseidon-слоты, сохранённые с опросом при публикации. Id, которого нет на текущем контракте, отвечает 404. Публичный `GET /api/polls` эти слоты не отдаёт.
+
+`GET /api/earlier-networks` отдаёт бюллетени прошлых сетей Aztec. На странице All polls они стоят в секции **Earlier networks**: имя сети, под ним свёрнутый адрес контракта, внутри названия и результаты. Эти строки не ведут на `/p/:id`. Sealed-опрос прошлой сети не показывает числа, пока он не закрыт. RPC архива в ответе нет.
 
 ## 4. Аккаунты и комиссии
 
@@ -209,17 +211,16 @@ Vite + React. Маршруты:
 |-------|----------|------|
 | Local network | Schnorr из скриптов | Бесплатно |
 | Testnet | См. типы кошельков ниже. Операторские скрипты по-прежнему деплоят обычный Schnorr. | Sponsored FPC |
-| Alpha | Предпочтительен постоянный кошелёк. Browser session может остаться как лёгкий вход; Demo Wallet Labs — не продукт для mainnet. | Fee Juice / FPC |
+| Alpha | Предпочтительен постоянный кошелёк, когда он говорит на той же версии Aztec, что и сайт. Browser session может остаться как лёгкий вход. | Fee Juice / FPC |
 
 ### 4.1 Типы кошельков (UI на Testnet)
 
-На десктопе Connect ставит **Azguard** первым. **Browser session** — способ проголосовать во вкладке. **Web Wallet** остаётся в списке, но UI его не рекомендует: Demo Wallet Labs не может доказать бюллетень HappyVote. На iPhone модалка выбирает Browser session.
+Connect выбирает **Browser session**. Так голосуют во вкладке, в том числе на iPhone. Azguard остаётся в списке, но текущий релиз — Aztec 5.2.0 и не открывает сессию на этом Testnet. Demo Wallet Labs в списке нет: публичная сборка на Aztec 5.0.1, поэтому рукопожатие 6.0.0-rc.3 не завершается, и бюллетень HappyVote он доказать не может.
 
 | Источник | Что это | Адрес | На Alpha |
 |----------|---------|-------|----------|
 | **Browser extension** | Azguard (Aztec 5.2.0) или следующий кошелёк Aztec. | Постоянный, если аккаунт сохранён. | Основной путь, когда кошелёк совпадает с сетью. |
 | **Browser session** | In-page PXE (`EmbeddedWallet`, эфемерный). Создаёт **initializerless** Schnorr — без on-chain tx деплоя аккаунта. | **Новый на каждый Connect** (ключи сессии вкладки не восстанавливаются). | Опционально «проголосовать без установки кошелька», не постоянная личность. |
-| **Web Wallet** | Demo Wallet Aztec Labs (`demo-wallet.aztec-labs.com`). Подключение возможно. Доказать бюллетень нельзя: в PXE нет хука `authorizeUtilityCall` для чтения Auth Registry внутри SingleUseClaim. | Тот же аккаунт, если пользователь его сохранил. | Не кошелёк для mainnet. |
 
 `cast_vote_private` и `cast_vote_open` — private entrypoints HappyVote, поэтому session-аккаунту не нужен публичный деплой, чтобы голосовать.
 
@@ -238,7 +239,7 @@ Azguard также проверяет `additionalScopes` и `sendMessagesAs` в 
 
 Контракт даёт **один бюллетень на Aztec-аккаунт** (или на сутки UTC на дневных опросах), общий для private и open. После голоса UI может показать **подсказку на устройстве** (только id опроса, без адреса). Кнопка Vote не блокируется; повтор **тем же аккаунтом** всё равно упадёт ончейн.
 
-Это не personhood. Аккаунтов можно набрать много. Browser session делает это особенно дёшево (новый адрес на каждый Connect). В Demo Wallet и расширении тоже можно создать лишние аккаунты.
+Это не personhood. Аккаунтов можно набрать много. Browser session делает это особенно дёшево (новый адрес на каждый Connect). Внешний кошелёк может сделать то же, если создать дополнительные аккаунты.
 
 Опросы с open-eligibility (`eligibility_mode = 0`, например `/p/1` `/p/2` `/p/4`) это допускают. Важные опросы должны требовать ZKPassport (`1` / `2`): второй аккаунт с тем же `uniqueIdentifier` не пройдёт identity claim. См. [03-PRIVACY-MODEL.md](./03-PRIVACY-MODEL.md) и [04-ZKPASSPORT.md](./04-ZKPASSPORT.md).
 

@@ -3,7 +3,7 @@
  *
  * Source of truth: catalog `storageSlots` (written at publish).
  * `precomputed-slots.json` is only a migration fallback for records published
- * before that field existed. Guest API does not import @aztec/*.
+ * before that field existed. Guest API does not import @aztec-labs/*.
  */
 import PRECOMPUTED from "../data/precomputed-slots.json" with { type: "json" };
 

@@ -2,7 +2,7 @@
 
 **Product:** private-by-default voting on Aztec Network  
 **URL:** https://aztec.happyvote.xyz  
-**Network / SDK:** Aztec `5.1.0` (Testnet → Alpha)  
+**Network / SDK:** Aztec Testnet `6.0.0-rc.3` (Alpha stays `5.2.0`)  
 **Public repo:** https://github.com/pittpv/happy-vote-aztec  
 **Languages:** [English](./README.md) · [Русский](../ru/README.md)
 
@@ -19,11 +19,11 @@
 | [07-EXECUTION-LOG.md](./07-EXECUTION-LOG.md) | Session changelog |
 | [08-TESTNET-RUNBOOK.md](./08-TESTNET-RUNBOOK.md) | Testnet deploy |
 | [09-HOSTING.md](./09-HOSTING.md) | DNS, Vercel, CSP, APIs |
-| [10-TESTNET-ADDRESSES.md](./10-TESTNET-ADDRESSES.md) | Live Testnet 5.1.0 addresses |
+| [10-TESTNET-ADDRESSES.md](./10-TESTNET-ADDRESSES.md) | Live Testnet 6.0.0-rc.3 addresses |
 | [11-USER-GUIDE.md](./11-USER-GUIDE.md) | How to connect and vote |
 | [12-UI-UX.md](./12-UI-UX.md) | Landing, vote page, ZKPassport gate, SEO |
 | [13-LEGAL.md](./13-LEGAL.md) | Terms, Privacy, Cookies, Data Safety, GDPR |
-| [../../AGENTS.md](../../../AGENTS.md) | AI / CLI rules ([Aztec AI tooling](https://docs.aztec.network/developers/ai_tooling)) |
+| [../../AGENTS.md](../../AGENTS.md) | AI / CLI rules ([Aztec AI tooling](https://docs.aztec.network/developers/ai_tooling)) |
 
 ## Product vision
 
@@ -45,7 +45,7 @@ A minimal voting portal for **any topic**: binary sentiment (Happy/Sad), multi-o
 
 ## Live status (2026-09-02)
 
-Single contract `HappyVote` on **Aztec Testnet 5.1.0**: [`0x2e10858cf6750c003489a62f570535966fb940bb10d18a0c146a36cac64713b6`](https://testnet.aztecscan.xyz/address/0x2e10858cf6750c003489a62f570535966fb940bb10d18a0c146a36cac64713b6). Polls `/p/1` Happy/Sad, `/p/2` single-choice, `/p/3` ZKPassport personhood, `/p/4` sealed tallies, `/p/5` gated catalog poll. Noir tests **48/48**. Frontend: https://aztec.happyvote.xyz.
+Single contract `HappyVote` on **Aztec Testnet 6.0.0-rc.3**: [`0x147d56082a923fb872c9ea28e4e57b3596f27b518f95c51c825839024d61beba`](https://testnet.aztecscan.xyz/address/0x147d56082a923fb872c9ea28e4e57b3596f27b518f95c51c825839024d61beba). v6 is a new genesis: Testnet 5.1.0 transactions and the previous contract address are not on this network. Polls `/p/1` Happy/Sad, `/p/2` single-choice, `/p/3` ZKPassport personhood, `/p/4` sealed tallies. Noir tests **48/48**. Frontend: https://aztec.happyvote.xyz.
 
 ## Official sources
 

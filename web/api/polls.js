@@ -42,6 +42,42 @@ function getPublishToken() {
   return process.env.POLLS_PUBLISH_TOKEN || process.env.VITE_POLLS_PUBLISH_TOKEN || "";
 }
 
+const NEXT_POLL_ID_SLOT = "0x11";
+
+function padHex32(hex) {
+  const h = String(hex).replace(/^0x/i, "").toLowerCase();
+  return `0x${h.padStart(64, "0")}`;
+}
+
+export async function readNextPollId() {
+  const nodeUrl = process.env.VITE_AZTEC_NODE_URL;
+  const contract = process.env.VITE_HAPPY_VOTE_CONTRACT_ADDRESS;
+  if (!nodeUrl) throw new Error("VITE_AZTEC_NODE_URL is not configured");
+  if (!contract) throw new Error("VITE_HAPPY_VOTE_CONTRACT_ADDRESS is not configured");
+  const response = await fetch(nodeUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "node_getPublicStorageAt",
+      params: ["latest", padHex32(contract), padHex32(NEXT_POLL_ID_SLOT)],
+    }),
+  });
+  const json = await response.json();
+  if (!response.ok || json.error) {
+    throw new Error(json?.error?.message || `HTTP ${response.status}`);
+  }
+  const raw = json.result;
+  const value = raw && typeof raw === "object" && "value" in raw ? raw.value : raw;
+  if (value == null || value === "") throw new Error("next_poll_id storage is empty");
+  return Number(BigInt(value));
+}
+
+function onCurrentContract(poll, nextPollId) {
+  return Number(poll.id) > 0 && Number(poll.id) < nextPollId;
+}
+
 function checkAuth(req) {
   const expected = getPublishToken();
   if (!expected) return false;
@@ -242,11 +278,12 @@ export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
       const catalog = await loadMergedCatalog();
+      const nextPollId = await readNextPollId();
       const url = new URL(req.url, "http://localhost");
       const id = url.searchParams.get("id");
       if (id) {
         const poll = catalog.polls[String(id)];
-        if (!poll) {
+        if (!poll || !onCurrentContract(poll, nextPollId)) {
           res.setHeader("Cache-Control", "private, no-store");
           return res.status(404).json({ ok: false, error: "Poll not found" });
         }
@@ -254,6 +291,7 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true, poll: publicPoll(poll), sources: catalog.sources });
       }
       const polls = Object.values(catalog.polls)
+        .filter((poll) => onCurrentContract(poll, nextPollId))
         .map(publicPoll)
         .sort((a, b) => Number(a.id) - Number(b.id));
       res.setHeader("Cache-Control", catalogCacheControl(catalog));

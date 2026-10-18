@@ -1,6 +1,6 @@
 # HappyVote on Aztec
 
-Private-by-default voting on [Aztec Network](https://aztec.network) **5.1.0**.
+Private-by-default voting on [Aztec Network](https://aztec.network) Testnet **6.0.0-rc.3**. Alpha stays **5.2.0**.
 
 **Live:** https://aztec.happyvote.xyz  
 **Docs:** [English](./docs/en/README.md) · [Русский](./docs/ru/README.md)
@@ -23,9 +23,12 @@ Compile and test with the **`aztec` CLI** (not `nargo` or `bb` directly). Offici
 
 ## Testnet
 
-Contract: [`0x2e10858cf6750c003489a62f570535966fb940bb10d18a0c146a36cac64713b6`](https://testnet.aztecscan.xyz/address/0x2e10858cf6750c003489a62f570535966fb940bb10d18a0c146a36cac64713b6)  
-RPC: `https://v5.testnet.rpc.aztec-labs.com`  
+Contract: [`0x147d56082a923fb872c9ea28e4e57b3596f27b518f95c51c825839024d61beba`](https://testnet.aztecscan.xyz/address/0x147d56082a923fb872c9ea28e4e57b3596f27b518f95c51c825839024d61beba)  
+RPC: `https://aztec-testnet.drpc.org`  
+Sponsored FPC: `0x2adfb70e860909f0db8268b3fec80bce52a94559963444f5c0341816b8412130`  
 Details: [docs/en/10-TESTNET-ADDRESSES.md](./docs/en/10-TESTNET-ADDRESSES.md)
+
+Testnet 6.0.0-rc.3 is a new genesis. The Testnet 5.1.0 contract is not on this network. Earlier ballots are listed on the site under **Earlier networks**.
 
 ## Architecture (short)
 

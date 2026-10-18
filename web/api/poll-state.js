@@ -3,13 +3,14 @@
  * Uses raw JSON-RPC + HappyVote map slots (Poseidon2).
  *
  * Slots are catalog metadata written at publish (any poll id). A baked JSON
- * file is only a fallback for older records. Do NOT import @aztec/* here —
+ * file is only a fallback for older records. Do NOT import @aztec-labs/* here —
  * Vercel serverless lacks pino-pretty transport.
  */
 import { loadMergedCatalog } from "./poll-catalog.js";
+import { readNextPollId } from "./polls.js";
 import { resolvePollSlots } from "./poll-slots.js";
 
-const DEFAULT_NODE = "https://v5.testnet.rpc.aztec-labs.com";
+const DEFAULT_NODE = "https://aztec-testnet.drpc.org";
 const CACHE_TTL_MS = 15_000;
 /** Contract-level `paused` PublicMutable (codegen slot 18), not a per-poll map. */
 const PAUSED_SLOT = "0x12";
@@ -45,6 +46,16 @@ function fieldToNumber(value) {
 }
 
 async function rpcBatch(nodeUrl, calls) {
+  // dRPC's free Testnet plan rejects JSON-RPC batches larger than 3.
+  const out = [];
+  for (let offset = 0; offset < calls.length; offset += 3) {
+    const part = await rpcBatchOnce(nodeUrl, calls.slice(offset, offset + 3));
+    out.push(...part);
+  }
+  return out;
+}
+
+async function rpcBatchOnce(nodeUrl, calls) {
   const body = calls.map((c, i) => ({
     jsonrpc: "2.0",
     id: i + 1,
@@ -140,6 +151,12 @@ export default async function handler(req, res) {
       res.setHeader("Cache-Control", "public, s-maxage=15, stale-while-revalidate=60");
       res.setHeader("X-Cache", "HIT");
       res.status(200).json(memoryCache.data);
+      return;
+    }
+
+    const nextPollId = await readNextPollId();
+    if (!(Number(pollId) > 0 && Number(pollId) < nextPollId)) {
+      res.status(404).json({ error: "Poll is not on this contract" });
       return;
     }
 

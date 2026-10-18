@@ -1,0 +1,48 @@
+{
+  "networks": [
+    {
+      "id": "testnet-5.1.0",
+      "name": "Testnet 5.1.0",
+      "rpcUrl": "https://v5.testnet.rpc.aztec-labs.com",
+      "contractAddress": "0x2e10858cf6750c003489a62f570535966fb940bb10d18a0c146a36cac64713b6",
+      "polls": [
+        {
+          "id": "1",
+          "title": "How are you feeling?",
+          "options": ["Happy", "Sad"]
+        },
+        {
+          "id": "2",
+          "title": "Which demo feature should we ship next?",
+          "options": ["Sealed tallies", "Share embeds", "ZKPassport gates"]
+        },
+        {
+          "id": "3",
+          "title": "ZKPassport personhood test",
+          "options": ["Works for me", "Blocked / unclear"]
+        },
+        {
+          "id": "4",
+          "title": "Should results stay hidden until voting ends?",
+          "options": ["Yes, hide until close", "No, show live tallies", "Only for high-stakes polls"]
+        },
+        {
+          "id": "5",
+          "title": "2026 Russian State Duma Elections — Federal District",
+          "options": [
+            "Единая Россия",
+            "ЛДПР",
+            "Партия прямой демократии",
+            "Зелёные",
+            "Справедливая Россия",
+            "Родина",
+            "КПРФ",
+            "Партия пенсионеров",
+            "Коммунисты России",
+            "Новые люди"
+          ]
+        }
+      ]
+    }
+  ]
+}

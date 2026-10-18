@@ -81,7 +81,7 @@ Private **не** скрывает вариант с live-табло: `option_id`
 
 ### Must-have (итерация 1) — сделано
 
-Каталог, страница опроса, Connect (на десктопе предпочтителен Azguard; Browser session — способ проголосовать во вкладке; Demo Wallet не рекомендуется: prove бюллетеня пока невозможен), private + optional open, защита от double-vote на аккаунт (и ZKPassport identity на важных опросах), `end_poll`, шаблоны binary / single_choice, публикация опросов операторами, гостевые tallies, домен, документация.
+Каталог, страница опроса, Connect (голосование через Browser session; Azguard в списке, но релиз 5.2.0 не подключается к Testnet 6.0.0-rc.3; Demo Wallet не предлагается), private + optional open, защита от double-vote на аккаунт (и ZKPassport identity на важных опросах), `end_poll`, шаблоны binary / single_choice, публикация опросов операторами, гостевые tallies, домен, документация.
 
 ### Should-have (1.5) — в основном сделано
 
@@ -99,7 +99,7 @@ Permissionless `create_poll`, антиспам, модерация, discovery.
 |---------|------------|
 | Безопасность | Нет silent fallback на `AztecAddress.ZERO` |
 | Приватность | Нет копий паспорта на серверах HappyVote |
-| Версии | Pin Aztec **5.1.0** |
+| Версии | Pin Aztec Testnet **6.0.0-rc.3**. Alpha остаётся **5.2.0**. |
 | Юридическое | Платформа ≠ избирательная комиссия |
 | Аналитика | Нет стороннего счётчика на aztec.happyvote.xyz; только свои cookieless дневные агрегаты |
 | UX | Миссия на главной; 1080px; честный копирайт private-голоса |

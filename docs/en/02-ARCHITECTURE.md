@@ -30,7 +30,7 @@ flowchart TB
     Bridge[wss://bridge.zkpassport.id]
   end
 
-  subgraph AztecL2["Aztec Network 5.1.0"]
+  subgraph AztecL2["Aztec Testnet 6.0.0-rc.3"]
     HV[HappyVote contract]
     PrivateExec["Private: cast_vote_* + SingleUseClaim"]
     PublicExec["Public: tally / open ballot / identity_claims"]
@@ -166,7 +166,7 @@ Guest and connected tallies both use same-origin `/api/poll-state` (public Testn
 | Endpoint | Role |
 |----------|------|
 | `GET /api/poll-state?pollId=&optionsCount=` | Batch `node_getPublicStorageAt`, ~15s cache. `fresh=1` skips that cache (`Cache-Control: no-store`) after a ballot and on Refresh. Poseidon map slots from catalog metadata (any poll id) |
-| `GET /api/polls` | Seed JSON + optional Blob overlay (`showOnHome` / `homeRank` for `/`). `GET /api/polls?id=` hydrates a single poll (used by `/p/:id`). The `/polls` country filter also uses Dashboard policy countries when `policyId` is set. |
+| `GET /api/polls` | Seed JSON + optional Blob overlay (`showOnHome` / `homeRank` for `/`). Only polls created on the current contract are returned. `GET /api/polls?id=` hydrates a single poll (used by `/p/:id`). The `/polls` country filter also uses Dashboard policy countries when `policyId` is set. |
 | `POST /api/polls` | Authenticated catalog publish (operator-only): new poll body, `homepage` flags, or `policyId` on an existing ZKPassport poll |
 | `POST /api/zkpassport-verify` | Server re-verify `@zkpassport/sdk` |
 | `POST /api/client-error` | Boot / vote errors → Vercel logs |
@@ -204,7 +204,9 @@ Guest and connected tallies both use same-origin `/api/poll-state` (public Testn
 
 The vote widget uses the **current** catalog `zkRequirements.policyId`. Operators can replace that id on an existing ZKPassport poll through authenticated catalog publish. On-chain `eligibility_mode` and `metadata_hash` stay the values from `create_poll` (`PublicImmutable`).
 
-Guest `/api/poll-state` reads Poseidon map slots stored with the poll when it is published, so any poll id works without an API code change. Public `GET /api/polls` does not return those slots.
+Guest `/api/poll-state` reads Poseidon map slots stored with the poll when it is published. A poll id that was not created on the current contract returns 404. Public `GET /api/polls` does not return those slots.
+
+`GET /api/earlier-networks` lists ballots from previous Aztec networks. The All polls page shows them under **Earlier networks**, grouped by network name, with the contract address collapsed and the titles and results inside. Those rows are not links to `/p/:id`. Sealed polls on a previous network omit counts until that poll is closed. The response does not include the archive RPC URL.
 
 ## 4. Accounts and fees
 
@@ -212,17 +214,16 @@ Guest `/api/poll-state` reads Poseidon map slots stored with the poll when it is
 |-----|----------|------|
 | Local network | Script-deployed Schnorr | Free |
 | Testnet | See wallet types below. Operator scripts still deploy a regular Schnorr account. | Sponsored FPC |
-| Alpha | Prefer a persistent wallet. Browser session can remain as a low-friction option; the Labs Demo Wallet is not a mainnet product. | Fee Juice / FPC |
+| Alpha | Prefer a persistent wallet once it speaks the same Aztec version as the site. Browser session can remain as a low-friction option. | Fee Juice / FPC |
 
 ### 4.1 Wallet types (Testnet UI)
 
-Desktop Connect lists **Azguard** first. **Browser session** is how to vote in the tab. **Web Wallet** stays in the list, but the UI does not recommend it: the Labs Demo Wallet cannot prove a HappyVote ballot yet. On iPhone the modal selects Browser session.
+Connect selects **Browser session**. That is how to vote in the tab, including on iPhone. Azguard stays in the list, but its current release is Aztec 5.2.0 and cannot open a session on this Testnet. The Labs Demo Wallet is not offered: the public build is Aztec 5.0.1, so it cannot complete the 6.0.0-rc.3 handshake, and it cannot prove a HappyVote ballot.
 
 | Source | What it is | Address | On Alpha |
 |--------|------------|---------|----------|
 | **Browser extension** | Azguard (Aztec 5.2.0) or a later Aztec wallet. | Persistent if the user keeps that account. | Default path once the wallet matches the network. |
 | **Browser session** | In-page PXE (`EmbeddedWallet`, ephemeral). Creates an **initializerless** Schnorr account — no on-chain account-deploy tx. | **New on every Connect** (keys are not restored after the tab session). | Optional “vote without installing a wallet”, not a lasting identity. |
-| **Web Wallet** | Aztec Labs Demo Wallet (`demo-wallet.aztec-labs.com`). Can connect. Cannot prove a ballot: its PXE has no `authorizeUtilityCall` hook for the Auth Registry read inside SingleUseClaim. | Reuses the wallet’s current account if the user kept it. | Not a mainnet wallet. |
 
 `cast_vote_private` and `cast_vote_open` are private entrypoints on HappyVote, so a session account does not need a public account deploy to vote.
 
@@ -241,7 +242,7 @@ Azguard also checks `additionalScopes` and `sendMessagesAs` on `sendTx`. Each ad
 
 The contract enforces **one ballot per Aztec account** (or per UTC day on daily polls), shared by private and open. After a ballot, the UI may show a **device hint** in this browser (poll id only, no address). That hint does not lock Vote; sending again with the **same account** still fails on-chain.
 
-That is not personhood. Anyone can mint many Aztec accounts. Browser session makes that especially cheap (new address per Connect). Demo Wallet and extensions can also create extra accounts.
+That is not personhood. Anyone can mint many Aztec accounts. Browser session makes that especially cheap (new address per Connect). An external wallet can do the same if the user creates more accounts.
 
 Open-eligibility polls (`eligibility_mode = 0`, for example `/p/1` `/p/2` `/p/4`) accept that. Important polls should use ZKPassport (`1` / `2`): a second account with the same `uniqueIdentifier` fails the identity claim. See [03-PRIVACY-MODEL.md](./03-PRIVACY-MODEL.md) and [04-ZKPASSPORT.md](./04-ZKPASSPORT.md).
 

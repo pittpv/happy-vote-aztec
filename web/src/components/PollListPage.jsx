@@ -9,6 +9,7 @@ import { usePageSeo } from "../hooks/usePageSeo.js";
 import { SiteFooter } from "./SiteFooter.jsx";
 import { SiteHeader } from "./SiteHeader.jsx";
 import { PollCard } from "./PollCard.jsx";
+import { EarlierNetworks } from "./EarlierNetworks.jsx";
 import { getPollSchedule, POLL_PHASE } from "../lib/pollSchedule.js";
 
 const POLLS_DESCRIPTION =
@@ -199,6 +200,7 @@ export function PollListPage({ walletConnect }) {
             </section>
           </>
         )}
+        <EarlierNetworks />
       </section>
 
       <SiteFooter

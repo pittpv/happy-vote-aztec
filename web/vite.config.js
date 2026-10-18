@@ -35,48 +35,56 @@ function nodePolyfillsFix(options) {
   };
 }
 
-export default defineConfig({
-  plugins: [
-    react(),
-    nodePolyfillsFix({
-      include: ["assert", "buffer", "path", "process", "net", "tty", "util"],
-      globals: {
-        Buffer: true,
-        global: true,
-        process: true,
-      },
-      protocolImports: true,
-    }),
-  ],
-  resolve: {
-    alias: {
-      assert: require.resolve("assert/"),
-    },
-  },
-  server: {
-    port: 5174,
-    host: true,
-    headers: {
-      "Cross-Origin-Opener-Policy": "same-origin",
-      "Cross-Origin-Embedder-Policy": "credentialless",
-    },
-  },
-  optimizeDeps: {
-    include: ["pino", "pino/browser", "assert", "buffer", "process"],
-    exclude: [
-      "@aztec/noir-noirc_abi",
-      "@aztec/noir-acvm_js",
-      "@aztec/bb.js",
-      "@aztec/noir-noir_js",
+export function createWebViteConfig({ port, extraHeaders = {} } = {}) {
+  if (port == null) {
+    throw new Error("Vite port is required");
+  }
+  return {
+    plugins: [
+      react(),
+      nodePolyfillsFix({
+        include: ["assert", "buffer", "path", "process", "net", "tty", "util"],
+        globals: {
+          Buffer: true,
+          global: true,
+          process: true,
+        },
+        protocolImports: true,
+      }),
     ],
-    esbuildOptions: {
+    resolve: {
+      alias: {
+        assert: require.resolve("assert/"),
+      },
+    },
+    server: {
+      port,
+      host: true,
+      headers: {
+        "Cross-Origin-Opener-Policy": "same-origin",
+        "Cross-Origin-Embedder-Policy": "credentialless",
+        ...extraHeaders,
+      },
+    },
+    optimizeDeps: {
+      include: ["pino", "pino/browser", "assert", "buffer", "process"],
+      exclude: [
+        "@aztec-foundation/noir-noirc_abi",
+        "@aztec-foundation/noir-acvm_js",
+        "@aztec-foundation/bb.js",
+        "@aztec-foundation/noir-noir_js",
+      ],
+      esbuildOptions: {
+        target: "esnext",
+      },
+    },
+    build: {
       target: "esnext",
+      commonjsOptions: {
+        transformMixedEsModules: true,
+      },
     },
-  },
-  build: {
-    target: "esnext",
-    commonjsOptions: {
-      transformMixedEsModules: true,
-    },
-  },
-});
+  };
+}
+
+export default defineConfig(createWebViteConfig({ port: 5174 }));

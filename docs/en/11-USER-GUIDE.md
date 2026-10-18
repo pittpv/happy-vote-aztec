@@ -29,15 +29,18 @@ Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data
 3. Progress chips: **Ready/Verify → Connect → Vote**. A finished step turns green. **Vote** turns green after this browser records a ballot, and on a daily poll it returns to the current step the next UTC day.
 4. If the poll requires ZKPassport, complete verification first (QR on desktop, ZKPassport app on the phone). After success the block collapses to **Identity verified**.
 5. Click **Connect Aztec wallet**.
-   - Prefer **[Azguard](https://azguardwallet.io/)** on desktop (browser extension, Aztec 5.2.0). It keeps a persistent account. Testnet ballots are sponsored — you do not need Fee Juice for the vote itself. After an Azguard or site update, disconnect and reconnect if the wallet asks again or if a permission error appears.
-   - **Browser session** is an in-page PXE alternative. It creates an initializerless Schnorr account in this tab — no on-chain account-deploy tx. Proving the ballot itself can still take several minutes. Each new Browser session is a **new Aztec address**.
-   - **Web Wallet** is the Aztec Labs Demo Wallet. It can connect an existing account, but it cannot prove a HappyVote ballot yet. Use **Azguard** or **Browser session** to vote.
+   - Choose **Browser session**. It creates an initializerless Schnorr account in this tab — no on-chain account-deploy tx. Proving the ballot itself can still take several minutes. Each new Browser session is a **new Aztec address**.
+   - **[Azguard](https://azguardwallet.io/)** (browser extension) keeps a persistent account, but the current release is Aztec 5.2.0 and cannot connect to this Testnet (6.0.0-rc.3). Testnet ballots are sponsored — you do not need Fee Juice for the vote itself.
 6. Under **Your ballot** pick an option. Under **Ballot privacy** choose **Private** (default) or **Open**.
 7. Submit and wait for the proof. The wallet proves the ballot once; the page then waits until it is in a proposed L2 block. Proving can still take several minutes. The button names the step in progress and shows bouncing dots until it finishes. The step text, result, or error appears directly under the button; use **Open tx** when shown. Opening another poll with the same connected wallet does not set the wallet up again.
 8. Expand **Fees on testnet** only if a fee error appears — claim Fee Juice at https://aztec-faucet.nethermind.io and paste your Aztec address.
 9. Expand **How to vote** for the short checklist.
 
 On wide screens, **Live results** sit beside the ballot; on mobile they stack below.
+
+## Earlier networks
+
+All polls has a section **Earlier networks** after Ended. It shows ballots recorded on previous Aztec networks. Voting on this site uses the current network only. Each network name opens to a contract address, then the poll titles and results. A sealed poll on a previous network stays hidden until that poll is closed.
 
 ## Rules
 

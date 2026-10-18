@@ -1,5 +1,5 @@
 /**
- * Deploy HappyVote + polls to Aztec Testnet 5.1.0.
+ * Deploy HappyVote + polls to Aztec Testnet 6.0.0-rc.3.
  *
  * Usage (WSL):
  *   cd aztec
@@ -15,16 +15,16 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadDotenv } from "dotenv";
 import { HappyVoteContract } from "../src/artifacts/HappyVote.js";
-import { Fr } from "@aztec/aztec.js/fields";
-import { AztecAddress } from "@aztec/aztec.js/addresses";
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
-import { TxHash, TxStatus } from "@aztec/stdlib/tx";
-import { deriveStorageSlotInMap } from "@aztec/stdlib/hash";
-import { type Logger, createLogger } from "@aztec/foundation/log";
-import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
+import { Fr } from "@aztec-labs/aztec.js/fields";
+import { AztecAddress } from "@aztec-labs/aztec.js/addresses";
+import { createHappyVoteNode } from "../src/utils/aztec_node.js";
+import { TxHash, TxStatus } from "@aztec-labs/stdlib/tx";
+import { deriveStorageSlotInMap } from "@aztec-labs/stdlib/hash";
+import { type Logger, createLogger } from "@aztec-labs/foundation/log";
+import { SponsoredFeePaymentMethod } from "@aztec-labs/aztec.js/fee";
 import { setupWallet } from "../src/utils/setup_wallet.js";
 import { getSponsoredFPCInstance } from "../src/utils/sponsored_fpc.js";
-import { SponsoredFPCContractArtifact } from "@aztec/noir-contracts.js/SponsoredFPC";
+import { SponsoredFPCContractArtifact } from "@aztec-labs/noir-contracts.js/SponsoredFPC";
 import { deploySchnorrAccount } from "../src/utils/deploy_account.js";
 import { getTimeouts } from "../config/config.js";
 
@@ -34,7 +34,7 @@ const ELIGIBILITY_PERSONHOOD = 1;
 const VOTE_ONCE = 0;
 const VOTE_DAILY = 1;
 const OPTIONS_COUNT_SLOT = 2n;
-const PUBLIC_RPC = "https://v5.testnet.rpc.aztec-labs.com";
+const PUBLIC_RPC = "https://aztec-testnet.drpc.org";
 const PUBLISH_TIMEOUT_MS = 20 * 60 * 1000;
 const PUBLISH_POLL_MS = 15_000;
 const DEPLOY_ATTEMPTS = 3;
@@ -105,8 +105,8 @@ async function waitUntilPublished(
   addressStr: string,
   txHashStr: string | undefined,
   logger: Logger,
-): Promise<NonNullable<Awaited<ReturnType<ReturnType<typeof createAztecNodeClient>["getContract"]>>>> {
-  const node = createAztecNodeClient(PUBLIC_RPC);
+): Promise<NonNullable<Awaited<ReturnType<ReturnType<typeof createHappyVoteNode>["getContract"]>>>> {
+  const node = createHappyVoteNode(PUBLIC_RPC);
   const address = AztecAddress.fromStringUnsafe(addressStr);
   const started = Date.now();
   let lastTxStatus = "unknown";
@@ -152,7 +152,7 @@ async function waitUntilPollExists(
   minOptions: bigint,
   logger: Logger,
 ) {
-  const node = createAztecNodeClient(PUBLIC_RPC);
+  const node = createHappyVoteNode(PUBLIC_RPC);
   const address = AztecAddress.fromStringUnsafe(addressStr);
   const pollKey = { toField: () => Fr.fromString(String(pollIdNum)) };
   const slot = await deriveStorageSlotInMap(new Fr(OPTIONS_COUNT_SLOT), pollKey);
@@ -204,6 +204,7 @@ async function main() {
   logger.info(`SponsoredFPC: ${sponsoredFPC.address}`);
 
   logger.info("Deploying admin account…");
+  process.env.FORCE_ACCOUNT_DEPLOY = "true";
   const admin = await deploySchnorrAccount(wallet);
   logger.info(`Admin: ${admin.address}`);
 
@@ -266,6 +267,13 @@ async function main() {
     .send({ from: admin.address, fee, wait: txWait });
   await waitUntilPollExists(contract.address.toString(), 3, 2n, logger);
 
+  const poll4 = { id: Fr.fromString("4") };
+  logger.info("Creating poll #4 (sealed tallies, 3 options)…");
+  await contract.methods
+    .create_poll(poll4, 3, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(4), true, 0, 0, VOTE_ONCE)
+    .send({ from: admin.address, fee, wait: txWait });
+  await waitUntilPollExists(contract.address.toString(), 4, 3n, logger);
+
   const addressStr = contract.address.toString();
   upsertEnvFile(resolve(root, ".env"), {
     AZTEC_ENV: "testnet",
@@ -284,8 +292,8 @@ async function main() {
 
   const publicDoc = `# Testnet addresses — HappyVote on Aztec
 
-Network: **Aztec Testnet 5.1.0**  
-RPC: \`https://v5.testnet.rpc.aztec-labs.com\`  
+Network: **Aztec Testnet 6.0.0-rc.3**  
+RPC: \`https://aztec-testnet.drpc.org\`  
 Explorer: https://testnet.aztecscan.xyz  
 Deployed: ${new Date().toISOString()}
 
@@ -293,21 +301,21 @@ Deployed: ${new Date().toISOString()}
 |------|-------|
 | HappyVote | [\`${addressStr}\`](https://testnet.aztecscan.xyz/address/${addressStr}) |
 | Sponsored FPC | \`${sponsoredFPC.address}\` |
-| Poll id | \`1\` Happy/Sad (daily) · \`2\` single-choice (3 opts) · \`3\` ZKPassport personhood test · \`voter_choice\` |
+| Poll id | \`1\` Happy/Sad (daily) · \`2\` single-choice (3 opts) · \`3\` ZKPassport personhood · \`4\` sealed tallies |
 | Eligibility modes | \`0\` open · \`1\` ZKPassport personhood · \`2\` gated |
+
+Testnet 6.0.0-rc.3 is a new genesis. Transactions and the HappyVote address from Testnet 5.1.0 are not on this network.
 
 ## Frontend env
 
 \`\`\`
-VITE_AZTEC_NODE_URL=https://v5.testnet.rpc.aztec-labs.com
+VITE_AZTEC_NODE_URL=https://aztec-testnet.drpc.org
 VITE_HAPPY_VOTE_CONTRACT_ADDRESS=${addressStr}
 VITE_DEFAULT_POLL_ID=1
 VITE_SPONSORED_FPC_ADDRESS=${sponsoredFPC.address}
 VITE_PROVER_ENABLED=true
 VITE_REQUIRE_ZKPASSPORT=false
 \`\`\`
-
-Account keys stay in gitignored \`.env\`, not in this file.
 `;
   writeFileSync(resolve(root, "../docs/aztec/en/10-TESTNET-ADDRESSES.md"), publicDoc, "utf8");
   logger.info("Wrote docs/aztec/en/10-TESTNET-ADDRESSES.md");

@@ -15,6 +15,7 @@ store/
 !web/.env.example
 web/.env.local
 .include-code-cache/
+.cursor/
 .vercel
 web/.vercel
 *.log
@@ -24,4 +25,3 @@ web/.vercel
 id_rsa
 id_ed25519
 secrets/
-.cursor/

@@ -1,4 +1,4 @@
-import { type Logger, createLogger } from "@aztec/foundation/log";
+import { type Logger, createLogger } from "@aztec-labs/foundation/log";
 import { deploySchnorrAccount } from "../src/utils/deploy_account.js";
 
 export async function deployAccount() {

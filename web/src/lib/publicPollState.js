@@ -1,7 +1,7 @@
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
-import { Fr } from "@aztec/aztec.js/fields";
-import { AztecAddress } from "@aztec/aztec.js/addresses";
-import { deriveStorageSlotInMap } from "@aztec/stdlib/hash";
+import { createHappyVoteNode } from "./nodeClient.js";
+import { Fr } from "@aztec-labs/aztec.js/fields";
+import { AztecAddress } from "@aztec-labs/aztec.js/addresses";
+import { deriveStorageSlotInMap } from "@aztec-labs/stdlib/hash";
 import { POLL_MAP_SLOTS } from "./pollStorageSlots.js";
 
 function asFieldBigInt(value) {
@@ -67,7 +67,7 @@ export async function fetchPublicPollState({
   const address = AztecAddress.fromStringUnsafe(String(contractAddress));
   const pollField = Fr.fromString(String(pollId));
   const pollKey = { toField: () => pollField };
-  const node = createAztecNodeClient(nodeUrl);
+  const node = createHappyVoteNode(nodeUrl);
 
   const tallyRoot = await deriveStorageSlotInMap(new Fr(POLL_MAP_SLOTS.tally), pollKey);
   const optionSlots = await Promise.all(

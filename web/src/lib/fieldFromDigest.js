@@ -6,7 +6,7 @@
  * the encoding and yields `"41,40,187,..."`, which BigInt cannot parse.
  *
  * @param {Uint8Array|ArrayBuffer|Buffer} digest
- * @param {typeof import("@aztec/aztec.js/fields").Fr} Fr
+ * @param {typeof import("@aztec-labs/aztec.js/fields").Fr} Fr
  */
 export function fieldFromDigest(digest, Fr) {
   if (!Fr) throw new Error("Fr constructor is required");

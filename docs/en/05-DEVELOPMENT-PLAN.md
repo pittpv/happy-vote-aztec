@@ -1,6 +1,6 @@
 # 05 — Development Plan
 
-Toolchain: **Aztec 5.1.0**.  
+Toolchain: **Aztec Testnet 6.0.0-rc.3**. Alpha stays **5.2.0**.  
 AI / CLI: https://docs.aztec.network/developers/ai_tooling
 
 ## Phase 0 — Foundation
@@ -68,7 +68,7 @@ SDK + QR gate + server re-verify + on-chain `identity_commitment`. Domain `aztec
 
 ## Phase 6 — Alpha mainnet
 
-Pin Alpha 5.1.0 (or current stable), Fee Juice / FPC, redeploy, incident runbook, public launch. Prefer a persistent Aztec wallet as the default connect path; keep Browser session only as optional low-friction onboarding. Drop or hide the Labs Demo Wallet.
+Pin Alpha **5.2.0**, Fee Juice / FPC, redeploy, incident runbook, public launch. Prefer a persistent Aztec wallet as the default connect path; keep Browser session only as optional low-friction onboarding. Drop or hide the Labs Demo Wallet.
 
 ## Phase 7 — Iteration 2: user-created polls
 

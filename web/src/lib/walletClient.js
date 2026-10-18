@@ -1,9 +1,9 @@
-import { Fr } from "@aztec/aztec.js/fields";
-import { WalletManager } from "@aztec/wallet-sdk/manager";
-import { hashToEmoji } from "@aztec/wallet-sdk/crypto";
-import { IframeWalletProvider } from "@aztec/wallet-sdk/iframe/provider";
-import { WalletMessageType } from "@aztec/wallet-sdk/types";
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
+import { Fr } from "@aztec-labs/aztec.js/fields";
+import { WalletManager } from "@aztec-labs/wallet-sdk/manager";
+import { hashToEmoji } from "@aztec-labs/wallet-sdk/crypto";
+import { IframeWalletProvider } from "@aztec-labs/wallet-sdk/iframe/provider";
+import { WalletMessageType } from "@aztec-labs/wallet-sdk/types";
+import { createHappyVoteNode } from "./nodeClient.js";
 import { getNodeUrl } from "./aztecClient.js";
 
 export const APP_ID = "happyvote-aztec";
@@ -12,11 +12,22 @@ export const AZGUARD_STORE_URL =
   "https://chromewebstore.google.com/detail/azguard-wallet/pliilpgjnbkndmcgkfpdmmpkagblcmgi";
 export const FEE_JUICE_FAUCET_URL = "https://aztec-faucet.nethermind.io/";
 
+function extraWalletOfferModules() {
+  return Object.values(import.meta.glob("./wallet-offers/*.js", { eager: true }));
+}
+
+/** Extra Connect sources from a local-only folder (absent in the public tree). */
+export function extraWalletSources() {
+  return extraWalletOfferModules().flatMap((mod) =>
+    typeof mod.extraWalletSources === "function" ? mod.extraWalletSources() : [],
+  );
+}
+
 let cachedChainInfo = null;
 
 export async function getChainInfo() {
   if (cachedChainInfo) return cachedChainInfo;
-  const node = createAztecNodeClient(getNodeUrl());
+  const node = createHappyVoteNode(getNodeUrl());
   const info = await node.getNodeInfo();
   if (info?.l1ChainId == null || info?.rollupVersion == null) {
     throw new Error("Aztec node did not return l1ChainId / rollupVersion");
@@ -36,11 +47,22 @@ export const WEB_WALLET_PROBE_MS = 30_000;
 
 /**
  * Discover only the chosen source so extension approval prompts fire after the user picks.
- * @param {"extension" | "web"} choice
+ * @param {string} choice
  */
 export function discoverWallets(chainInfo, onWalletDiscovered, choice, timeoutMs = 10_000) {
   if (choice === "web") {
-    return discoverDemoWallet(chainInfo, onWalletDiscovered, WEB_WALLET_PROBE_MS);
+    return discoverWebWallet(DEMO_WALLET_URL, chainInfo, onWalletDiscovered, WEB_WALLET_PROBE_MS, {
+      canProve: false,
+    });
+  }
+  const extra = extraWalletSources().find((source) => source.choice === choice);
+  if (extra?.walletUrl) {
+    return discoverWebWallet(extra.walletUrl, chainInfo, onWalletDiscovered, WEB_WALLET_PROBE_MS, {
+      canProve: Boolean(extra.canProve),
+      setupHint: extra.setupHint,
+      accountTimeoutHint: extra.accountTimeoutHint,
+      noAccountHint: extra.noAccountHint,
+    });
   }
   return WalletManager.configure({
     extensions: { enabled: choice === "extension" },
@@ -54,15 +76,20 @@ export function discoverWallets(chainInfo, onWalletDiscovered, choice, timeoutMs
 }
 
 /**
- * Hidden iframe probe with a longer timeout than @aztec/wallet-sdk's built-in 10s.
- * @param {import("@aztec/aztec.js/account").ChainInfo} chainInfo
+ * Hidden iframe probe with a longer timeout than @aztec-labs/wallet-sdk's built-in 10s.
+ * @param {string} walletUrl
+ * @param {import("@aztec-labs/aztec.js/account").ChainInfo} chainInfo
+ * @param {(provider: import("@aztec-labs/wallet-sdk/iframe/provider").IframeWalletProvider) => void} onWalletDiscovered
+ * @param {number} timeoutMs
+ * @param {{ canProve?: boolean, setupHint?: string, accountTimeoutHint?: string, noAccountHint?: string }} [flags]
  */
-function discoverDemoWallet(chainInfo, onWalletDiscovered, timeoutMs) {
+function discoverWebWallet(walletUrl, chainInfo, onWalletDiscovered, timeoutMs, flags = {}) {
   let cancelled = false;
   let cleanup = () => {};
-  const walletOrigin = new URL(DEMO_WALLET_URL).origin;
+  const walletOrigin = new URL(walletUrl).origin;
   const iframe = document.createElement("iframe");
-  iframe.src = DEMO_WALLET_URL;
+  iframe.credentialless = true;
+  iframe.src = walletUrl;
   iframe.style.cssText =
     "display:none;width:0;height:0;border:none;position:absolute;top:-9999px;";
   iframe.allow = "storage-access; cross-origin-isolated";
@@ -90,7 +117,7 @@ function discoverDemoWallet(chainInfo, onWalletDiscovered, timeoutMs) {
         step = "waiting-discovery";
         if (!iframe.contentWindow) {
           cleanup();
-          reject(new Error("Demo Wallet iframe did not expose a window"));
+          reject(new Error("Iframe wallet did not expose a window"));
           return;
         }
         iframe.contentWindow.postMessage(
@@ -107,12 +134,15 @@ function discoverDemoWallet(chainInfo, onWalletDiscovered, timeoutMs) {
         const info = msg.walletInfo;
         cleanup();
         if (!info?.id || !info?.name) {
-          reject(new Error("Demo Wallet discovery response did not include wallet info"));
+          reject(new Error("Iframe wallet discovery response did not include wallet info"));
           return;
         }
-        onWalletDiscovered(
-          new IframeWalletProvider(info.id, info.name, info.icon, DEMO_WALLET_URL, chainInfo),
-        );
+        const provider = new IframeWalletProvider(info.id, info.name, info.icon, walletUrl, chainInfo);
+        provider.canProve = Boolean(flags.canProve);
+        if (flags.setupHint) provider.setupHint = flags.setupHint;
+        if (flags.accountTimeoutHint) provider.accountTimeoutHint = flags.accountTimeoutHint;
+        if (flags.noAccountHint) provider.noAccountHint = flags.noAccountHint;
+        onWalletDiscovered(provider);
         resolve();
       }
     }
@@ -130,8 +160,32 @@ function discoverDemoWallet(chainInfo, onWalletDiscovered, timeoutMs) {
   };
 }
 
+/**
+ * Parent HappyVote uses COEP credentialless. Chromium blocks cross-origin
+ * iframes unless they are marked credentialless — including the SDK panel.
+ * Must be set before `src` is assigned.
+ */
+function armCredentiallessIframes() {
+  const original = document.createElement.bind(document);
+  document.createElement = function createElement(tagName, options) {
+    const el = original(tagName, options);
+    if (String(tagName).toLowerCase() === "iframe") {
+      el.credentialless = true;
+    }
+    return el;
+  };
+  return () => {
+    document.createElement = original;
+  };
+}
+
 export async function initiateConnection(provider) {
-  return provider.establishSecureChannel(APP_ID);
+  const stop = armCredentiallessIframes();
+  try {
+    return await provider.establishSecureChannel(APP_ID);
+  } finally {
+    stop();
+  }
 }
 
 export async function confirmConnection(pending) {

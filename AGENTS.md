@@ -9,7 +9,7 @@
 
 ## Version
 
-Pin Aztec.nr + `@aztec/*` to **5.1.0** (matches Testnet/Alpha). See https://docs.aztec.network/networks
+Pin Aztec.nr and `@aztec-labs/*` to **Testnet 6.0.0-rc.3**. Alpha stays **5.2.0**. See https://docs.aztec.network/networks
 
 ## Hashing
 
@@ -24,5 +24,5 @@ Default to Poseidon2 for application hashes in Aztec.nr.
 
 - Contract: `src/main.nr` (`HappyVote`)
 - Never edit `src/artifacts/HappyVote.ts` — regenerate with `yarn codegen`
-- Product docs: `docs/en/` and `docs/ru/` (English is primary for this public repo)
-- Do not document a web Admin path or operator UI in public docs
+- Product docs (bilingual): `../docs/aztec/en/` and `../docs/aztec/ru/`
+- Root AI rules: `../AGENTS.md`

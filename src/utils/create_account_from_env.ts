@@ -1,10 +1,10 @@
-import { Fr } from "@aztec/aztec.js/fields";
-import { GrumpkinScalar } from "@aztec/foundation/curves/grumpkin";
-import { type Logger, createLogger } from "@aztec/foundation/log";
-import { AccountManager } from "@aztec/aztec.js/wallet";
+import { Fr } from "@aztec-labs/aztec.js/fields";
+import { GrumpkinScalar } from "@aztec-labs/foundation/curves/grumpkin";
+import { type Logger, createLogger } from "@aztec-labs/foundation/log";
+import { AccountManager } from "@aztec-labs/aztec.js/wallet";
 import { setupWallet } from "./setup_wallet.js";
 import * as dotenv from 'dotenv';
-import { EmbeddedWallet } from "@aztec/wallets/embedded";
+import { EmbeddedWallet } from "@aztec-labs/wallets/embedded";
 
 // Load environment variables
 dotenv.config();

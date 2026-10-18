@@ -1,6 +1,6 @@
 # 05 — План разработки
 
-Toolchain: **Aztec 5.1.0**.  
+Toolchain: **Aztec Testnet 6.0.0-rc.3**. Alpha остаётся **5.2.0**.  
 AI / CLI: https://docs.aztec.network/developers/ai_tooling
 
 ## Phase 0 — Foundation

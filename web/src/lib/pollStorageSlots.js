@@ -1,5 +1,5 @@
-import { Fr } from "@aztec/aztec.js/fields";
-import { deriveStorageSlotInMap } from "@aztec/stdlib/hash";
+import { Fr } from "@aztec-labs/aztec.js/fields";
+import { deriveStorageSlotInMap } from "@aztec-labs/stdlib/hash";
 
 /**
  * HappyVote public map bases (codegen storage layout).

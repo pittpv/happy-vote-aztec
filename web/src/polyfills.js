@@ -1,5 +1,5 @@
 /**
- * Browser globals required by @aztec/* (Node-style Buffer/process).
+ * Browser globals required by @aztec-labs/* (Node-style Buffer/process).
  * Must load before any Aztec imports.
  */
 import { Buffer } from "buffer";

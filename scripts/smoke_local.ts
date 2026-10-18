@@ -7,12 +7,12 @@
  */
 import "dotenv/config";
 import { HappyVoteContract } from "../src/artifacts/HappyVote.js";
-import { Fr } from "@aztec/aztec.js/fields";
-import { type Logger, createLogger } from "@aztec/foundation/log";
-import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
+import { Fr } from "@aztec-labs/aztec.js/fields";
+import { type Logger, createLogger } from "@aztec-labs/foundation/log";
+import { SponsoredFeePaymentMethod } from "@aztec-labs/aztec.js/fee";
 import { setupWallet } from "../src/utils/setup_wallet.js";
 import { getSponsoredFPCInstance } from "../src/utils/sponsored_fpc.js";
-import { SponsoredFPCContractArtifact } from "@aztec/noir-contracts.js/SponsoredFPC";
+import { SponsoredFPCContractArtifact } from "@aztec-labs/noir-contracts.js/SponsoredFPC";
 import { deploySchnorrAccount } from "../src/utils/deploy_account.js";
 import { getTimeouts } from "../config/config.js";
 
@@ -57,11 +57,12 @@ async function main() {
   const fee = { paymentMethod: new SponsoredFeePaymentMethod(sponsoredFPC.address) };
 
   logger.info("Deploying admin account…");
+  process.env.FORCE_ACCOUNT_DEPLOY = "true";
   const admin = await deploySchnorrAccount(wallet);
   logger.info(`Admin: ${admin.address}`);
 
   logger.info("Deploying voter account…");
-  const voter = await deploySchnorrAccount(wallet);
+  const voter = await deploySchnorrAccount(wallet, { fresh: true });
   logger.info(`Voter: ${voter.address}`);
 
   logger.info("Deploying HappyVote…");
@@ -90,7 +91,7 @@ async function main() {
   if (happy !== 1n) throw new Error(`Expected happy tally 1, got ${happy}`);
 
   logger.info("Second voter open vote (Sad)…");
-  const voter2 = await deploySchnorrAccount(wallet);
+  const voter2 = await deploySchnorrAccount(wallet, { fresh: true });
   await contract.methods
     .cast_vote_open(pollId, new Fr(1), new Fr(0), new Fr(Math.floor(Date.now() / 1000 / 86400)))
     .send({ from: voter2.address, fee, wait: { timeout: timeouts.txTimeout } });
@@ -121,7 +122,7 @@ async function main() {
       "VITE_AZTEC_NODE_URL=http://localhost:8080",
       `VITE_HAPPY_VOTE_CONTRACT_ADDRESS=${contract.address}`,
       "VITE_DEFAULT_POLL_ID=1",
-      "VITE_SPONSORED_FPC_ADDRESS=0x130925fbd734a252e3d8ddff87f6c346052dd5c13314eb96026b32baa1923296",
+      `VITE_SPONSORED_FPC_ADDRESS=${sponsoredFPC.address}`,
       "VITE_PROVER_ENABLED=false",
       "VITE_REQUIRE_ZKPASSPORT=false",
       "",

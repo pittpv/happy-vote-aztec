@@ -7,7 +7,7 @@ import { fieldFromDigest } from "./fieldFromDigest.js";
 
 /**
  * @param {string} uniqueIdentifier
- * @param {typeof import("@aztec/aztec.js/fields").Fr} Fr
+ * @param {typeof import("@aztec-labs/aztec.js/fields").Fr} Fr
  */
 export async function identityCommitmentFromUid(uniqueIdentifier, Fr) {
   if (!Fr) throw new Error("Fr constructor is required");

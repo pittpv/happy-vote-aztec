@@ -5,7 +5,7 @@
 | Домен | `aztec.happyvote.xyz` |
 | Приложение | `web/` (Vite React) |
 | Хост | Vercel |
-| Сеть | Testnet **5.1.0** |
+| Сеть | Testnet **6.0.0-rc.3** (Alpha **5.2.0**) |
 
 В монорепозитории Root Directory Vercel = `aztec/web`. В публичном репозитории = `web`.
 
@@ -17,7 +17,7 @@ CNAME `aztec` → Vercel, HTTPS. Тот же домен в ZKPassport Dashboard.
 
 ## `vercel.json`
 
-COOP/COEP для WASM proving. CSP: RPC, CRS CDN, ZKPassport. `frame-src` и `child-src` также разрешают `https://demo-wallet.aztec-labs.com`: Web Wallet ищет Demo Wallet скрытым iframe и ждёт `WALLET_READY` до 30 секунд (бандл кошелька большой, 10 секунд не хватает на холодную загрузку). Аккаунт внутри iframe не создаётся. UI не рекомендует Web Wallet: подключение возможно, но доказать бюллетень HappyVote он не может. Записи в `connect-src` для iframe недостаточно — без `frame-src` Connect сообщает, что кошелёк недоступен, хотя хост отвечает HTTP 200. SPA rewrite не глотает `/api/*`, `robots.txt`, `sitemap.xml`.
+COOP/COEP для WASM proving. CSP: RPC, CRS CDN, ZKPassport. Connect больше не открывает Demo Wallet Labs: публичная сборка на Aztec 5.0.1, рукопожатие 6.0.0-rc.3 не завершается, и бюллетень HappyVote он доказать не может. `frame-src` и `child-src` по-прежнему перечисляют `https://demo-wallet.aztec-labs.com`. SPA rewrite не глотает `/api/*`, `robots.txt`, `sitemap.xml`.
 
 ## API
 
