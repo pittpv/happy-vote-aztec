@@ -40,7 +40,7 @@ A minimal voting portal for **any topic**: binary sentiment (Happy/Sad), multi-o
 - **Aztec-native tooling** — `aztec` CLI, Poseidon2, SDK version = network version.
 - **No identity custody** — ZKPassport document data stays on the voter’s device.
 
-## Live status (2026-09-02)
+## Live status (2026-10-18)
 
 Single contract `HappyVote` on **Aztec Testnet 6.0.0-rc.3**: [`0x147d56082a923fb872c9ea28e4e57b3596f27b518f95c51c825839024d61beba`](https://testnet.aztecscan.xyz/address/0x147d56082a923fb872c9ea28e4e57b3596f27b518f95c51c825839024d61beba). v6 is a new genesis: Testnet 5.1.0 transactions and the previous contract address are not on this network. Polls `/p/1` Happy/Sad, `/p/2` single-choice, `/p/3` ZKPassport personhood, `/p/4` sealed tallies. Noir tests **48/48**. Frontend: https://aztec.happyvote.xyz.
 

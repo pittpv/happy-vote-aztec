@@ -40,7 +40,7 @@
 - **Совместимость с Aztec** — только `aztec` CLI, Poseidon2, версия SDK = версия сети.
 - **Без custody identity** — данные документа не покидают устройство.
 
-## Статус (2026-09-02)
+## Статус (2026-10-18)
 
 Контракт `HappyVote` на **Aztec Testnet 6.0.0-rc.3**: [`0x147d56082a923fb872c9ea28e4e57b3596f27b518f95c51c825839024d61beba`](https://testnet.aztecscan.xyz/address/0x147d56082a923fb872c9ea28e4e57b3596f27b518f95c51c825839024d61beba). v6 — новый genesis: транзакции Testnet 5.1.0 и прежний адрес контракта на этой сети недействительны. Опросы `/p/1` Happy/Sad, `/p/2` single-choice, `/p/3` ZKPassport personhood, `/p/4` sealed tallies. Noir-тесты **48/48**. Фронтенд: https://aztec.happyvote.xyz.
 
