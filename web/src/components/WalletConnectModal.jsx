@@ -461,8 +461,8 @@ export function WalletConnectModal({
           <p className="wc-hint">
             {inWallet ? (
               <>
-                These emojis must match your wallet. Confirm here, or confirm in the wallet. Either
-                one continues, and this window closes when the wallet accepts the connection.
+                These emojis must match the ones in your wallet. Confirm them there. This window
+                closes when the wallet accepts the connection.
               </>
             ) : (
               <>Confirm the same emoji grid is shown in your wallet — this blocks impersonation.</>
@@ -479,14 +479,16 @@ export function WalletConnectModal({
             <button type="button" className="btn btn-ghost" onClick={reject}>
               Cancel
             </button>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={confirm}
-              disabled={Boolean(phase.acknowledged)}
-            >
-              {phase.acknowledged ? "Waiting for the wallet…" : "Emojis match"}
-            </button>
+            {inWallet ? null : (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={confirm}
+                disabled={Boolean(phase.acknowledged)}
+              >
+                {phase.acknowledged ? "Waiting for the wallet…" : "Emojis match"}
+              </button>
+            )}
           </div>
         </Modal>
       );

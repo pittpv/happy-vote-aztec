@@ -220,10 +220,10 @@ export function useWalletConnect() {
   }, []);
 
   /**
-   * Extension wallets queue account requests until the user confirms the emoji
-   * grid in the wallet. Starting that request while the grid is on screen lets
-   * either confirmation finish the handshake: the HappyVote button, or the
-   * wallet button (the queued call resolves and this dialog closes).
+   * Extension wallets keep their own emoji confirmation. The site cannot accept
+   * it for them: wallet-sdk has no message that dismisses the wallet prompt.
+   * The account request is started while HappyVote still shows the grid, so
+   * this dialog closes when the wallet accepts.
    */
   const runVerification = useCallback(
     async (gen, pending, provider) => {

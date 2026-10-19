@@ -228,7 +228,7 @@ Connect lists the wallets this browser can use.
 
 The Labs Demo Wallet is not offered: the public build is Aztec 5.0.1, so it cannot complete the 6.0.0-rc.3 handshake, and it cannot prove a HappyVote ballot.
 
-After the encrypted channel opens, HappyVote and the wallet each show the same emoji grid. Confirming in HappyVote or confirming in the wallet continues the connection. When the wallet accepts, the HappyVote emoji window closes. Cancelling in either place drops the connection.
+After the encrypted channel opens, HappyVote and the wallet each show the same emoji grid. The wallet keeps its own confirmation; HappyVote cannot accept that prompt. The HappyVote window closes when the wallet accepts. Cancelling in either place drops the connection.
 
 | Source | What it is | Address | On Alpha |
 |--------|------------|---------|----------|
