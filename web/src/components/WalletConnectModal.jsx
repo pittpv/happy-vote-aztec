@@ -100,8 +100,8 @@ function ChooseSourceBody({
           </>
         ) : (
           <>
-            Vote with <strong>Browser session</strong>, or pick an installed wallet. An extension
-            shows its own name here after it approves this site.
+            Vote with <strong>Browser session</strong>, or pick an installed wallet. If yours is
+            not listed, approve HappyVote in the wallet popup and its name will appear here.
             {allowAdminImport ? (
               <>
                 {" "}

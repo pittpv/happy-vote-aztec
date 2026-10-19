@@ -30,7 +30,7 @@ Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data
 4. If the poll requires ZKPassport, complete verification first (QR on desktop, ZKPassport app on the phone). After success the block collapses to **Identity verified**.
 5. Click **Connect Aztec wallet**.
    - **Browser session** is always listed. It creates an initializerless Schnorr account in this tab — no on-chain account-deploy tx. Proving the ballot itself can still take several minutes. Each new Browser session is a **new Aztec address**.
-   - Installed wallet-sdk extensions appear under their own name after they approve this site. Several can be installed at once; pick one. HappyVote connects only that wallet.
+   - If an installed wallet is not listed, approve HappyVote in its popup. Its name then appears in this window. Several can be installed at once; pick one. HappyVote connects only that wallet.
    - **[Azguard](https://azguardwallet.io/)** is listed only when the extension is installed. The current release is Aztec 5.2.0 and cannot connect to this Testnet (6.0.0-rc.3). Testnet ballots are sponsored — you do not need Fee Juice for the vote itself.
    - When a wallet connects, compare the emoji grid with the wallet, then confirm in the wallet. HappyVote closes once the wallet accepts.
 6. Under **Your ballot** pick an option. Under **Ballot privacy** choose **Private** (default) or **Open**.
