@@ -46,7 +46,67 @@ export async function getChainInfo() {
 export const WEB_WALLET_PROBE_MS = 30_000;
 
 /**
- * Discover only the chosen source so extension approval prompts fire after the user picks.
+ * Browser extensions answer wallet-sdk discovery with their own name and icon.
+ * Previously approved origins can answer immediately; a new origin answers after
+ * the user approves the request in the extension popup.
+ * @param {import("@aztec-labs/aztec.js/account").ChainInfo} chainInfo
+ * @param {(provider: { id: string, name: string, icon?: string }) => void} onWalletDiscovered
+ * @param {number} [timeoutMs]
+ */
+export function discoverInstalledExtensions(chainInfo, onWalletDiscovered, timeoutMs = 60_000) {
+  return discoverWallets(chainInfo, onWalletDiscovered, "extension", timeoutMs);
+}
+
+/**
+ * Azguard's in-page provider. Presence means the extension is installed.
+ * It does not mean the build speaks this Testnet's wallet-sdk.
+ * @param {(installed: boolean) => void} onInstalled
+ * @param {number} [timeoutMs]
+ */
+export function watchAzguardInstalled(onInstalled, timeoutMs = 1500) {
+  if (typeof window === "undefined") {
+    onInstalled(false);
+    return () => {};
+  }
+  let stopped = false;
+  const publish = (installed) => {
+    if (!stopped) onInstalled(installed);
+  };
+  if (window.azguard) {
+    publish(true);
+    return () => {
+      stopped = true;
+    };
+  }
+  const started = Date.now();
+  const timer = setInterval(() => {
+    if (window.azguard) {
+      clearInterval(timer);
+      publish(true);
+      return;
+    }
+    if (Date.now() - started >= timeoutMs) {
+      clearInterval(timer);
+      publish(false);
+    }
+  }, 50);
+  return () => {
+    stopped = true;
+    clearInterval(timer);
+  };
+}
+
+/** @param {{ id?: string, name?: string } | null | undefined} provider */
+export function isAzguardProvider(provider) {
+  const name = String(provider?.name || "").toLowerCase();
+  const id = String(provider?.id || "").toLowerCase();
+  return name.includes("azguard") || id.includes("azguard");
+}
+
+/**
+ * Discover one source.
+ * `extension` asks installed wallet-sdk extensions to identify themselves.
+ * `web` and extra sources probe a specific iframe wallet URL.
  * @param {string} choice
  */
 export function discoverWallets(chainInfo, onWalletDiscovered, choice, timeoutMs = 10_000) {

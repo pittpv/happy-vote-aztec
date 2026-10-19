@@ -2,15 +2,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   cancelConnection,
   confirmConnection,
+  discoverInstalledExtensions,
   discoverWallets,
   getChainInfo,
   initiateConnection,
   unwrapAddress,
   verificationEmojis,
+  watchAzguardInstalled,
 } from "../lib/walletClient.js";
 import { happyVoteCapabilities } from "../lib/walletCapabilities.js";
 import { isUserRejection, WalletUserRejectedError } from "../lib/walletErrors.js";
 import { explainError } from "../lib/userMessages.js";
+import { isIosBrowser } from "../lib/browser.js";
 
 async function resolveGrantedAccounts(wallet) {
   try {
@@ -53,7 +56,10 @@ function swallowDisconnect(provider) {
 export function useWalletConnect() {
   const [phase, setPhase] = useState({ kind: "idle" });
   const sessionRef = useRef(null);
+  const azguardWatchRef = useRef(null);
   const discoveryGenRef = useRef(0);
+  const verifyGenRef = useRef(0);
+  const verifyTaskRef = useRef(null);
   const panelProviderRef = useRef(null);
   const disconnectUnsubRef = useRef(null);
   const phaseRef = useRef(phase);
@@ -66,6 +72,8 @@ export function useWalletConnect() {
     discoveryGenRef.current += 1;
     sessionRef.current?.cancel();
     sessionRef.current = null;
+    azguardWatchRef.current?.();
+    azguardWatchRef.current = null;
   }, []);
 
   const teardownConnection = useCallback(() => {
@@ -102,11 +110,67 @@ export function useWalletConnect() {
     [cleanup, teardownConnection],
   );
 
+  const scanExtensions = useCallback(async (gen) => {
+    setPhase((prev) =>
+      prev.kind === "choosing" ? { ...prev, providers: [], scanning: true, scanError: "" } : prev,
+    );
+    try {
+      const chainInfo = await getChainInfo();
+      if (discoveryGenRef.current !== gen) return;
+      const session = discoverInstalledExtensions(chainInfo, (provider) => {
+        if (discoveryGenRef.current !== gen) return;
+        setPhase((prev) => {
+          if (prev.kind !== "choosing") return prev;
+          const existing = prev.providers ?? [];
+          if (existing.some((item) => item.id === provider.id)) return prev;
+          return { ...prev, providers: [...existing, provider] };
+        });
+      });
+      sessionRef.current = session;
+      await session.done;
+      if (discoveryGenRef.current !== gen) return;
+      setPhase((prev) => (prev.kind === "choosing" ? { ...prev, scanning: false } : prev));
+    } catch (err) {
+      if (discoveryGenRef.current !== gen) return;
+      const name = err?.name || "";
+      const message = String(err?.message || err || "");
+      if (name === "AbortError" || /abort|cancell?ed/i.test(message)) {
+        setPhase((prev) => (prev.kind === "choosing" ? { ...prev, scanning: false } : prev));
+        return;
+      }
+      const explained = explainError(err, "connect");
+      setPhase((prev) =>
+        prev.kind === "choosing"
+          ? { ...prev, scanning: false, scanError: explained.text }
+          : prev,
+      );
+    }
+  }, []);
+
   const start = useCallback(() => {
     teardownConnection();
-    void getChainInfo().catch(() => {});
-    setPhase({ kind: "choosing" });
-  }, [teardownConnection]);
+    cleanup();
+    const gen = discoveryGenRef.current;
+    const ios = isIosBrowser();
+    setPhase({
+      kind: "choosing",
+      providers: [],
+      scanning: !ios,
+      azguardInstalled: false,
+      azguardChecked: ios,
+      scanError: "",
+    });
+    if (ios) return;
+    azguardWatchRef.current = watchAzguardInstalled((installed) => {
+      if (discoveryGenRef.current !== gen) return;
+      setPhase((prev) =>
+        prev.kind === "choosing"
+          ? { ...prev, azguardInstalled: installed, azguardChecked: true }
+          : prev,
+      );
+    });
+    void scanExtensions(gen);
+  }, [cleanup, scanExtensions, teardownConnection]);
 
   const beginDiscovery = useCallback(
     async (choice) => {
@@ -150,14 +214,158 @@ export function useWalletConnect() {
     [cleanup],
   );
 
+  const abandonVerification = useCallback(() => {
+    verifyGenRef.current += 1;
+    verifyTaskRef.current = null;
+  }, []);
+
+  /**
+   * Extension wallets queue account requests until the user confirms the emoji
+   * grid in the wallet. Starting that request while the grid is on screen lets
+   * either confirmation finish the handshake: the HappyVote button, or the
+   * wallet button (the queued call resolves and this dialog closes).
+   */
+  const runVerification = useCallback(
+    async (gen, pending, provider) => {
+      try {
+        const wallet = await confirmConnection(pending);
+        if (verifyGenRef.current !== gen) {
+          swallowDisconnect(provider);
+          return;
+        }
+        const isWeb = provider?.type === "web";
+        if (isWeb) {
+          setPhase({
+            kind: "creating-session",
+            text:
+              provider?.setupHint ||
+              "Use the Demo Wallet panel. If it has no account, open demo-wallet.aztec-labs.com in a new tab, create one, then click I've created an account in the panel.",
+          });
+        }
+        const rawAccounts = await withTimeout(
+          resolveGrantedAccounts(wallet),
+          isWeb ? 120_000 : 30_000,
+          provider?.accountTimeoutHint ||
+            (isWeb
+              ? "The Demo Wallet did not return an account. Open https://demo-wallet.aztec-labs.com, create an account, then reconnect and finish setup in the wallet panel."
+              : "The wallet did not return an account in time. Reconnect and approve the request."),
+        );
+        if (verifyGenRef.current !== gen) {
+          swallowDisconnect(provider);
+          return;
+        }
+
+        if (rawAccounts.length === 0) {
+          let version = "";
+          try {
+            version = BigInt((await getChainInfo()).version.toString()).toString();
+          } catch (err) {
+            if (verifyGenRef.current !== gen) {
+              swallowDisconnect(provider);
+              return;
+            }
+            throw err;
+          }
+          if (verifyGenRef.current !== gen) {
+            swallowDisconnect(provider);
+            return;
+          }
+          teardownConnection();
+          const explained = explainError(
+            new Error(
+              provider?.noAccountHint ||
+                (isWeb
+                  ? "The Demo Wallet has no account in this browser yet. Open https://demo-wallet.aztec-labs.com, create an account, then reconnect."
+                  : `Your wallet connected but has no account on the current testnet${version ? ` (rollup ${version})` : ""}. Switch network or create an account, then reconnect.`),
+            ),
+            "connect",
+          );
+          setPhase({
+            kind: "error",
+            title: explained.title,
+            message: explained.text,
+          });
+          return;
+        }
+
+        const addresses = rawAccounts.map((a) => unwrapAddress(a)).filter((a) => a !== null);
+
+        if (verifyGenRef.current !== gen) {
+          swallowDisconnect(provider);
+          return;
+        }
+
+        if (addresses.length === 0) {
+          teardownConnection();
+          setPhase({
+            kind: "error",
+            title: "Could not read wallet",
+            message: "The wallet did not return a usable Aztec address. Reconnect and try another account.",
+          });
+          return;
+        }
+
+        armDisconnectWatch();
+        if (addresses.length === 1) {
+          setPhase({ kind: "connected", wallet, address: addresses[0] });
+        } else {
+          setPhase({ kind: "picking-account", wallet, accounts: addresses });
+        }
+      } catch (err) {
+        if (verifyGenRef.current !== gen) {
+          swallowDisconnect(provider);
+          return;
+        }
+        teardownConnection();
+        if (isUserRejection(err)) {
+          const explained = explainError(new Error("Connection cancelled. Connect again to retry."), "connect");
+          setPhase({
+            kind: "error",
+            title: explained.title,
+            message: explained.text,
+          });
+          return;
+        }
+        const explained = explainError(err, "connect");
+        setPhase({
+          kind: "error",
+          title: explained.title,
+          message: explained.text,
+        });
+      }
+    },
+    [armDisconnectWatch, teardownConnection],
+  );
+
+  const startVerification = useCallback(
+    (pending, provider) => {
+      const gen = verifyGenRef.current;
+      if (verifyTaskRef.current === gen) return;
+      verifyTaskRef.current = gen;
+      void runVerification(gen, pending, provider);
+    },
+    [runVerification],
+  );
+
   const pickProvider = useCallback(
     async (provider) => {
+      cleanup();
+      abandonVerification();
+      const gen = verifyGenRef.current;
       panelProviderRef.current = provider;
       setPhase({ kind: "connecting", provider });
       try {
         const pending = await initiateConnection(provider);
+        if (verifyGenRef.current !== gen) {
+          cancelConnection(pending);
+          teardownConnection();
+          return;
+        }
         const emojis = verificationEmojis(pending);
-        setPhase({ kind: "verifying", provider, pending, emojis });
+        setPhase({ kind: "verifying", provider, pending, emojis, acknowledged: false });
+        if (provider?.type !== "web") {
+          startVerification(pending, provider);
+        }
       } catch (err) {
         teardownConnection();
         const raw = err instanceof Error ? err.message : "Failed to connect";
@@ -179,96 +387,15 @@ export function useWalletConnect() {
         });
       }
     },
-    [teardownConnection],
+    [abandonVerification, cleanup, startVerification, teardownConnection],
   );
 
-  const confirm = useCallback(async () => {
+  const confirm = useCallback(() => {
     const current = phaseRef.current;
     if (current.kind !== "verifying") return;
-    try {
-      const wallet = await confirmConnection(current.pending);
-      const isWeb = current.provider?.type === "web";
-      if (isWeb) {
-        setPhase({
-          kind: "creating-session",
-          text:
-            current.provider?.setupHint ||
-            "Use the Demo Wallet panel. If it has no account, open demo-wallet.aztec-labs.com in a new tab, create one, then click I've created an account in the panel.",
-        });
-      }
-      const rawAccounts = await withTimeout(
-        resolveGrantedAccounts(wallet),
-        isWeb ? 120_000 : 30_000,
-        current.provider?.accountTimeoutHint ||
-          (isWeb
-            ? "The Demo Wallet did not return an account. Open https://demo-wallet.aztec-labs.com, create an account, then reconnect and finish setup in the wallet panel."
-            : "The wallet did not return an account in time. Reconnect and approve the request."),
-      );
-
-      if (rawAccounts.length === 0) {
-        let version = "";
-        try {
-          version = BigInt((await getChainInfo()).version.toString()).toString();
-        } catch {
-          /* ignore */
-        }
-        teardownConnection();
-        const explained = explainError(
-          new Error(
-            current.provider?.noAccountHint ||
-              (isWeb
-                ? "The Demo Wallet has no account in this browser yet. Open https://demo-wallet.aztec-labs.com, create an account, then reconnect."
-                : `Your wallet connected but has no account on the current testnet${version ? ` (rollup ${version})` : ""}. Switch network or create an account, then reconnect.`),
-          ),
-          "connect",
-        );
-        setPhase({
-          kind: "error",
-          title: explained.title,
-          message: explained.text,
-        });
-        return;
-      }
-
-      const addresses = rawAccounts
-        .map((a) => unwrapAddress(a))
-        .filter((a) => a !== null);
-
-      if (addresses.length === 0) {
-        teardownConnection();
-        setPhase({
-          kind: "error",
-          title: "Could not read wallet",
-          message: "The wallet did not return a usable Aztec address. Reconnect and try another account.",
-        });
-        return;
-      }
-
-      armDisconnectWatch();
-      if (addresses.length === 1) {
-        setPhase({ kind: "connected", wallet, address: addresses[0] });
-      } else {
-        setPhase({ kind: "picking-account", wallet, accounts: addresses });
-      }
-    } catch (err) {
-      teardownConnection();
-      if (isUserRejection(err)) {
-        const explained = explainError(new Error("Connection cancelled. Connect again to retry."), "connect");
-        setPhase({
-          kind: "error",
-          title: explained.title,
-          message: explained.text,
-        });
-        return;
-      }
-      const explained = explainError(err, "connect");
-      setPhase({
-        kind: "error",
-        title: explained.title,
-        message: explained.text,
-      });
-    }
-  }, [teardownConnection, armDisconnectWatch]);
+    setPhase((prev) => (prev.kind === "verifying" ? { ...prev, acknowledged: true } : prev));
+    startVerification(current.pending, current.provider);
+  }, [startVerification]);
 
   const pickAccount = useCallback((address) => {
     setPhase((prev) => {
@@ -279,30 +406,31 @@ export function useWalletConnect() {
 
   const reject = useCallback(() => {
     const current = phaseRef.current;
+    abandonVerification();
     if (current.kind === "verifying") {
       cancelConnection(current.pending);
-      panelProviderRef.current = null;
+      teardownConnection();
     }
     setPhase({ kind: "idle" });
-  }, []);
+  }, [abandonVerification, teardownConnection]);
 
   const reset = useCallback(() => {
     const current = phaseRef.current;
+    abandonVerification();
     if (current.kind === "verifying") {
       cancelConnection(current.pending);
-      panelProviderRef.current = null;
-    } else {
-      teardownConnection();
     }
-    cleanup();
-    setPhase({ kind: "idle" });
-  }, [cleanup, teardownConnection]);
-
-  const disconnectWallet = useCallback(() => {
     teardownConnection();
     cleanup();
     setPhase({ kind: "idle" });
-  }, [cleanup, teardownConnection]);
+  }, [abandonVerification, cleanup, teardownConnection]);
+
+  const disconnectWallet = useCallback(() => {
+    abandonVerification();
+    teardownConnection();
+    cleanup();
+    setPhase({ kind: "idle" });
+  }, [abandonVerification, cleanup, teardownConnection]);
 
   const fail = useCallback((err) => {
     const explained = explainError(err, "connect");
@@ -313,9 +441,13 @@ export function useWalletConnect() {
     });
   }, []);
 
-  const setProgress = useCallback((text) => {
-    setPhase({ kind: "creating-session", text: String(text || "Creating browser wallet…") });
-  }, []);
+  const setProgress = useCallback(
+    (text) => {
+      cleanup();
+      setPhase({ kind: "creating-session", text: String(text || "Creating browser wallet…") });
+    },
+    [cleanup],
+  );
 
   const adoptSession = useCallback((wallet, address) => {
     disconnectUnsubRef.current?.();

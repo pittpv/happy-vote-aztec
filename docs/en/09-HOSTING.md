@@ -57,7 +57,7 @@ VITE_ZKPASSPORT_DEFAULT_POLICY=vote-identity-verification
 
 Without CRS hosts in `connect-src`, proving fails with opaque `Failed to fetch`.
 
-Connect does not open the Labs Demo Wallet. The public build is Aztec 5.0.1, so it cannot finish a 6.0.0-rc.3 handshake, and it cannot prove a HappyVote ballot. `frame-src` still lists `https://demo-wallet.aztec-labs.com`.
+Connect lists Browser session, Azguard when that extension is installed, and other wallet-sdk extensions after they approve the site. It does not open the Labs Demo Wallet. The public build is Aztec 5.0.1, so it cannot finish a 6.0.0-rc.3 handshake, and it cannot prove a HappyVote ballot. `frame-src` still lists `https://demo-wallet.aztec-labs.com`.
 
 ## Guest tallies API
 

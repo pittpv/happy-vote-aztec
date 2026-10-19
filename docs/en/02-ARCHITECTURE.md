@@ -218,11 +218,21 @@ Guest `/api/poll-state` reads Poseidon map slots stored with the poll when it is
 
 ### 4.1 Wallet types (Testnet UI)
 
-Connect selects **Browser session**. That is how to vote in the tab, including on iPhone. Azguard stays in the list, but its current release is Aztec 5.2.0 and cannot open a session on this Testnet. The Labs Demo Wallet is not offered: the public build is Aztec 5.0.1, so it cannot complete the 6.0.0-rc.3 handshake, and it cannot prove a HappyVote ballot.
+Connect lists the wallets this browser can use.
+
+**Browser session** is always shown. That is how to vote in the tab, including on iPhone. It creates an initializerless Schnorr account in the page. Each Connect is a new address.
+
+**Azguard** is listed only when that extension is installed. The current release is Aztec 5.2.0, so the row is visible but it cannot open a session on this Testnet (6.0.0-rc.3).
+
+**Other wallet-sdk extensions** appear with the name and icon the wallet sends. A site cannot silently enumerate installed extensions: the wallet identifies itself after the user approves this origin. An origin that was already approved can answer immediately. Several wallet-sdk extensions can be installed together. Each one has its own channel, and HappyVote connects only the wallet the user picks.
+
+The Labs Demo Wallet is not offered: the public build is Aztec 5.0.1, so it cannot complete the 6.0.0-rc.3 handshake, and it cannot prove a HappyVote ballot.
+
+After the encrypted channel opens, HappyVote and the wallet each show the same emoji grid. Confirming in HappyVote or confirming in the wallet continues the connection. When the wallet accepts, the HappyVote emoji window closes. Cancelling in either place drops the connection.
 
 | Source | What it is | Address | On Alpha |
 |--------|------------|---------|----------|
-| **Browser extension** | Azguard (Aztec 5.2.0) or a later Aztec wallet. | Persistent if the user keeps that account. | Default path once the wallet matches the network. |
+| **Browser extension** | A wallet-sdk extension that speaks this Testnet. Azguard 5.2.0 is shown when installed, but it cannot connect yet. | Persistent if the user keeps that account. | Default path once the wallet matches the network. |
 | **Browser session** | In-page PXE (`EmbeddedWallet`, ephemeral). Creates an **initializerless** Schnorr account — no on-chain account-deploy tx. | **New on every Connect** (keys are not restored after the tab session). | Optional “vote without installing a wallet”, not a lasting identity. |
 
 `cast_vote_private` and `cast_vote_open` are private entrypoints on HappyVote, so a session account does not need a public account deploy to vote.

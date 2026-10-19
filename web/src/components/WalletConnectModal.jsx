@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { AZGUARD_STORE_URL, extraWalletSources } from "../lib/walletClient.js";
+import { AZGUARD_STORE_URL, extraWalletSources, isAzguardProvider } from "../lib/walletClient.js";
 import { parseAdminKeyMaterial } from "../lib/adminKeys.js";
 import { Notice } from "./Notice.jsx";
 import { explainError } from "../lib/userMessages.js";
@@ -48,36 +48,48 @@ function Modal({ title, children, onClose }) {
   );
 }
 
-function ChooseSourceBody({ beginDiscovery, beginSession, onImportKeys, allowAdminImport }) {
+function WalletRow({ icon, name, hint, onClick }) {
+  const content = (
+    <>
+      <ProviderIcon icon={icon} name={name} />
+      <span className="wc-provider-copy">
+        <strong>{name}</strong>
+        <span>{hint}</span>
+      </span>
+    </>
+  );
+  if (!onClick) {
+    return <div className="wc-provider wc-provider-static">{content}</div>;
+  }
+  return (
+    <button type="button" className="wc-provider" onClick={onClick}>
+      {content}
+    </button>
+  );
+}
+
+function ChooseSourceBody({
+  providers,
+  scanning,
+  azguardInstalled,
+  azguardChecked,
+  scanError,
+  pickProvider,
+  beginDiscovery,
+  beginSession,
+  onImportKeys,
+  onRescan,
+  allowAdminImport,
+}) {
   const ios = isIosBrowser();
   const extraSources = extraWalletSources();
-  const [selected, setSelected] = useState("session");
-  const sessionOption = {
-    choice: "session",
-    name: "Browser session",
-    hint: ios ? "Use this to vote on iPhone" : "Use this to vote",
-  };
-  const extraOptions = extraSources.map((source) => ({
-    choice: source.choice,
-    name: source.name,
-    hint: source.hint,
-  }));
-  const importOption = {
-    choice: "import",
-    name: "Import admin keys",
-    hint: "SECRET_KEY + SALT",
-  };
-  const extensionOption = {
-    choice: "extension",
-    name: "Azguard",
-    hint: "Aztec 5.2 build — cannot connect here",
-  };
-  const options = [
-    sessionOption,
-    extensionOption,
-    ...(allowAdminImport ? [importOption] : []),
-    ...extraOptions,
-  ];
+  const found = providers ?? [];
+  const azguardProvider = found.find((provider) => isAzguardProvider(provider));
+  const otherProviders = found.filter((provider) => provider !== azguardProvider);
+  const showAzguardPlaceholder = Boolean(azguardInstalled) && !azguardProvider;
+  const offerInstall =
+    !ios && azguardChecked && !azguardInstalled && !azguardProvider && otherProviders.length === 0;
+
   return (
     <div className="wc-stack">
       <p className="wc-hint">
@@ -88,8 +100,8 @@ function ChooseSourceBody({ beginDiscovery, beginSession, onImportKeys, allowAdm
           </>
         ) : (
           <>
-            Vote with <strong>Browser session</strong>. Azguard’s current release is built for
-            Aztec 5.2.0 and cannot connect to this Testnet (6.0.0-rc.3), even with the correct RPC.
+            Vote with <strong>Browser session</strong>, or pick an installed wallet. An extension
+            shows its own name here after it approves this site.
             {allowAdminImport ? (
               <>
                 {" "}
@@ -99,31 +111,72 @@ function ChooseSourceBody({ beginDiscovery, beginSession, onImportKeys, allowAdm
           </>
         )}
       </p>
-      <div className="wc-choice-grid wc-choice-grid-2">
-        {options.map((o) => (
-          <button
-            key={o.choice}
-            type="button"
-            className="wc-choice"
-            aria-pressed={selected === o.choice}
-            onClick={() => setSelected(o.choice)}
-          >
-            <strong>{o.name}</strong>
-            <span>{o.hint}</span>
-          </button>
+      <div className="wc-stack">
+        <WalletRow
+          name="Browser session"
+          hint={ios ? "Use this to vote on iPhone" : "Keys stay in this tab"}
+          onClick={beginSession}
+        />
+        {azguardProvider ? (
+          <WalletRow
+            icon={azguardProvider.icon}
+            name={azguardProvider.name}
+            hint="Browser extension"
+            onClick={() => pickProvider(azguardProvider)}
+          />
+        ) : null}
+        {showAzguardPlaceholder ? (
+          <WalletRow
+            name="Azguard"
+            hint={
+              scanning
+                ? "Installed. Waiting to see if this build can connect."
+                : "Installed. This build did not answer Testnet 6.0.0-rc.3. The current Azguard release is Aztec 5.2.0."
+            }
+          />
+        ) : null}
+        {otherProviders.map((provider) => (
+          <WalletRow
+            key={provider.id}
+            icon={provider.icon}
+            name={provider.name}
+            hint="Browser extension"
+            onClick={() => pickProvider(provider)}
+          />
         ))}
+        {extraSources.map((source) => (
+          <WalletRow
+            key={source.choice}
+            name={source.name}
+            hint={source.hint}
+            onClick={() => beginDiscovery(source.choice)}
+          />
+        ))}
+        {allowAdminImport ? (
+          <WalletRow name="Import admin keys" hint="SECRET_KEY + SALT" onClick={onImportKeys} />
+        ) : null}
       </div>
-      <button
-        type="button"
-        className="btn btn-primary wc-full"
-        onClick={() => {
-          if (selected === "session") beginSession();
-          else if (selected === "import") onImportKeys();
-          else beginDiscovery(selected);
-        }}
-      >
-        Continue
-      </button>
+      {scanError ? (
+        <Notice tone="error" title="Could not look for wallets">
+          {scanError}
+        </Notice>
+      ) : null}
+      {!ios && scanning ? <p className="wc-fine">Looking for wallet extensions…</p> : null}
+      {!ios && !scanning && found.length === 0 ? (
+        <button type="button" className="btn btn-ghost wc-full" onClick={onRescan}>
+          Check again
+        </button>
+      ) : null}
+      {offerInstall ? (
+        <a
+          className="btn btn-ghost wc-full"
+          href={AZGUARD_STORE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          Install Azguard →
+        </a>
+      ) : null}
     </div>
   );
 }
@@ -317,6 +370,7 @@ export function WalletConnectModal({
   beginDiscovery,
   beginSession,
   beginSessionWithKeys,
+  rescanExtensions,
   allowAdminImport = false,
 }) {
   const [importing, setImporting] = useState(false);
@@ -340,10 +394,17 @@ export function WalletConnectModal({
             />
           ) : (
             <ChooseSourceBody
+              providers={phase.providers}
+              scanning={Boolean(phase.scanning)}
+              azguardInstalled={Boolean(phase.azguardInstalled)}
+              azguardChecked={Boolean(phase.azguardChecked)}
+              scanError={phase.scanError || ""}
+              pickProvider={pickProvider}
               beginDiscovery={beginDiscovery}
               beginSession={beginSession}
               allowAdminImport={allowAdminImport}
               onImportKeys={() => setImporting(true)}
+              onRescan={rescanExtensions}
             />
           )}
         </Modal>
@@ -393,11 +454,19 @@ export function WalletConnectModal({
           <p className="wc-hint">Establishing secure channel…</p>
         </Modal>
       );
-    case "verifying":
+    case "verifying": {
+      const inWallet = phase.provider?.type !== "web";
       return (
         <Modal title="Verify connection" onClose={reject}>
           <p className="wc-hint">
-            Confirm the same emoji grid is shown in your wallet — this blocks impersonation.
+            {inWallet ? (
+              <>
+                These emojis must match your wallet. Confirm here, or confirm in the wallet. Either
+                one continues, and this window closes when the wallet accepts the connection.
+              </>
+            ) : (
+              <>Confirm the same emoji grid is shown in your wallet — this blocks impersonation.</>
+            )}
           </p>
           <div className="wc-emoji-grid" aria-label="Verification emojis">
             {Array.from(phase.emojis).map((emoji, i) => (
@@ -410,12 +479,18 @@ export function WalletConnectModal({
             <button type="button" className="btn btn-ghost" onClick={reject}>
               Cancel
             </button>
-            <button type="button" className="btn btn-primary" onClick={confirm}>
-              Emojis match
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={confirm}
+              disabled={Boolean(phase.acknowledged)}
+            >
+              {phase.acknowledged ? "Waiting for the wallet…" : "Emojis match"}
             </button>
           </div>
         </Modal>
       );
+    }
     case "error": {
       const explained = explainError({ message: phase.message }, "connect");
       return (

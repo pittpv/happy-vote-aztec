@@ -2959,6 +2959,7 @@ body::before {
 .wc-provider-fallback {
   width: 1.5rem;
   height: 1.5rem;
+  flex: 0 0 auto;
   display: grid;
   place-items: center;
   border-radius: 3px;
@@ -2966,6 +2967,33 @@ body::before {
   color: var(--amber);
   font-size: 0.75rem;
   font-weight: 700;
+}
+
+.wc-provider-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.wc-provider-copy strong {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--foam);
+}
+
+.wc-provider-copy span {
+  font-size: 0.75rem;
+  line-height: 1.35;
+  color: var(--mist);
+}
+
+.wc-provider-static {
+  cursor: default;
+}
+
+.wc-provider-static:hover {
+  border-color: var(--line);
 }
 
 .wc-mono {

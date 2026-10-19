@@ -217,6 +217,7 @@ function AppWalletModal({ walletConnect, allowAdminImport }) {
       beginDiscovery={walletConnect.beginDiscovery}
       beginSession={() => connectSession()}
       beginSessionWithKeys={(keys) => connectSession(keys)}
+      rescanExtensions={walletConnect.start}
       allowAdminImport={allowAdminImport}
     />
   );
@@ -1398,8 +1399,9 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                 : "Review the options and public tallies."}
             </li>
             <li>
-              Click <strong>Connect Aztec wallet</strong> and choose <em>Browser session</em>.
-              Azguard’s current release is Aztec 5.2.0 and cannot connect to this Testnet yet.
+              Click <strong>Connect Aztec wallet</strong>. Choose <em>Browser session</em>, or an
+              installed wallet that appears by name. Azguard’s current release is Aztec 5.2.0 and
+              cannot connect to this Testnet yet.
             </li>
             <li>Choose an option, pick Private or Open, then vote. Proving the ballot can take several minutes.</li>
             <li>

@@ -17,7 +17,7 @@ CNAME `aztec` → Vercel, HTTPS. Тот же домен в ZKPassport Dashboard.
 
 ## `vercel.json`
 
-COOP/COEP для WASM proving. CSP: RPC, CRS CDN, ZKPassport. Connect больше не открывает Demo Wallet Labs: публичная сборка на Aztec 5.0.1, рукопожатие 6.0.0-rc.3 не завершается, и бюллетень HappyVote он доказать не может. `frame-src` и `child-src` по-прежнему перечисляют `https://demo-wallet.aztec-labs.com`. SPA rewrite не глотает `/api/*`, `robots.txt`, `sitemap.xml`.
+COOP/COEP для WASM proving. CSP: RPC, CRS CDN, ZKPassport. Connect показывает Browser session, Azguard если расширение установлено, и другие расширения wallet-sdk после одобрения сайта. Demo Wallet Labs он не открывает: публичная сборка на Aztec 5.0.1, рукопожатие 6.0.0-rc.3 не завершается, и бюллетень HappyVote он доказать не может. `frame-src` и `child-src` по-прежнему перечисляют `https://demo-wallet.aztec-labs.com`. SPA rewrite не глотает `/api/*`, `robots.txt`, `sitemap.xml`.
 
 ## API
 
