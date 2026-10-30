@@ -12,6 +12,7 @@ const RANGES = [7, 14, 30];
 const SECTION_LABELS = {
   home: "Home",
   catalog: "All polls",
+  faq: "FAQ",
   polls: "Poll pages",
   legal: "Legal",
   other: "Other",

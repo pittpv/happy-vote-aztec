@@ -1,7 +1,6 @@
 import { Component, lazy, Suspense, useEffect, useState } from "react";
 import {
   PRIVACY,
-  getNodeUrl,
   readPublicPollState,
   prepareVoteSession,
   peekVoteSession,
@@ -43,6 +42,7 @@ import { AdminPolicyIdForm } from "./components/AdminPolicyIdForm.jsx";
 import { AdminPanel, AdminTabs, parseAdminTab } from "./components/AdminTabs.jsx";
 import { trackPageview } from "./lib/siteStats.js";
 import { PollListPage } from "./components/PollListPage.jsx";
+import { FaqPage } from "./components/FaqPage.jsx";
 import { HomePage } from "./components/HomePage.jsx";
 import { SiteHeader } from "./components/SiteHeader.jsx";
 import { useWalletConnect } from "./hooks/useWalletConnect.js";
@@ -61,7 +61,8 @@ import {
   unixSecondsToIso,
 } from "./lib/pollSchedule.js";
 import { SITE_NAME } from "./lib/site.js";
-import { metaDescription, pageTitle, webPageJsonLd } from "./lib/seo.js";
+import { metaDescription, pageTitle, pollJsonLd, pollShareDescription, webPageJsonLd } from "./lib/seo.js";
+import { networkHeading } from "./lib/networkLabel.js";
 import { usePageSeo } from "./hooks/usePageSeo.js";
 import { Notice } from "./components/Notice.jsx";
 import { explainError } from "./lib/userMessages.js";
@@ -156,6 +157,15 @@ export default function App() {
     return (
       <>
         <PollListPage walletConnect={walletConnect} />
+        <AppWalletModal walletConnect={walletConnect} allowAdminImport={false} />
+      </>
+    );
+  }
+
+  if (route.kind === "faq") {
+    return (
+      <>
+        <FaqPage walletConnect={walletConnect} />
         <AppWalletModal walletConnect={walletConnect} allowAdminImport={false} />
       </>
     );
@@ -749,23 +759,34 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [walletConnect.phase.kind]);
 
-  const pollSeoTitle = pageTitle(pollMeta.title);
-  const pollSeoDescription = metaDescription(pollMeta.description);
+  const pollKnownForSeo = hasKnownPollMeta(routePollId);
+  const pollSeoTitle = pageTitle(pollKnownForSeo ? pollMeta.title : `Poll #${routePollId}`);
+  const pollSeoDescription = pollKnownForSeo
+    ? pollShareDescription(pollMeta)
+    : metaDescription("This poll is not in the HappyVote catalog.");
   const pollSeoPath = pollPath(routePollId);
   usePageSeo({
     title: pollSeoTitle,
     description: pollSeoDescription,
     path: pollSeoPath,
-    jsonLd: webPageJsonLd({
-      title: pollSeoTitle,
-      description: pollSeoDescription,
-      path: pollSeoPath,
-      breadcrumbs: [
-        { name: SITE_NAME, path: "/" },
-        { name: "All polls", path: "/polls" },
-        { name: pollMeta.title, path: pollSeoPath },
-      ],
-    }),
+    noindex: !pollKnownForSeo && !metaPending,
+    jsonLd: pollKnownForSeo
+      ? pollJsonLd({
+          title: pollSeoTitle,
+          description: pollSeoDescription,
+          path: pollSeoPath,
+          poll: pollMeta,
+        })
+      : webPageJsonLd({
+          title: pollSeoTitle,
+          description: pollSeoDescription,
+          path: pollSeoPath,
+          breadcrumbs: [
+            { name: SITE_NAME, path: "/" },
+            { name: "All polls", path: "/polls" },
+            { name: pollKnownForSeo ? pollMeta.title : `Poll #${routePollId}`, path: pollSeoPath },
+          ],
+        }),
   });
 
   function clearSession() {
@@ -1057,7 +1078,7 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
             ) : null}
             <div className="meta vote-meta">
               <span>
-                Network <strong>{getNodeUrl().includes("localhost") ? "local" : "testnet"}</strong>
+                Network <strong>{networkHeading()}</strong>
               </span>
               {resultsHidden ? (
                 <span>

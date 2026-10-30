@@ -8,7 +8,7 @@
 | App | `web/` (Vite React) |
 | Host | Vercel |
 
-| Aztec network (prod) | Testnet **6.0.0-rc.3** (Alpha stays **5.2.0**) |
+| Aztec network (prod) | Stable **6.0.0** on Testnet and Mainnet. This site votes on Testnet. |
 
 In the HappyVote monorepo the Vite app is `aztec/web` and Vercel Root Directory is `aztec/web`. In the standalone public repo the Root Directory is `web`.
 
@@ -31,8 +31,8 @@ Build (inside `web/`): `npm install` then `npm run build` → `dist`.
 
 ```
 VITE_AZTEC_NODE_URL=https://aztec-testnet.drpc.org
-VITE_HAPPY_VOTE_CONTRACT_ADDRESS=0x147d56082a923fb872c9ea28e4e57b3596f27b518f95c51c825839024d61beba
-VITE_SPONSORED_FPC_ADDRESS=0x2adfb70e860909f0db8268b3fec80bce52a94559963444f5c0341816b8412130
+VITE_HAPPY_VOTE_CONTRACT_ADDRESS=0x20053869edad8edf92f0b7144bfc6344e0534866f26b0f330cee87431ebd9e14
+VITE_SPONSORED_FPC_ADDRESS=0x2d8fff82a3b0c15d0a89169e7d8d043e079ab94d52031f1de1e4972ebad169d3
 VITE_DEFAULT_POLL_ID=1
 VITE_PROVER_ENABLED=true
 VITE_REQUIRE_ZKPASSPORT=false
@@ -52,12 +52,12 @@ VITE_ZKPASSPORT_DEFAULT_POLICY=vote-identity-verification
 | CSP `connect-src` | Node RPC, CRS CDN, faucet, demo-wallet, fonts, ZKPassport, Alchemy registry |
 | CSP `frame-src` / `child-src` | `'self'`, `blob:`, and `https://demo-wallet.aztec-labs.com` |
 | CSP `script-src` | `'wasm-unsafe-eval'` / `'unsafe-eval'` for prover |
-| SPA rewrite | `/((?!api/\|robots.txt\|sitemap.xml\|favicon.svg).*)` → `/index.html` |
+| SPA rewrite | `/`, `/polls`, `/faq`, `/p/:id`, and `/legal/:slug` → `/api/document` (unique head). Other app paths → `/index.html` |
 | Permissions-Policy | camera/mic/geo off |
 
 Without CRS hosts in `connect-src`, proving fails with opaque `Failed to fetch`.
 
-Connect lists Browser session, Azguard when that extension is installed, and other wallet-sdk extensions after the user approves HappyVote in the wallet popup. It does not open the Labs Demo Wallet. The public build is Aztec 5.0.1, so it cannot finish a 6.0.0-rc.3 handshake, and it cannot prove a HappyVote ballot. `frame-src` still lists `https://demo-wallet.aztec-labs.com`.
+Connect lists Browser session, Azguard when that extension is installed, and other wallet-sdk extensions after the user approves HappyVote in the wallet popup. It does not open the Labs Demo Wallet. The public build is Aztec 5.0.1, so it cannot finish a 6.0.0 handshake, and it cannot prove a HappyVote ballot. `frame-src` still lists `https://demo-wallet.aztec-labs.com`.
 
 ## Guest tallies API
 
@@ -107,10 +107,12 @@ Without the overlay, everyone still sees the seed catalog. Overlay polls appear 
 
 | File | Role |
 |------|------|
-| `web/index.html` | Default title, description, Open Graph, JSON-LD |
-| `web/src/lib/seo.js` | Per-route title / canonical / WebPage schema |
+| `web/index.html` | Default title, description, Open Graph, Twitter, JSON-LD |
+| `web/api/document.js` | Same shell with a unique title, description, canonical, Open Graph, Twitter card, and JSON-LD for `/`, `/polls`, `/faq`, `/p/:id`, and legal pages |
+| `web/api/og.js` | Share image whose URL is unique per path |
+| `web/src/lib/seo.js` | Client tags kept in step with that head. Each poll is a `Question` with one `Answer` per option |
 | `web/public/robots.txt` | Allow `/`, sitemap |
-| `web/public/sitemap.xml` | Home, polls `/p/1` `/p/2` `/p/3` `/p/4` `/p/5`, legal pages |
+| `web/public/sitemap.xml` | Home, All polls, FAQ, polls `/p/1`–`/p/5`, legal pages |
 
 ## Analytics
 

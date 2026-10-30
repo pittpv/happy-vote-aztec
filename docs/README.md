@@ -1,6 +1,6 @@
 # HappyVote on Aztec — Documentation
 
-**Product:** voting on Aztec Network · **URL:** https://aztec.happyvote.xyz · **Testnet:** 6.0.0-rc.3 · **Alpha:** 5.2.0  
+**Product:** voting on Aztec Network · **URL:** https://aztec.happyvote.xyz · **Protocol:** stable 6.0.0 on Testnet and Mainnet · **Voting site:** Testnet  
 **Public repo:** https://github.com/pittpv/happy-vote-aztec
 
 Documentation is maintained in two languages:

@@ -36,7 +36,7 @@ export function explainError(error, context = "generic") {
   if (/invalid_union|no matching discriminator/i.test(blob)) {
     return {
       title: "Azguard is on an older Aztec version",
-      text: "This site is Aztec Testnet 6.0.0-rc.3. The current Azguard release is built for Aztec 5.2.0, so it rejects the connection even with the correct testnet RPC. Vote with Browser session until Azguard ships a 6.0.0-rc.3 build.",
+      text: "This site is Aztec Testnet 6.0.0. The current Azguard release is built for Aztec 5.2.0, so it rejects the connection even with the correct testnet RPC. Vote with Browser session until Azguard ships a 6.0.0 build.",
     };
   }
   if (isBbWasmAbort(msg) || isBbWasmAbort(stack) || isBbWasmAbort(blob)) {

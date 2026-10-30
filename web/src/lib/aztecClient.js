@@ -52,9 +52,9 @@ export const ELIGIBILITY = {
 const DEFAULT_NODE =
   import.meta.env.VITE_AZTEC_NODE_URL || "http://localhost:8080";
 
-/** Canonical Sponsored FPC on Testnet 6.0.0-rc.3 (salt 0). Confirmed via node_getContract. */
+/** Canonical Sponsored FPC on Testnet 6.0.0 (salt 0). Confirmed via aztec_getContract. */
 const TESTNET_SPONSORED_FPC =
-  "0x2adfb70e860909f0db8268b3fec80bce52a94559963444f5c0341816b8412130";
+  "0x2d8fff82a3b0c15d0a89169e7d8d043e079ab94d52031f1de1e4972ebad169d3";
 
 const SPONSORED_FPC =
   import.meta.env.VITE_SPONSORED_FPC_ADDRESS || TESTNET_SPONSORED_FPC;
@@ -143,7 +143,7 @@ export async function createWallet({ proverEnabled = false, onProgress } = {}) {
 export async function createSessionAccount(wallet, { onProgress } = {}) {
   if (typeof wallet.createSchnorrInitializerlessAccount !== "function") {
     throw new Error(
-      "This Aztec wallet build is missing createSchnorrInitializerlessAccount. Pin @aztec-labs/wallets to 6.0.0-rc.3.",
+      "This Aztec wallet build is missing createSchnorrInitializerlessAccount. Pin @aztec-labs/wallets to 6.0.0.",
     );
   }
 

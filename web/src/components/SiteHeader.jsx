@@ -1,10 +1,11 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { shortAddr } from "../lib/format.js";
-import { homePath, navigate, pollsPath } from "../lib/routing.js";
+import { homePath, faqPath, navigate, pollsPath } from "../lib/routing.js";
 
 const NAV = [
   { id: "home", label: "Home", path: homePath() },
   { id: "polls", label: "All polls", path: pollsPath() },
+  { id: "faq", label: "FAQ", path: faqPath() },
 ];
 
 export function SiteHeader({ walletConnect, current }) {

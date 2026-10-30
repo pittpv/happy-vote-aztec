@@ -109,6 +109,7 @@ function bucketPath(rawPath) {
   if (clean === "/admin" || clean.startsWith("/admin/")) return null;
   if (clean === "/") return "home";
   if (clean === "/polls") return "catalog";
+  if (clean === "/faq") return "faq";
   if (/^\/p\/\d+$/.test(clean)) return "polls";
   if (clean.startsWith("/legal/")) return "legal";
   return "other";

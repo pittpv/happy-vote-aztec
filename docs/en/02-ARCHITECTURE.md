@@ -30,7 +30,7 @@ flowchart TB
     Bridge[wss://bridge.zkpassport.id]
   end
 
-  subgraph AztecL2["Aztec Testnet 6.0.0-rc.3"]
+  subgraph AztecL2["Aztec Testnet 6.0.0"]
     HV[HappyVote contract]
     PrivateExec["Private: cast_vote_* + SingleUseClaim"]
     PublicExec["Public: tally / open ballot / identity_claims"]
@@ -206,15 +206,15 @@ The vote widget uses the **current** catalog `zkRequirements.policyId`. Operator
 
 Guest `/api/poll-state` reads Poseidon map slots stored with the poll when it is published. A poll id that was not created on the current contract returns 404. Public `GET /api/polls` does not return those slots.
 
-`GET /api/earlier-networks` lists ballots from previous Aztec networks. The All polls page shows them under **Earlier networks**, grouped by network name, with the contract address collapsed and the titles and results inside. Those rows are not links to `/p/:id`. Sealed polls on a previous network omit counts until that poll is closed. The response does not include the archive RPC URL.
+`GET /api/earlier-networks` lists ballots from previous Aztec networks. A successful live read is stored as a snapshot. Later responses use that snapshot when the old network no longer answers. The All polls page shows **Earlier networks** only when `networks` is non-empty, grouped by network name, with the contract address collapsed and the titles and results inside. Those rows are not links to `/p/:id`. Sealed polls on a previous network omit counts until that poll is closed. The response does not include the archive RPC URL. An empty list omits the section; it is not an error string.
 
 ## 4. Accounts and fees
 
 | Env | Accounts | Fees |
 |-----|----------|------|
 | Local network | Script-deployed Schnorr | Free |
-| Testnet | See wallet types below. Operator scripts still deploy a regular Schnorr account. | Sponsored FPC |
-| Alpha | Prefer a persistent wallet once it speaks the same Aztec version as the site. Browser session can remain as a low-friction option. | Fee Juice / FPC |
+| Testnet | See wallet types below. Operator scripts still deploy a regular Schnorr account. | Sponsored FPC for today’s ballots. Iteration 2 fee modes are in [05-DEVELOPMENT-PLAN.md](./05-DEVELOPMENT-PLAN.md): Testnet defaults to that FPC; a poll may instead use the sender’s Fee Juice or a poll pool. |
+| Mainnet | Prefer a persistent wallet once it speaks the same Aztec version as the site. Browser session can remain as a low-friction option. | No network-wide Sponsored FPC. Iteration 2 defaults to the sender’s Fee Juice, or a poll pool the creator funded. |
 
 ### 4.1 Wallet types (Testnet UI)
 
@@ -222,11 +222,11 @@ Connect lists the wallets this browser can use.
 
 **Browser session** is always shown. That is how to vote in the tab, including on iPhone. It creates an initializerless Schnorr account in the page. Each Connect is a new address.
 
-**Azguard** is listed only when that extension is installed. The current release is Aztec 5.2.0, so the row is visible but it cannot open a session on this Testnet (6.0.0-rc.3).
+**Azguard** is listed only when that extension is installed. The current release is Aztec 5.2.0, so the row is visible but it cannot open a session on this Testnet (6.0.0).
 
 **Other wallet-sdk extensions** appear with the name and icon the wallet sends. A site cannot silently enumerate installed extensions: the wallet identifies itself after the user approves this origin. An origin that was already approved can answer immediately. Several wallet-sdk extensions can be installed together. Each one has its own channel, and HappyVote connects only the wallet the user picks.
 
-The Labs Demo Wallet is not offered: the public build is Aztec 5.0.1, so it cannot complete the 6.0.0-rc.3 handshake, and it cannot prove a HappyVote ballot.
+The Labs Demo Wallet is not offered: the public build is Aztec 5.0.1, so it cannot complete the 6.0.0 handshake, and it cannot prove a HappyVote ballot.
 
 After the encrypted channel opens, HappyVote and the wallet each show the same emoji grid. The wallet keeps its own confirmation; HappyVote cannot accept that prompt. The HappyVote window closes when the wallet accepts. Cancelling in either place drops the connection.
 

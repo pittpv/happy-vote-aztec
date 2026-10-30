@@ -1,5 +1,6 @@
 import { LEGAL_NAV } from "../lib/legalDocs.js";
 import { legalPath, navigate } from "../lib/routing.js";
+import { footerNetworkLabel } from "../lib/networkLabel.js";
 
 const AUTHOR_LINKS = [
   { label: "X", href: "https://x.com/pittpv" },
@@ -50,19 +51,22 @@ export function SiteFooter({ disclaimer }) {
           </nav>
         </div>
 
-        <nav className="footer-aztec" aria-label="Aztec">
-          {AZTEC_LINKS.map((item) => (
-            <a
-              key={item.href}
-              className="author-nav-link"
-              href={item.href}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              {item.label}
-            </a>
-          ))}
-        </nav>
+        <div className="footer-aztec">
+          <nav className="footer-aztec-links" aria-label="Aztec">
+            {AZTEC_LINKS.map((item) => (
+              <a
+                key={item.href}
+                className="author-nav-link"
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {item.label}
+              </a>
+            ))}
+          </nav>
+          <p className="footer-network">{footerNetworkLabel()}</p>
+        </div>
       </div>
     </footer>
   );

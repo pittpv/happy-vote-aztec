@@ -12,7 +12,7 @@ Landing explains *why* the portal exists (privacy + verified personhood + safer 
 
 Landing: brand, mission, pillars, **featured polls** (catalog `showOnHome`), trust, footer. The full catalog is **All polls** (`/polls`) — search, topic / country / eligibility filters.
 
-Header (desktop and mobile): logo, desktop nav shortcuts, hamburger menu with Home / All polls, wallet connect or connected address, and a slot for later language / theme.
+Header (desktop and mobile): logo, desktop nav shortcuts (Home, All polls, FAQ), hamburger menu with the same links, wallet connect or connected address, and a slot for later language / theme. The vote page labels the network with its version (`testnet v6`). The footer repeats that version under the Aztec links.
 
 ### Content blocks
 
@@ -58,7 +58,7 @@ flowchart LR
 1. Guest: question, options, public tallies (`/api/poll-state`), plus schedule/countdown when dates are set. Catalog-only polls (not in the client seed) show **Loading poll…** until `GET /api/polls?id=` returns, then fetch tallies with the real option count. If the contract is paused or the poll is cancelled, Connect and Vote stay locked. Daily polls show a **Daily** catalog badge and a UTC-day countdown after a ballot. **Sealed** polls omit counts and fill bars on option buttons while voting is open; the header shows **Votes sealed**, and Live results explain that tallies stay hidden until close.
 2. Optional ZKPassport gate (only while the voting window is open). The gate chunk loads after poll metadata so a mobile share link is not blocked by Dashboard or the QR widget.
 3. Connect Aztec wallet. The modal always offers **Browser session** (initializerless PXE, new address each Connect), including on iPhone. Azguard appears only when that extension is installed; its current 5.2.0 release cannot connect to this Testnet. If an installed wallet is not listed, approve HappyVote in its popup and its name appears here. Several can be installed together. HappyVote shows the emoji grid for comparison. The connection continues only when the wallet confirms, and the HappyVote window then closes. The Labs Demo Wallet is not listed.
-4. All polls lists current-contract ballots, then **Earlier networks**: previous Aztec networks, a collapsed contract address, and that network’s titles and results. Those rows do not open `/p/:id`.
+4. All polls lists current-contract ballots, then **Earlier networks** when a previous network still answers or a saved snapshot exists. The section is omitted when neither is available. A snapshot is taken while the old network can still be read, then shown after that network is gone. Rows show the network name, a collapsed contract address, and that network’s titles and results. Those rows do not open `/p/:id`.
 5. Option + Private/Open → submit. The primary button says **Preparing wallet…** only until that address is registered once; later polls keep **Vote privately** / **Vote openly**. While a step is running (**Checking identity…**, **Preparing fee…**, **Proving ballot…**, **Waiting for block…**, **Updating results…**, **Preparing wallet…**), the button stays fully visible and three dots in the label bounce in turn. A local participation hint may appear if this browser already cast a ballot; it does not store an address and does not lock Vote. Submitting again with the **same account** fails on-chain.
 6. The step description, success banner, and error sit directly under the button, above the privacy and daily-limit notes. **Open tx** is on that banner.
 
@@ -96,7 +96,7 @@ Effective date: **15 August 2026**. Contact: **legal@happyvote.xyz**. See [13-LE
 
 ## SEO
 
-Per-route `document.title`, meta description, canonical, Open Graph, Twitter card, JSON-LD (`Organization`, `Person`, `WebSite`, `WebApplication`, `WebPage`). `robots.txt` allows indexing of public pages. `sitemap.xml` lists home, **All polls** `/polls`, poll pages `/p/1` `/p/2` `/p/3` `/p/4` `/p/5`, and legal URLs.
+Per-route `document.title`, meta description, canonical, Open Graph, Twitter card, and JSON-LD. Crawlers receive that head from `/api/document` before the app hydrates. Each poll page is unique: its own title, description, `og:*`, `twitter:*`, image URL (`/api/og?path=/p/:id`), and a `Question` with one suggested `Answer` per option. Home is `Organization` / `WebSite` / `WebApplication`. FAQ is an `FAQPage`. `robots.txt` allows indexing of public pages. `sitemap.xml` lists home, **All polls** `/polls`, **FAQ** `/faq`, poll pages `/p/1`–`/p/5`, and legal URLs.
 
 No third-party analytics counter on this subdomain. First-party cookieless daily aggregates only (`POST /api/site-stats`).
 

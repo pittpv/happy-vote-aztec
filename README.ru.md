@@ -1,6 +1,6 @@
 # HappyVote on Aztec
 
-Голосования с приватностью по умолчанию на [Aztec Network](https://aztec.network) **5.1.0**.
+Голосования с приватностью по умолчанию на [Aztec Network](https://aztec.network). Стабильный образ **6.0.0** стоит на Testnet и Mainnet. Этот сайт голосует в Testnet.
 
 **Сайт:** https://aztec.happyvote.xyz  
 **Документация:** [English](./docs/en/README.md) · [Русский](./docs/ru/README.md)

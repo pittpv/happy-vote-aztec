@@ -25,16 +25,16 @@
     "test:nr": "aztec test"
   },
   "dependencies": {
-    "@aztec-labs/accounts": "6.0.0-rc.3",
-    "@aztec-labs/aztec.js": "6.0.0-rc.3",
-    "@aztec-labs/constants": "6.0.0-rc.3",
-    "@aztec-labs/entrypoints": "6.0.0-rc.3",
-    "@aztec-labs/noir-contracts.js": "6.0.0-rc.3",
-    "@aztec-labs/protocol-contracts": "6.0.0-rc.3",
-    "@aztec-labs/pxe": "6.0.0-rc.3",
-    "@aztec-labs/stdlib": "6.0.0-rc.3",
-    "@aztec-labs/wallet-sdk": "6.0.0-rc.3",
-    "@aztec-labs/wallets": "6.0.0-rc.3",
+    "@aztec-labs/accounts": "6.0.0",
+    "@aztec-labs/aztec.js": "6.0.0",
+    "@aztec-labs/constants": "6.0.0",
+    "@aztec-labs/entrypoints": "6.0.0",
+    "@aztec-labs/noir-contracts.js": "6.0.0",
+    "@aztec-labs/protocol-contracts": "6.0.0",
+    "@aztec-labs/pxe": "6.0.0",
+    "@aztec-labs/stdlib": "6.0.0",
+    "@aztec-labs/wallet-sdk": "6.0.0",
+    "@aztec-labs/wallets": "6.0.0",
     "dotenv": "^17.2.2"
   },
   "devDependencies": {

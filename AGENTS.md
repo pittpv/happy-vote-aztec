@@ -9,7 +9,7 @@
 
 ## Version
 
-Pin Aztec.nr and `@aztec-labs/*` to **Testnet 6.0.0-rc.3**. Alpha stays **5.2.0**. See https://docs.aztec.network/networks
+Pin Aztec.nr and `@aztec-labs/*` to **Testnet 6.0.0**. Alpha is **6.0.0**. See https://docs.aztec.network/networks
 
 ## Hashing
 

@@ -4,16 +4,13 @@ import { countryLabel } from "../lib/countries.js";
 import { pollCountryCodes } from "../lib/zkRequirements.js";
 import { useNow } from "../hooks/useNow.js";
 import { SITE_NAME } from "../lib/site.js";
-import { metaDescription, pageTitle, webPageJsonLd } from "../lib/seo.js";
+import { POLLS_PAGE_DESCRIPTION, pageTitle, webPageJsonLd } from "../lib/seo.js";
 import { usePageSeo } from "../hooks/usePageSeo.js";
 import { SiteFooter } from "./SiteFooter.jsx";
 import { SiteHeader } from "./SiteHeader.jsx";
 import { PollCard } from "./PollCard.jsx";
 import { EarlierNetworks } from "./EarlierNetworks.jsx";
 import { getPollSchedule, POLL_PHASE } from "../lib/pollSchedule.js";
-
-const POLLS_DESCRIPTION =
-  "Browse every HappyVote poll on Aztec Testnet. Search by title or topic, filter by country and eligibility, then open a ballot.";
 
 export function PollListPage({ walletConnect }) {
   const now = useNow(1000);
@@ -92,11 +89,11 @@ export function PollListPage({ walletConnect }) {
   const pollsTitle = pageTitle("All polls");
   usePageSeo({
     title: pollsTitle,
-    description: metaDescription(POLLS_DESCRIPTION),
+    description: POLLS_PAGE_DESCRIPTION,
     path: "/polls",
     jsonLd: webPageJsonLd({
       title: pollsTitle,
-      description: POLLS_DESCRIPTION,
+      description: POLLS_PAGE_DESCRIPTION,
       path: "/polls",
       breadcrumbs: [
         { name: SITE_NAME, path: "/" },

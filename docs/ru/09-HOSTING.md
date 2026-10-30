@@ -5,7 +5,7 @@
 | Домен | `aztec.happyvote.xyz` |
 | Приложение | `web/` (Vite React) |
 | Хост | Vercel |
-| Сеть | Testnet **6.0.0-rc.3** (Alpha **5.2.0**) |
+| Сеть | Стабильный **6.0.0** на Testnet и Mainnet. Этот сайт голосует в Testnet. |
 
 В монорепозитории Root Directory Vercel = `aztec/web`. В публичном репозитории = `web`.
 
@@ -17,7 +17,7 @@ CNAME `aztec` → Vercel, HTTPS. Тот же домен в ZKPassport Dashboard.
 
 ## `vercel.json`
 
-COOP/COEP для WASM proving. CSP: RPC, CRS CDN, ZKPassport. Connect показывает Browser session, Azguard если расширение установлено, и другие расширения wallet-sdk после того, как пользователь одобрит HappyVote во всплывающем окне кошелька. Demo Wallet Labs он не открывает: публичная сборка на Aztec 5.0.1, рукопожатие 6.0.0-rc.3 не завершается, и бюллетень HappyVote он доказать не может. `frame-src` и `child-src` по-прежнему перечисляют `https://demo-wallet.aztec-labs.com`. SPA rewrite не глотает `/api/*`, `robots.txt`, `sitemap.xml`.
+COOP/COEP для WASM proving. CSP: RPC, CRS CDN, ZKPassport. Connect показывает Browser session, Azguard если расширение установлено, и другие расширения wallet-sdk после того, как пользователь одобрит HappyVote во всплывающем окне кошелька. Demo Wallet Labs он не открывает: публичная сборка на Aztec 5.0.1, рукопожатие 6.0.0 не завершается, и бюллетень HappyVote он доказать не может. `frame-src` и `child-src` по-прежнему перечисляют `https://demo-wallet.aztec-labs.com`. SPA rewrite не глотает `/api/*`, `robots.txt`, `sitemap.xml`. `/`, `/polls`, `/faq`, `/p/:id` и `/legal/:slug` отдают `/api/document` с уникальным head. Остальные пути приложения — `/index.html`.
 
 ## API
 
@@ -34,4 +34,4 @@ COOP/COEP для WASM proving. CSP: RPC, CRS CDN, ZKPassport. Connect показ
 
 ## SEO и аналитика
 
-`index.html` + `seo.js`: title, OG, JSON-LD. `robots.txt`, `sitemap.xml`. Стороннего счётчика нет. Есть first-party cookieless агрегат `POST /api/site-stats` (страна, раздел сайта, просмотры). Чтение агрегатов — только у оператора.
+`index.html`, `seo.js` и `/api/document`: title, description, canonical, Open Graph, Twitter и JSON-LD. У каждого опроса свой `Question` и свой URL картинки `/api/og`. `robots.txt`, `sitemap.xml` (включая `/faq` и `/p/1`–`/p/5`). Стороннего счётчика нет. Есть first-party cookieless агрегат `POST /api/site-stats` (страна, раздел сайта, просмотры). Чтение агрегатов — только у оператора.

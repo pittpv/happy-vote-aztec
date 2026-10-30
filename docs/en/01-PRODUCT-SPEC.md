@@ -83,7 +83,7 @@ Important polls should require at least personhood. Details live in catalog JSON
 
 1. Catalog + poll cards (operator-published in Iteration 1).
 2. Poll page: question, options, Vote CTA.
-3. Connect Aztec account. **Browser session** is always offered (initializerless PXE, new address each Connect). Azguard is listed only when installed; its current 5.2.0 release cannot connect to Testnet 6.0.0-rc.3. If an installed wallet is not listed, the user approves HappyVote in the wallet popup and its name appears. HappyVote shows the same emoji grid for comparison; the wallet confirmation is the one that continues, and the HappyVote window closes when the wallet accepts. The Labs Demo Wallet is not offered.
+3. Connect Aztec account. **Browser session** is always offered (initializerless PXE, new address each Connect). Azguard is listed only when installed; its current 5.2.0 release cannot connect to Testnet 6.0.0. If an installed wallet is not listed, the user approves HappyVote in the wallet popup and its name appears. HappyVote shows the same emoji grid for comparison; the wallet confirmation is the one that continues, and the HappyVote window closes when the wallet accepts. The Labs Demo Wallet is not offered.
 4. Private vote + public tally.
 5. Optional open vote (`voter_choice`).
 6. Double-vote prevention (`SingleUseClaim` + identity claims; optional UTC-day period).
@@ -109,7 +109,11 @@ Still manual: real-device ZKPassport E2E; participation receipt note.
 
 ### Iteration 2 — not started
 
-Permissionless `create_poll`, anti-spam, moderation, discovery, more templates, creator profile.
+See the implementation plan in [05-DEVELOPMENT-PLAN.md](./05-DEVELOPMENT-PLAN.md): a non-admin create, catalog signature bound to `metadata_hash`, rate limits, listing on All polls, hide and cancel, then sort. The homepage stays curated.
+
+### Iteration 3 — not started
+
+A short sketch in the same plan. Private ballot, nullifier, and public or sealed tally mapped to DAOs, treasuries, multisigs, and prediction markets. No product buttons yet. [Thread, 2 Oct 2026](https://x.com/happyvoteaztec/status/2105979258011050065).
 
 ## 8. Non-functional
 
@@ -117,7 +121,7 @@ Permissionless `create_poll`, anti-spam, moderation, discovery, more templates, 
 |------|-------------|
 | Safety | No silent `AztecAddress.ZERO` fallbacks |
 | Privacy | No passport images or MRZ on HappyVote servers |
-| Versions | Pin Aztec Testnet **6.0.0-rc.3**. Alpha stays **5.2.0**. |
+| Versions | Pin Aztec **6.0.0**. That stable image is on Testnet and on Mainnet. This site votes on Testnet. |
 | Legal | Disclaimer: tech platform, not an official election commission |
 | Analytics | No third-party analytics counter on aztec.happyvote.xyz; first-party cookieless daily aggregates only |
 | UX | Mission on home; vote page 1080px; honest private-vote copy |

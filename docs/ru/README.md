@@ -2,7 +2,7 @@
 
 **Продукт:** платформа голосований на Aztec Network  
 **URL:** https://aztec.happyvote.xyz  
-**Версия сети / SDK:** Aztec Testnet `6.0.0-rc.3` (Alpha остаётся `5.2.0`)  
+**Версия сети / SDK:** Aztec **6.0.0**, стабильный образ на Testnet и Mainnet. Этот сайт голосует в Testnet.  
 **Публичный репозиторий:** https://github.com/pittpv/happy-vote-aztec  
 **Языки:** [English](../en/README.md) · [Русский](./README.md)
 
@@ -16,11 +16,11 @@
 | [04-ZKPASSPORT.md](./04-ZKPASSPORT.md) | Identity verification через ZKPassport |
 | [05-DEVELOPMENT-PLAN.md](./05-DEVELOPMENT-PLAN.md) | План разработки по итерациям |
 | [09-HOSTING.md](./09-HOSTING.md) | DNS / Vercel / CSP / API |
-| [10-TESTNET-ADDRESSES.md](./10-TESTNET-ADDRESSES.md) | Адреса на Testnet 6.0.0-rc.3 |
+| [10-TESTNET-ADDRESSES.md](./10-TESTNET-ADDRESSES.md) | Адреса на Testnet 6.0.0 |
 | [11-USER-GUIDE.md](./11-USER-GUIDE.md) | Как подключить аккаунт и проголосовать |
 | [12-UI-UX.md](./12-UI-UX.md) | Landing, страница голосования, ZKPassport, SEO |
 | [13-LEGAL.md](./13-LEGAL.md) | Terms, Privacy, Cookies, Data Safety, GDPR |
-| [../../AGENTS.md](../../AGENTS.md) | Правила для AI/разработки ([AI Tooling](https://docs.aztec.network/developers/ai_tooling)) |
+| [../../AGENTS.md](../../../AGENTS.md) | Правила для AI/разработки ([AI Tooling](https://docs.aztec.network/developers/ai_tooling)) |
 
 ## Краткое видение
 
@@ -40,9 +40,9 @@
 - **Совместимость с Aztec** — только `aztec` CLI, Poseidon2, версия SDK = версия сети.
 - **Без custody identity** — данные документа не покидают устройство.
 
-## Статус (2026-10-18)
+## Статус (2026-10-30)
 
-Контракт `HappyVote` на **Aztec Testnet 6.0.0-rc.3**: [`0x147d56082a923fb872c9ea28e4e57b3596f27b518f95c51c825839024d61beba`](https://testnet.aztecscan.xyz/address/0x147d56082a923fb872c9ea28e4e57b3596f27b518f95c51c825839024d61beba). v6 — новый genesis: транзакции Testnet 5.1.0 и прежний адрес контракта на этой сети недействительны. Опросы `/p/1` Happy/Sad, `/p/2` single-choice, `/p/3` ZKPassport personhood, `/p/4` sealed tallies. Noir-тесты **48/48**. Фронтенд: https://aztec.happyvote.xyz.
+Контракт `HappyVote` на **Aztec Testnet 6.0.0**: [`0x20053869edad8edf92f0b7144bfc6344e0534866f26b0f330cee87431ebd9e14`](https://testnet.aztecscan.xyz/address/0x20053869edad8edf92f0b7144bfc6344e0534866f26b0f330cee87431ebd9e14). Тот же стабильный образ **6.0.0** стоит на Aztec Mainnet. Этот сайт по-прежнему голосует в Testnet. Стабильный 6.0.0 — новый genesis: транзакции Testnet 6.0.0-rc.3 и прежний адрес контракта на этой сети недействительны. Опросы `/p/1` Happy/Sad, `/p/2` single-choice, `/p/3` ZKPassport personhood, `/p/4` sealed tallies. Noir-тесты **48/48**. Фронтенд: https://aztec.happyvote.xyz.
 
 ## Источники истины
 

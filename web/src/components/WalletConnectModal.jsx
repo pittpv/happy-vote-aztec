@@ -131,7 +131,7 @@ function ChooseSourceBody({
             hint={
               scanning
                 ? "Installed. Waiting to see if this build can connect."
-                : "Installed. This build did not answer Testnet 6.0.0-rc.3. The current Azguard release is Aztec 5.2.0."
+                : "Installed. This build did not answer Testnet 6.0.0. The current Azguard release is Aztec 5.2.0."
             }
           />
         ) : null}

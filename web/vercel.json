@@ -12,7 +12,17 @@
     "api/earlier-networks.js": {
       "memory": 1024,
       "maxDuration": 30,
-      "includeFiles": "{api/poll-slots.js,data/precomputed-slots.json,data/earlier-networks.json}"
+      "includeFiles": "{api/poll-slots.js,data/precomputed-slots.json,data/earlier-networks.json,data/earlier-networks-snapshot.json}"
+    },
+    "api/document.js": {
+      "memory": 1024,
+      "maxDuration": 15,
+      "includeFiles": "{api/poll-catalog.js,data/polls-catalog.json,dist/index.html}"
+    },
+    "api/og.js": {
+      "memory": 512,
+      "maxDuration": 15,
+      "includeFiles": "{api/poll-catalog.js,data/polls-catalog.json}"
     },
     "api/zkpassport-verify.js": {
       "memory": 2048,
@@ -34,7 +44,12 @@
     }
   },
   "rewrites": [
-    { "source": "/((?!api/|robots\\.txt|sitemap\\.xml|favicon\\.svg).*)", "destination": "/index.html" }
+    { "source": "/", "destination": "/api/document?path=/" },
+    { "source": "/polls", "destination": "/api/document?path=/polls" },
+    { "source": "/faq", "destination": "/api/document?path=/faq" },
+    { "source": "/p/:id", "destination": "/api/document?path=/p/:id" },
+    { "source": "/legal/:slug", "destination": "/api/document?path=/legal/:slug" },
+    { "source": "/((?!api/|robots\\.txt|sitemap\\.xml|favicon\\.svg|index\\.html).*)", "destination": "/index.html" }
   ],
   "headers": [
     {

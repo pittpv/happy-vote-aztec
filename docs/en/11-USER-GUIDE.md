@@ -31,7 +31,7 @@ Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data
 5. Click **Connect Aztec wallet**.
    - **Browser session** is always listed. It creates an initializerless Schnorr account in this tab — no on-chain account-deploy tx. Proving the ballot itself can still take several minutes. Each new Browser session is a **new Aztec address**.
    - If an installed wallet is not listed, approve HappyVote in its popup. Its name then appears in this window. Several can be installed at once; pick one. HappyVote connects only that wallet.
-   - **[Azguard](https://azguardwallet.io/)** is listed only when the extension is installed. The current release is Aztec 5.2.0 and cannot connect to this Testnet (6.0.0-rc.3). Testnet ballots are sponsored — you do not need Fee Juice for the vote itself.
+   - **[Azguard](https://azguardwallet.io/)** is listed only when the extension is installed. The current release is Aztec 5.2.0 and cannot connect to this Testnet (6.0.0). Testnet ballots are sponsored — you do not need Fee Juice for the vote itself.
    - When a wallet connects, compare the emoji grid with the wallet, then confirm in the wallet. HappyVote closes once the wallet accepts.
 6. Under **Your ballot** pick an option. Under **Ballot privacy** choose **Private** (default) or **Open**.
 7. Submit and wait for the proof. The wallet proves the ballot once; the page then waits until it is in a proposed L2 block. Proving can still take several minutes. The button names the step in progress and shows bouncing dots until it finishes. The step text, result, or error appears directly under the button; use **Open tx** when shown. Opening another poll with the same connected wallet does not set the wallet up again.
@@ -42,7 +42,7 @@ On wide screens, **Live results** sit beside the ballot; on mobile they stack be
 
 ## Earlier networks
 
-All polls has a section **Earlier networks** after Ended. It shows ballots recorded on previous Aztec networks. Voting on this site uses the current network only. Each network name opens to a contract address, then the poll titles and results. A sealed poll on a previous network stays hidden until that poll is closed.
+All polls has a section **Earlier networks** after Ended only when a previous network still answers or a saved snapshot exists. If neither is available, the section is omitted. While the old network can still be read, the API stores a snapshot and later shows that snapshot. Voting on this site uses the current network only. Each network name opens to a contract address, then the poll titles and results. A sealed poll on a previous network stays hidden until that poll is closed.
 
 ## Rules
 

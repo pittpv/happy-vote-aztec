@@ -4,7 +4,11 @@
  * falls back to zeros when a storage read fails.
  */
 import manifest from "../data/earlier-networks.json" with { type: "json" };
+import snapshotFile from "../data/earlier-networks-snapshot.json" with { type: "json" };
 import { fallbackSlots } from "./poll-slots.js";
+
+const SNAPSHOT_BLOB = "happyvote/earlier-networks-snapshot.json";
+const LIVE_FETCH_MS = 3000;
 
 const CACHE_TTL_MS = 15_000;
 
@@ -52,6 +56,7 @@ async function rpcBatchOnce(nodeUrl, calls) {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(LIVE_FETCH_MS),
   });
   const text = await response.text();
   let json;
@@ -171,6 +176,63 @@ export async function loadEarlierNetworks() {
   return { networks: loaded };
 }
 
+function usableSnapshot(raw) {
+  if (!raw || typeof raw !== "object" || !Array.isArray(raw.networks) || raw.networks.length === 0) {
+    return null;
+  }
+  for (const network of raw.networks) {
+    if (!network?.id || !network.name || !network.contractAddress || !Array.isArray(network.polls)) {
+      return null;
+    }
+    if (network.polls.length === 0) return null;
+    for (const poll of network.polls) {
+      if (!poll?.title || !Array.isArray(poll.options) || poll.options.length === 0) return null;
+    }
+  }
+  return {
+    capturedAt: typeof raw.capturedAt === "string" ? raw.capturedAt : null,
+    networks: raw.networks,
+  };
+}
+
+async function readBlobSnapshot() {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) return null;
+  const { list } = await import("@vercel/blob");
+  const result = await list({ prefix: "happyvote/earlier-networks-snapshot", token, limit: 10 });
+  const match = result.blobs?.find((blob) => blob.pathname === SNAPSHOT_BLOB) || result.blobs?.[0];
+  if (!match?.url) return null;
+  const response = await fetch(match.url, { cache: "no-store" });
+  if (!response.ok) throw new Error(`snapshot blob HTTP ${response.status}`);
+  return usableSnapshot(await response.json());
+}
+
+export async function readEarlierSnapshot() {
+  try {
+    const fromBlob = await readBlobSnapshot();
+    if (fromBlob) return fromBlob;
+  } catch (error) {
+    console.error("earlier-networks snapshot read failed", error);
+  }
+  return usableSnapshot(snapshotFile);
+}
+
+async function writeEarlierSnapshot(snapshot) {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) {
+    console.error("earlier-networks snapshot skipped: blob token is not configured");
+    return;
+  }
+  const { put } = await import("@vercel/blob");
+  await put(SNAPSHOT_BLOB, JSON.stringify(snapshot), {
+    access: "public",
+    contentType: "application/json",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+    token,
+  });
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -186,19 +248,53 @@ export default async function handler(req, res) {
 
   try {
     const now = Date.now();
-    if (memoryCache && now - memoryCache.at < CACHE_TTL_MS) {
-      res.setHeader("Cache-Control", "public, s-maxage=15, stale-while-revalidate=60");
+    if (memoryCache && now - memoryCache.at < memoryCache.ttl) {
+      res.setHeader("Cache-Control", memoryCache.cacheControl);
       res.setHeader("X-Cache", "HIT");
       res.status(200).json(memoryCache.data);
       return;
     }
-    const data = await loadEarlierNetworks();
-    memoryCache = { at: now, data };
-    res.setHeader("Cache-Control", "public, s-maxage=15, stale-while-revalidate=60");
-    res.setHeader("X-Cache", "MISS");
-    res.status(200).json(data);
+
+    try {
+      const live = await loadEarlierNetworks();
+      const capturedAt = new Date().toISOString();
+      const data = { source: "live", capturedAt, networks: live.networks };
+      try {
+        await writeEarlierSnapshot({ capturedAt, networks: live.networks });
+      } catch (error) {
+        console.error("earlier-networks snapshot write failed", error);
+      }
+      const cacheControl = "public, s-maxage=60, stale-while-revalidate=300";
+      memoryCache = { at: now, ttl: CACHE_TTL_MS, cacheControl, data };
+      res.setHeader("Cache-Control", cacheControl);
+      res.setHeader("X-Cache", "MISS");
+      res.status(200).json(data);
+      return;
+    } catch (error) {
+      console.error("earlier-networks", error);
+      const snapshot = await readEarlierSnapshot();
+      if (snapshot) {
+        const data = {
+          source: "snapshot",
+          capturedAt: snapshot.capturedAt,
+          networks: snapshot.networks,
+        };
+        const cacheControl = "public, s-maxage=86400, stale-while-revalidate=604800";
+        memoryCache = { at: now, ttl: 60 * 60 * 1000, cacheControl, data };
+        res.setHeader("Cache-Control", cacheControl);
+        res.setHeader("X-Cache", "SNAPSHOT");
+        res.status(200).json(data);
+        return;
+      }
+      const data = { source: "none", capturedAt: null, networks: [] };
+      const cacheControl = "public, s-maxage=21600, stale-while-revalidate=86400";
+      memoryCache = { at: now, ttl: 60 * 60 * 1000, cacheControl, data };
+      res.setHeader("Cache-Control", cacheControl);
+      res.setHeader("X-Cache", "NONE");
+      res.status(200).json(data);
+    }
   } catch (error) {
     console.error("earlier-networks", error);
-    res.status(502).json({ error: error?.message || String(error) });
+    res.status(500).json({ error: error?.message || String(error) });
   }
 }

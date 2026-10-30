@@ -1,8 +1,17 @@
 import { useEffect, useState } from "react";
 
+function formatCaptured(iso) {
+  const time = Date.parse(iso || "");
+  if (!Number.isFinite(time)) return "";
+  return new Date(time).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export function EarlierNetworks() {
   const [archive, setArchive] = useState(null);
-  const [error, setError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -10,21 +19,31 @@ export function EarlierNetworks() {
       try {
         const response = await fetch("/api/earlier-networks");
         const body = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(body.error || `HTTP ${response.status}`);
+        const networks = Array.isArray(body.networks) ? body.networks : [];
+        if (!response.ok || networks.length === 0) {
+          if (!cancelled) setArchive({ networks: [] });
+          return;
         }
-        if (!Array.isArray(body.networks)) {
-          throw new Error("Invalid earlier-networks response");
+        if (!cancelled) {
+          setArchive({
+            source: body.source === "snapshot" ? "snapshot" : "live",
+            capturedAt: body.capturedAt || null,
+            networks,
+          });
         }
-        if (!cancelled) setArchive(body.networks);
-      } catch (err) {
-        if (!cancelled) setError(err?.message || "Earlier network results are unavailable");
+      } catch (error) {
+        console.error(error);
+        if (!cancelled) setArchive({ networks: [] });
       }
     })();
     return () => {
       cancelled = true;
     };
   }, []);
+
+  if (!archive || archive.networks.length === 0) return null;
+
+  const savedOn = archive.source === "snapshot" ? formatCaptured(archive.capturedAt) : "";
 
   return (
     <section className="catalog-group" aria-labelledby="catalog-earlier">
@@ -33,10 +52,9 @@ export function EarlierNetworks() {
       </h2>
       <p className="meta">
         Ballots recorded on previous Aztec networks. Voting on this site uses the current network.
+        {savedOn ? ` Snapshot from ${savedOn}.` : ""}
       </p>
-      {error ? <p className="meta">{error}</p> : null}
-      {!archive && !error ? <p className="meta">Loading earlier networks…</p> : null}
-      {archive?.map((network) => (
+      {archive.networks.map((network) => (
         <div key={network.id} className="archive-network">
           <h3 className="archive-network-name">{network.name}</h3>
           <details className="archive-contract">
