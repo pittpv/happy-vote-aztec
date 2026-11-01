@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { AZGUARD_STORE_URL, extraWalletSources, isAzguardProvider } from "../lib/walletClient.js";
+import { extraWalletSources } from "../lib/walletClient.js";
 import { parseAdminKeyMaterial } from "../lib/adminKeys.js";
 import { Notice } from "./Notice.jsx";
 import { explainError } from "../lib/userMessages.js";
@@ -71,8 +71,6 @@ function WalletRow({ icon, name, hint, onClick }) {
 function ChooseSourceBody({
   providers,
   scanning,
-  azguardInstalled,
-  azguardChecked,
   scanError,
   pickProvider,
   beginDiscovery,
@@ -84,11 +82,6 @@ function ChooseSourceBody({
   const ios = isIosBrowser();
   const extraSources = extraWalletSources();
   const found = providers ?? [];
-  const azguardProvider = found.find((provider) => isAzguardProvider(provider));
-  const otherProviders = found.filter((provider) => provider !== azguardProvider);
-  const showAzguardPlaceholder = Boolean(azguardInstalled) && !azguardProvider;
-  const offerInstall =
-    !ios && azguardChecked && !azguardInstalled && !azguardProvider && otherProviders.length === 0;
 
   return (
     <div className="wc-stack">
@@ -117,25 +110,7 @@ function ChooseSourceBody({
           hint={ios ? "Use this to vote on iPhone" : "Keys stay in this tab"}
           onClick={beginSession}
         />
-        {azguardProvider ? (
-          <WalletRow
-            icon={azguardProvider.icon}
-            name={azguardProvider.name}
-            hint="Browser extension"
-            onClick={() => pickProvider(azguardProvider)}
-          />
-        ) : null}
-        {showAzguardPlaceholder ? (
-          <WalletRow
-            name="Azguard"
-            hint={
-              scanning
-                ? "Installed. Waiting to see if this build can connect."
-                : "Installed. This build did not answer Testnet 6.0.0. The current Azguard release is Aztec 5.2.0."
-            }
-          />
-        ) : null}
-        {otherProviders.map((provider) => (
+        {found.map((provider) => (
           <WalletRow
             key={provider.id}
             icon={provider.icon}
@@ -166,16 +141,6 @@ function ChooseSourceBody({
         <button type="button" className="btn btn-ghost wc-full" onClick={onRescan}>
           Check again
         </button>
-      ) : null}
-      {offerInstall ? (
-        <a
-          className="btn btn-ghost wc-full"
-          href={AZGUARD_STORE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Install Azguard →
-        </a>
       ) : null}
     </div>
   );
@@ -298,7 +263,7 @@ function DiscoveringBody({ providers, pickProvider, reset, retry, choice }) {
             ? extra.timeoutHint
             : isWeb
               ? "Couldn't reach the Aztec Demo Wallet. The first load can take about half a minute. If this stays up, open demo-wallet.aztec-labs.com in a new tab, then retry."
-              : "No Aztec extension found. Unlock Azguard and retry, or install it."}
+              : "No Aztec extension found. Unlock your wallet and retry, or use Browser session."}
         </p>
         <button
           type="button"
@@ -311,16 +276,6 @@ function DiscoveringBody({ providers, pickProvider, reset, retry, choice }) {
         >
           Retry
         </button>
-        {!isWebWalletChoice(choice) ? (
-          <a
-            className="btn btn-ghost wc-full"
-            href={AZGUARD_STORE_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Install Azguard →
-          </a>
-        ) : null}
         <button type="button" className="btn btn-ghost wc-full" onClick={reset}>
           Close
         </button>
@@ -396,8 +351,6 @@ export function WalletConnectModal({
             <ChooseSourceBody
               providers={phase.providers}
               scanning={Boolean(phase.scanning)}
-              azguardInstalled={Boolean(phase.azguardInstalled)}
-              azguardChecked={Boolean(phase.azguardChecked)}
               scanError={phase.scanError || ""}
               pickProvider={pickProvider}
               beginDiscovery={beginDiscovery}

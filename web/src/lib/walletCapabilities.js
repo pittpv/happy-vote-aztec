@@ -5,11 +5,11 @@ import { STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS } from "@aztec-labs/standard-con
 import { getContractAddress, getSponsoredFpcAddress } from "./aztecClient.js";
 
 /**
- * Capability grant requested from Azguard / Demo Wallet (same pattern as the faucet).
+ * Capability grant requested from a connected wallet.
  * Must include every contract we later registerContract() — Sponsored FPC, HappyVote,
  * and standard contracts used by SingleUseClaim / account entrypoints.
  *
- * Azguard 5.2+ checks every call in sendTx against transaction.scope, including the
+ * Some wallets check every call in sendTx against transaction.scope, including the
  * Sponsored FPC fee-payment call. Registering the FPC under type:"contracts" is not enough.
  */
 export function happyVoteCapabilities() {

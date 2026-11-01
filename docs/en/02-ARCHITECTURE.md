@@ -222,9 +222,7 @@ Connect lists the wallets this browser can use.
 
 **Browser session** is always shown. That is how to vote in the tab, including on iPhone. It creates an initializerless Schnorr account in the page. Each Connect is a new address.
 
-**Azguard** is listed only when that extension is installed. The current release is Aztec 5.2.0, so the row is visible but it cannot open a session on this Testnet (6.0.0).
-
-**Other wallet-sdk extensions** appear with the name and icon the wallet sends. A site cannot silently enumerate installed extensions: the wallet identifies itself after the user approves this origin. An origin that was already approved can answer immediately. Several wallet-sdk extensions can be installed together. Each one has its own channel, and HappyVote connects only the wallet the user picks.
+**Installed wallet-sdk extensions** appear with the name and icon the wallet sends, when that wallet speaks this network. A site cannot silently enumerate installed extensions: the wallet identifies itself after the user approves this origin. An origin that was already approved can answer immediately. Several wallet-sdk extensions can be installed together. Each one has its own channel, and HappyVote connects only the wallet the user picks.
 
 The Labs Demo Wallet is not offered: the public build is Aztec 5.0.1, so it cannot complete the 6.0.0 handshake, and it cannot prove a HappyVote ballot.
 
@@ -232,21 +230,21 @@ After the encrypted channel opens, HappyVote and the wallet each show the same e
 
 | Source | What it is | Address | On Alpha |
 |--------|------------|---------|----------|
-| **Browser extension** | A wallet-sdk extension that speaks this Testnet. Azguard 5.2.0 is shown when installed, but it cannot connect yet. | Persistent if the user keeps that account. | Default path once the wallet matches the network. |
+| **Browser extension** | A wallet-sdk extension that speaks this Testnet. It is listed under the name it sends. | Persistent if the user keeps that account. | Default path once the wallet matches the network. |
 | **Browser session** | In-page PXE (`EmbeddedWallet`, ephemeral). Creates an **initializerless** Schnorr account — no on-chain account-deploy tx. | **New on every Connect** (keys are not restored after the tab session). | Optional “vote without installing a wallet”, not a lasting identity. |
 
 `cast_vote_private` and `cast_vote_open` are private entrypoints on HappyVote, so a session account does not need a public account deploy to vote.
 
-### 4.2 Wallet capabilities (Azguard 5.2+)
+### 4.2 Wallet capabilities
 
-Azguard 5.2+ checks **every call** in `sendTx` against the dapp `transaction.scope`. A Testnet ballot is two private calls:
+Some wallet-sdk wallets check **every call** in `sendTx` against the dapp `transaction.scope`. A Testnet ballot is two private calls:
 
 1. `cast_vote_private` or `cast_vote_open` on HappyVote
 2. `sponsor_unconditionally` on the public Testnet Sponsored FPC (fee payment)
 
 Registering the FPC under `type: "contracts"` only allows `registerContract`. The fee-payment function must also be listed in `simulation.transactions.scope` and `transaction.scope`. The grant is `web/src/lib/walletCapabilities.js`. After that grant changes, the user must reconnect so the wallet can approve the new permission.
 
-Azguard also checks `additionalScopes` and `sendMessagesAs` on `sendTx`. Each address there must be an account in the connected session. `sponsor_unconditionally` only marks the Sponsored FPC as the fee payer; it does not read that contract's private notes. The ballot therefore leaves the FPC address out of `additionalScopes`. Listing it makes Azguard reject the transaction with `Unauthorized scope` and the FPC address. Browser session does not apply that check.
+Those wallets also check `additionalScopes` and `sendMessagesAs` on `sendTx`. Each address there must be an account in the connected session. `sponsor_unconditionally` only marks the Sponsored FPC as the fee payer; it does not read that contract's private notes. The ballot therefore leaves the FPC address out of `additionalScopes`. Listing it makes the wallet reject the transaction with `Unauthorized scope` and the FPC address. Browser session does not apply that check.
 
 ### 4.3 One vote vs cheap accounts
 

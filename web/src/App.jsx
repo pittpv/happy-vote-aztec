@@ -18,7 +18,6 @@ import {
   Fr,
   AztecAddress,
 } from "./lib/aztecClient.js";
-import { FEE_JUICE_FAUCET_URL } from "./lib/walletClient.js";
 import {
   getPollMeta,
   hasKnownPollMeta,
@@ -199,7 +198,7 @@ export default function App() {
 
 function AppWalletModal({ walletConnect, allowAdminImport }) {
   async function connectSession(importedKeys) {
-    // Same in-page prover the ballot will use. Does not run for Azguard or Web Wallet.
+    // Same in-page prover the ballot will use. Does not run for an external wallet.
     warmBrowserProver();
     walletConnect.setProgress("Creating browser wallet…");
     const onProgress = (text) => walletConnect.setProgress(text);
@@ -1001,7 +1000,6 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
     }
   }
 
-  const faucetHref = FEE_JUICE_FAUCET_URL;
   const resultsHidden =
     (onChainSealed || pollMeta.sealed) &&
     !closedOnChain &&
@@ -1396,18 +1394,8 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
         <details className="vote-details">
           <summary>Fees on testnet</summary>
           <p className="fee-hint">
-            Testnet uses Sponsored FPC when available. For Fee Juice, claim at{" "}
-            <a href={faucetHref} target="_blank" rel="noopener noreferrer">
-              aztec-faucet.nethermind.io
-            </a>
-            {accountAddress ? (
-              <>
-                {" "}
-                (paste <code className="wc-inline-code">{accountAddress.toString()}</code>).
-              </>
-            ) : (
-              "."
-            )}
+            On Testnet, the ballot fee is covered by the Sponsored FPC. HappyVote does not charge a
+            separate fee to vote.
           </p>
         </details>
 
@@ -1421,17 +1409,10 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
             </li>
             <li>
               Click <strong>Connect Aztec wallet</strong>. Choose <em>Browser session</em>, or an
-              installed wallet that appears by name. Azguard’s current release is Aztec 5.2.0 and
-              cannot connect to this Testnet yet.
+              installed wallet that appears by name.
             </li>
             <li>Choose an option, pick Private or Open, then vote. Proving the ballot can take several minutes.</li>
-            <li>
-              If fees fail, claim Fee Juice at{" "}
-              <a href={faucetHref} target="_blank" rel="noopener noreferrer">
-                aztec-faucet.nethermind.io
-              </a>
-              .
-            </li>
+            <li>On Testnet the network fee is covered by the Sponsored FPC.</li>
           </ol>
         </details>
       </div>

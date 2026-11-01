@@ -8,7 +8,6 @@ import {
   initiateConnection,
   unwrapAddress,
   verificationEmojis,
-  watchAzguardInstalled,
 } from "../lib/walletClient.js";
 import { happyVoteCapabilities } from "../lib/walletCapabilities.js";
 import { isUserRejection, WalletUserRejectedError } from "../lib/walletErrors.js";
@@ -51,12 +50,11 @@ function swallowDisconnect(provider) {
 }
 
 /**
- * Wallet connect state machine — mirrors aztec-faucet (Azguard extension + Demo Wallet).
+ * Wallet connect state machine for Browser session and discovered wallet-sdk extensions.
  */
 export function useWalletConnect() {
   const [phase, setPhase] = useState({ kind: "idle" });
   const sessionRef = useRef(null);
-  const azguardWatchRef = useRef(null);
   const discoveryGenRef = useRef(0);
   const verifyGenRef = useRef(0);
   const verifyTaskRef = useRef(null);
@@ -72,8 +70,6 @@ export function useWalletConnect() {
     discoveryGenRef.current += 1;
     sessionRef.current?.cancel();
     sessionRef.current = null;
-    azguardWatchRef.current?.();
-    azguardWatchRef.current = null;
   }, []);
 
   const teardownConnection = useCallback(() => {
@@ -156,19 +152,9 @@ export function useWalletConnect() {
       kind: "choosing",
       providers: [],
       scanning: !ios,
-      azguardInstalled: false,
-      azguardChecked: ios,
       scanError: "",
     });
     if (ios) return;
-    azguardWatchRef.current = watchAzguardInstalled((installed) => {
-      if (discoveryGenRef.current !== gen) return;
-      setPhase((prev) =>
-        prev.kind === "choosing"
-          ? { ...prev, azguardInstalled: installed, azguardChecked: true }
-          : prev,
-      );
-    });
     void scanExtensions(gen);
   }, [cleanup, scanExtensions, teardownConnection]);
 

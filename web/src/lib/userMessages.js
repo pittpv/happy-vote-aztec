@@ -35,8 +35,8 @@ export function explainError(error, context = "generic") {
 
   if (/invalid_union|no matching discriminator/i.test(blob)) {
     return {
-      title: "Azguard is on an older Aztec version",
-      text: "This site is Aztec Testnet 6.0.0. The current Azguard release is built for Aztec 5.2.0, so it rejects the connection even with the correct testnet RPC. Vote with Browser session until Azguard ships a 6.0.0 build.",
+      title: "This wallet is on an older Aztec version",
+      text: "This site is Aztec Testnet 6.0.0. That wallet build does not speak this network, even with the correct testnet RPC. Vote with Browser session, or use a wallet built for this Testnet.",
     };
   }
   if (isBbWasmAbort(msg) || isBbWasmAbort(stack) || isBbWasmAbort(blob)) {
@@ -92,13 +92,13 @@ export function explainError(error, context = "generic") {
     if (/unauthorized scope/i.test(blob)) {
       return {
         title: "Wallet blocked the fee scope",
-        text: "Azguard only accepts your account as a private-state scope. Refresh and vote again. Browser session still works.",
+        text: "This wallet only accepts your account as a private-state scope. Refresh and vote again. Browser session still works.",
       };
     }
     if (/not in capability scope|sponsor_unconditionally/i.test(blob)) {
       return {
         title: "Wallet needs an updated permission",
-        text: "Disconnect Azguard, reconnect, and approve the new request. Voting uses the Sponsored FPC to pay fees.",
+        text: "Disconnect the wallet, reconnect, and approve the new request. Voting uses the Sponsored FPC to pay fees.",
       };
     }
     if (/dropped by p2p|was dropped\. reason:/i.test(blob)) {

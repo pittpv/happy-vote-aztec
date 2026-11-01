@@ -30,12 +30,11 @@ Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data
 4. If the poll requires ZKPassport, complete verification first (QR on desktop, ZKPassport app on the phone). After success the block collapses to **Identity verified**.
 5. Click **Connect Aztec wallet**.
    - **Browser session** is always listed. It creates an initializerless Schnorr account in this tab — no on-chain account-deploy tx. Proving the ballot itself can still take several minutes. Each new Browser session is a **new Aztec address**.
-   - If an installed wallet is not listed, approve HappyVote in its popup. Its name then appears in this window. Several can be installed at once; pick one. HappyVote connects only that wallet.
-   - **[Azguard](https://azguardwallet.io/)** is listed only when the extension is installed. The current release is Aztec 5.2.0 and cannot connect to this Testnet (6.0.0). Testnet ballots are sponsored — you do not need Fee Juice for the vote itself.
+   - If an installed wallet is not listed, approve HappyVote in its popup. Its name then appears in this window. Several can be installed at once; pick one. HappyVote connects only that wallet. On Testnet the ballot fee is covered by the Sponsored FPC — you do not need Fee Juice for the vote itself.
    - When a wallet connects, compare the emoji grid with the wallet, then confirm in the wallet. HappyVote closes once the wallet accepts.
 6. Under **Your ballot** pick an option. Under **Ballot privacy** choose **Private** (default) or **Open**.
 7. Submit and wait for the proof. The wallet proves the ballot once; the page then waits until it is in a proposed L2 block. Proving can still take several minutes. The button names the step in progress and shows bouncing dots until it finishes. The step text, result, or error appears directly under the button; use **Open tx** when shown. Opening another poll with the same connected wallet does not set the wallet up again.
-8. Expand **Fees on testnet** only if a fee error appears — claim Fee Juice at https://aztec-faucet.nethermind.io and paste your Aztec address.
+8. Expand **Fees on testnet** to read that the network fee is covered by the Sponsored FPC.
 9. Expand **How to vote** for the short checklist.
 
 On wide screens, **Live results** sit beside the ballot; on mobile they stack below.

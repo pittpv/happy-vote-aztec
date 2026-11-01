@@ -49,7 +49,7 @@ VITE_ZKPASSPORT_DEFAULT_POLICY=vote-identity-verification
 |---------|---------|
 | COOP `same-origin` + COEP `credentialless` | SharedArrayBuffer / bb.js WASM proving |
 | CORP on `/assets/*` | Cross-origin isolation |
-| CSP `connect-src` | Node RPC, CRS CDN, faucet, demo-wallet, fonts, ZKPassport, Alchemy registry |
+| CSP `connect-src` | Node RPC, CRS CDN, demo-wallet, fonts, ZKPassport, Alchemy registry |
 | CSP `frame-src` / `child-src` | `'self'`, `blob:`, and `https://demo-wallet.aztec-labs.com` |
 | CSP `script-src` | `'wasm-unsafe-eval'` / `'unsafe-eval'` for prover |
 | SPA rewrite | `/`, `/polls`, `/faq`, `/p/:id`, and `/legal/:slug` → `/api/document` (unique head). Other app paths → `/index.html` |
@@ -57,7 +57,7 @@ VITE_ZKPASSPORT_DEFAULT_POLICY=vote-identity-verification
 
 Without CRS hosts in `connect-src`, proving fails with opaque `Failed to fetch`.
 
-Connect lists Browser session, Azguard when that extension is installed, and other wallet-sdk extensions after the user approves HappyVote in the wallet popup. It does not open the Labs Demo Wallet. The public build is Aztec 5.0.1, so it cannot finish a 6.0.0 handshake, and it cannot prove a HappyVote ballot. `frame-src` still lists `https://demo-wallet.aztec-labs.com`.
+Connect lists Browser session, and wallet-sdk extensions after the user approves HappyVote in the wallet popup. Each extension appears under the name it sends. It does not open the Labs Demo Wallet. The public build is Aztec 5.0.1, so it cannot finish a 6.0.0 handshake, and it cannot prove a HappyVote ballot. `frame-src` still lists `https://demo-wallet.aztec-labs.com`.
 
 ## Guest tallies API
 

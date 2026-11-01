@@ -31,7 +31,7 @@ export const FAQ_ITEMS = [
     id: "wallet",
     question: "Which wallet should I use?",
     answer:
-      "Browser session is always offered. It is an in-page account for this browser, with a new address each time you connect. An installed extension is listed when it speaks this network. The current Azguard release is built for an older Aztec version and does not connect to Testnet v6.",
+      "Browser session is always offered. It is an in-page account for this browser, with a new address each time you connect. Installed wallets that speak this network are listed by name. To keep an account, use Nulo Wallet (https://nulo.sh/).",
   },
   {
     id: "fee",

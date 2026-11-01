@@ -83,7 +83,7 @@ Important polls should require at least personhood. Details live in catalog JSON
 
 1. Catalog + poll cards (operator-published in Iteration 1).
 2. Poll page: question, options, Vote CTA.
-3. Connect Aztec account. **Browser session** is always offered (initializerless PXE, new address each Connect). Azguard is listed only when installed; its current 5.2.0 release cannot connect to Testnet 6.0.0. If an installed wallet is not listed, the user approves HappyVote in the wallet popup and its name appears. HappyVote shows the same emoji grid for comparison; the wallet confirmation is the one that continues, and the HappyVote window closes when the wallet accepts. The Labs Demo Wallet is not offered.
+3. Connect Aztec account. **Browser session** is always offered (initializerless PXE, new address each Connect). Installed wallets that speak this network are listed under the name they send. If an installed wallet is not listed, the user approves HappyVote in the wallet popup and its name appears. HappyVote shows the same emoji grid for comparison; the wallet confirmation is the one that continues, and the HappyVote window closes when the wallet accepts. The Labs Demo Wallet is not offered.
 4. Private vote + public tally.
 5. Optional open vote (`voter_choice`).
 6. Double-vote prevention (`SingleUseClaim` + identity claims; optional UTC-day period).

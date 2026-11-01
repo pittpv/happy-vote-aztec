@@ -4,6 +4,27 @@ import { usePageSeo } from "../hooks/usePageSeo.js";
 import { SiteFooter } from "./SiteFooter.jsx";
 import { SiteHeader } from "./SiteHeader.jsx";
 
+const FAQ_URL = /https?:\/\/[^\s)]+/g;
+
+function FaqAnswer({ text }) {
+  const nodes = [];
+  let last = 0;
+  for (const match of text.matchAll(FAQ_URL)) {
+    const url = match[0];
+    const start = match.index ?? 0;
+    if (start > last) nodes.push(text.slice(last, start));
+    const label = url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+    nodes.push(
+      <a key={`${url}-${start}`} href={url} target="_blank" rel="noopener noreferrer">
+        {label}
+      </a>,
+    );
+    last = start + url.length;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return <p>{nodes}</p>;
+}
+
 export function FaqPage({ walletConnect }) {
   const title = pageTitle("FAQ");
   usePageSeo({
@@ -30,7 +51,7 @@ export function FaqPage({ walletConnect }) {
         {FAQ_ITEMS.map((item) => (
           <details key={item.id} className="faq-item" id={`faq-${item.id}`}>
             <summary>{item.question}</summary>
-            <p>{item.answer}</p>
+            <FaqAnswer text={item.answer} />
           </details>
         ))}
       </section>

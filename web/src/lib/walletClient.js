@@ -8,9 +8,6 @@ import { getNodeUrl } from "./aztecClient.js";
 
 export const APP_ID = "happyvote-aztec";
 export const DEMO_WALLET_URL = "https://demo-wallet.aztec-labs.com";
-export const AZGUARD_STORE_URL =
-  "https://chromewebstore.google.com/detail/azguard-wallet/pliilpgjnbkndmcgkfpdmmpkagblcmgi";
-export const FEE_JUICE_FAUCET_URL = "https://aztec-faucet.nethermind.io/";
 
 function extraWalletOfferModules() {
   return Object.values(import.meta.glob("./wallet-offers/*.js", { eager: true }));
@@ -55,52 +52,6 @@ export const WEB_WALLET_PROBE_MS = 30_000;
  */
 export function discoverInstalledExtensions(chainInfo, onWalletDiscovered, timeoutMs = 60_000) {
   return discoverWallets(chainInfo, onWalletDiscovered, "extension", timeoutMs);
-}
-
-/**
- * Azguard's in-page provider. Presence means the extension is installed.
- * It does not mean the build speaks this Testnet's wallet-sdk.
- * @param {(installed: boolean) => void} onInstalled
- * @param {number} [timeoutMs]
- */
-export function watchAzguardInstalled(onInstalled, timeoutMs = 1500) {
-  if (typeof window === "undefined") {
-    onInstalled(false);
-    return () => {};
-  }
-  let stopped = false;
-  const publish = (installed) => {
-    if (!stopped) onInstalled(installed);
-  };
-  if (window.azguard) {
-    publish(true);
-    return () => {
-      stopped = true;
-    };
-  }
-  const started = Date.now();
-  const timer = setInterval(() => {
-    if (window.azguard) {
-      clearInterval(timer);
-      publish(true);
-      return;
-    }
-    if (Date.now() - started >= timeoutMs) {
-      clearInterval(timer);
-      publish(false);
-    }
-  }, 50);
-  return () => {
-    stopped = true;
-    clearInterval(timer);
-  };
-}
-
-/** @param {{ id?: string, name?: string } | null | undefined} provider */
-export function isAzguardProvider(provider) {
-  const name = String(provider?.name || "").toLowerCase();
-  const id = String(provider?.id || "").toLowerCase();
-  return name.includes("azguard") || id.includes("azguard");
 }
 
 /**
