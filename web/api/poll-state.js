@@ -18,6 +18,11 @@ const PAUSED_SLOT = "0x12";
 /** @type {{ key: string, at: number, data: object } | null} */
 let memoryCache = null;
 
+/** @type {{ key: string, at: number, data: object } | null} */
+let catalogClosureCache = null;
+
+const CLOSURE_KEYS = ["voteEnded", "cancelled", "startsAt", "endsAt"];
+
 function env(name) {
   const value = process.env[name];
   if (value == null || value === "") return null;
@@ -107,6 +112,83 @@ async function withRetry(fn, attempts = 5) {
   throw last;
 }
 
+function requireStorageNumber(value, label) {
+  if (value == null || value === "") {
+    throw new Error(`Missing storage value for ${label}`);
+  }
+  return fieldToNumber(value);
+}
+
+/**
+ * On-chain open/ended flags for every poll in the shared catalog.
+ * Cards cannot use catalog `endsAt` alone: admin `end_poll` sets `vote_ended`
+ * without writing a catalog end time.
+ */
+export async function loadCatalogClosure({ contractAddress, nodeUrl }) {
+  if (!contractAddress) throw new Error("VITE_HAPPY_VOTE_CONTRACT_ADDRESS is not set");
+  if (!nodeUrl) throw new Error("VITE_AZTEC_NODE_URL is not configured");
+
+  const catalog = await loadMergedCatalog();
+  const nextPollId = await readNextPollId();
+  const polls = Object.values(catalog.polls || {})
+    .filter((poll) => Number(poll?.id) > 0 && Number(poll.id) < nextPollId)
+    .sort((a, b) => Number(a.id) - Number(b.id));
+
+  const contract = padHex32(contractAddress);
+  const calls = [];
+  const index = [];
+  for (const poll of polls) {
+    const optionCount = Array.isArray(poll.options) ? poll.options.length : 0;
+    if (optionCount < 1) throw new Error(`Poll ${poll.id} has no options`);
+    const slots = resolvePollSlots(String(poll.id), poll.storageSlots, optionCount);
+    if (!slots) throw new Error(`Poll ${poll.id} storage slots are missing`);
+    for (const key of CLOSURE_KEYS) {
+      calls.push({
+        method: "node_getPublicStorageAt",
+        params: ["latest", contract, padHex32(slots[key])],
+      });
+      index.push({ id: String(poll.id), key });
+    }
+  }
+  calls.push({
+    method: "node_getPublicStorageAt",
+    params: ["latest", contract, padHex32(PAUSED_SLOT)],
+  });
+
+  const results = await withRetry(() => rpcBatch(nodeUrl, calls));
+  if (results.length !== calls.length) {
+    throw new Error("Short storage read for catalog poll status");
+  }
+
+  const paused = requireStorageNumber(results[results.length - 1], "paused") !== 0;
+  /** @type {Record<string, Record<string, number>>} */
+  const raw = {};
+  for (let i = 0; i < index.length; i++) {
+    const { id, key } = index[i];
+    if (!raw[id]) raw[id] = {};
+    raw[id][key] = requireStorageNumber(results[i], `poll ${id} ${key}`);
+  }
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  /** @type {Record<string, { closed: boolean, cancelled: boolean, paused: boolean, startsAt: number, endsAt: number, votingOpen: boolean }>} */
+  const out = {};
+  for (const [id, row] of Object.entries(raw)) {
+    const cancelled = row.cancelled !== 0;
+    const startsAt = row.startsAt;
+    const endsAt = row.endsAt;
+    const closed = row.voteEnded !== 0 || cancelled || (endsAt !== 0 && nowSec >= endsAt);
+    out[id] = {
+      closed,
+      cancelled,
+      paused,
+      startsAt,
+      endsAt,
+      votingOpen: !paused && !closed && (startsAt === 0 || nowSec >= startsAt),
+    };
+  }
+  return { polls: out };
+}
+
 async function resolveSlots(pollId, optionsCount) {
   const id = String(pollId);
   const catalog = await loadMergedCatalog();
@@ -137,6 +219,35 @@ export default async function handler(req, res) {
     }
 
     const url = new URL(req.url, "http://localhost");
+    const nodeUrl = env("VITE_AZTEC_NODE_URL") || DEFAULT_NODE;
+    const fresh = url.searchParams.get("fresh") === "1";
+    const now = Date.now();
+
+    if (url.searchParams.get("catalog") === "1") {
+      const cacheKey = `catalog:${contractAddress}`;
+      if (
+        !fresh &&
+        catalogClosureCache &&
+        catalogClosureCache.key === cacheKey &&
+        now - catalogClosureCache.at < CACHE_TTL_MS
+      ) {
+        res.setHeader("Cache-Control", "public, s-maxage=15, stale-while-revalidate=60");
+        res.setHeader("X-Cache", "HIT");
+        res.status(200).json(catalogClosureCache.data);
+        return;
+      }
+      const data = await loadCatalogClosure({ contractAddress, nodeUrl });
+      catalogClosureCache = { key: cacheKey, at: now, data };
+      if (fresh) {
+        res.setHeader("Cache-Control", "no-store");
+      } else {
+        res.setHeader("Cache-Control", "public, s-maxage=15, stale-while-revalidate=60");
+      }
+      res.setHeader("X-Cache", fresh ? "BYPASS" : "MISS");
+      res.status(200).json(data);
+      return;
+    }
+
     const pollId = url.searchParams.get("pollId") ?? env("VITE_DEFAULT_POLL_ID") ?? "1";
     const optionsCount = Number(url.searchParams.get("optionsCount") ?? "2");
     if (!Number.isInteger(optionsCount) || optionsCount < 1 || optionsCount > 32) {
@@ -145,8 +256,6 @@ export default async function handler(req, res) {
     }
 
     const cacheKey = `${contractAddress}:${pollId}:${optionsCount}`;
-    const now = Date.now();
-    const fresh = url.searchParams.get("fresh") === "1";
     if (!fresh && memoryCache && memoryCache.key === cacheKey && now - memoryCache.at < CACHE_TTL_MS) {
       res.setHeader("Cache-Control", "public, s-maxage=15, stale-while-revalidate=60");
       res.setHeader("X-Cache", "HIT");
@@ -160,7 +269,6 @@ export default async function handler(req, res) {
       return;
     }
 
-    const nodeUrl = env("VITE_AZTEC_NODE_URL") || DEFAULT_NODE;
     const slots = await resolveSlots(pollId, optionsCount);
     const contract = padHex32(contractAddress);
 

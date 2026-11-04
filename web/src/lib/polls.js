@@ -213,8 +213,65 @@ export function savePollMeta(meta) {
   return meta;
 }
 
+/**
+ * Local drafts sit on top of the shared catalog, except homepage placement.
+ * `showOnHome` / `homeRank` are published for every visitor. A stale browser
+ * copy must not uncheck a poll that the live homepage is already showing.
+ * @param {Record<string, object>} seed
+ * @param {Record<string, object>} shared
+ * @param {Record<string, object>} local
+ */
+export function mergePollMaps(seed, shared, local) {
+  const merged = { ...seed, ...shared, ...local };
+  for (const [id, published] of Object.entries(shared || {})) {
+    if (!published || typeof published !== "object") continue;
+    if (!Object.prototype.hasOwnProperty.call(local || {}, id)) continue;
+    if (!merged[id]) continue;
+    const patch = {};
+    if (Object.prototype.hasOwnProperty.call(published, "showOnHome")) {
+      patch.showOnHome = published.showOnHome;
+    }
+    if (Object.prototype.hasOwnProperty.call(published, "homeRank")) {
+      patch.homeRank = published.homeRank;
+    }
+    if (Object.keys(patch).length === 0) continue;
+    merged[id] = { ...merged[id], ...patch };
+  }
+  return merged;
+}
+
 function mergedMap() {
-  return { ...POLLS, ...sharedCatalog, ...readStoredPolls() };
+  return mergePollMaps(POLLS, sharedCatalog, readStoredPolls());
+}
+
+/** Copy published homepage placement onto the local draft so admin checkboxes match the live site. */
+function syncPublishedHomeFlags() {
+  if (typeof localStorage === "undefined") return;
+  const local = readStoredPolls();
+  let changed = false;
+  const next = { ...local };
+  for (const [id, published] of Object.entries(sharedCatalog)) {
+    const stored = next[id];
+    if (!stored || !published || typeof published !== "object") continue;
+    const patch = {};
+    if (
+      Object.prototype.hasOwnProperty.call(published, "showOnHome") &&
+      stored.showOnHome !== published.showOnHome
+    ) {
+      patch.showOnHome = published.showOnHome;
+    }
+    if (
+      Object.prototype.hasOwnProperty.call(published, "homeRank") &&
+      stored.homeRank !== published.homeRank
+    ) {
+      patch.homeRank = published.homeRank;
+    }
+    if (Object.keys(patch).length === 0) continue;
+    next[id] = { ...stored, ...patch };
+    changed = true;
+  }
+  if (!changed) return;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
 }
 
 export function listPolls() {
@@ -337,6 +394,7 @@ export async function refreshSharedCatalog() {
     // Blob-backed list is complete. Seed-only responses must not drop a poll
     // already loaded via /api/polls?id= (cold share links such as /p/5).
     sharedCatalog = data.sources?.blob ? next : { ...sharedCatalog, ...next };
+    syncPublishedHomeFlags();
   } catch (error) {
     console.warn("[polls] shared catalog fetch failed", error);
   }

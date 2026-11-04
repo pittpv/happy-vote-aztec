@@ -10,7 +10,8 @@ import { SiteFooter } from "./SiteFooter.jsx";
 import { SiteHeader } from "./SiteHeader.jsx";
 import { PollCard } from "./PollCard.jsx";
 import { EarlierNetworks } from "./EarlierNetworks.jsx";
-import { getPollSchedule, POLL_PHASE } from "../lib/pollSchedule.js";
+import { cardClosedFlag, partitionPolls } from "../lib/catalogClosure.js";
+import { useCatalogClosures } from "../hooks/useCatalogClosures.js";
 
 export function PollListPage({ walletConnect }) {
   const now = useNow(1000);
@@ -20,6 +21,7 @@ export function PollListPage({ walletConnect }) {
   const [country, setCountry] = useState("all");
   const [eligibility, setEligibility] = useState("all");
   const [query, setQuery] = useState("");
+  const { closures, error: closureError, ready: closuresReady } = useCatalogClosures();
 
   useEffect(() => {
     let cancelled = false;
@@ -76,12 +78,14 @@ export function PollListPage({ walletConnect }) {
     });
   }, [polls, topic, country, eligibility, query]);
 
-  const activePolls = [];
-  const endedPolls = [];
-  for (const poll of filtered) {
-    if (getPollSchedule(poll, now).phase === POLL_PHASE.CLOSED) endedPolls.push(poll);
-    else activePolls.push(poll);
-  }
+  const grouped = closuresReady
+    ? partitionPolls(filtered, now, closures)
+    : closureError
+      ? partitionPolls(filtered, now, {})
+      : null;
+  const activePolls = grouped?.active ?? [];
+  const endedPolls = grouped?.ended ?? [];
+  const unknownPolls = grouped?.unknown ?? [];
 
   const filtersOn =
     topic !== "all" || country !== "all" || eligibility !== "all" || query.trim() !== "";
@@ -159,10 +163,18 @@ export function PollListPage({ walletConnect }) {
           </label>
         </div>
 
+        {closureError ? (
+          <p className="status" data-tone="error">
+            {closureError}
+          </p>
+        ) : null}
         {filtered.length === 0 ? (
           <p className="meta">No polls match these filters.</p>
+        ) : grouped == null ? (
+          <p className="meta">Checking which polls have ended…</p>
         ) : (
           <>
+            {!closureError || activePolls.length > 0 ? (
             <section className="catalog-group" aria-labelledby="catalog-active">
               <h2 id="catalog-active" className="section-title">
                 Active
@@ -174,11 +186,18 @@ export function PollListPage({ walletConnect }) {
               ) : (
                 <div className="poll-grid">
                   {activePolls.map((poll) => (
-                    <PollCard key={poll.id} poll={poll} now={now} />
+                    <PollCard
+                      key={poll.id}
+                      poll={poll}
+                      now={now}
+                      closed={cardClosedFlag(closures, poll, now)}
+                    />
                   ))}
                 </div>
               )}
             </section>
+            ) : null}
+            {!closureError || endedPolls.length > 0 ? (
             <section className="catalog-group" aria-labelledby="catalog-ended">
               <h2 id="catalog-ended" className="section-title">
                 Ended
@@ -190,11 +209,29 @@ export function PollListPage({ walletConnect }) {
               ) : (
                 <div className="poll-grid">
                   {endedPolls.map((poll) => (
-                    <PollCard key={poll.id} poll={poll} now={now} />
+                    <PollCard
+                      key={poll.id}
+                      poll={poll}
+                      now={now}
+                      closed={cardClosedFlag(closures, poll, now)}
+                    />
                   ))}
                 </div>
               )}
             </section>
+            ) : null}
+            {unknownPolls.length > 0 ? (
+              <section className="catalog-group" aria-labelledby="catalog-unknown">
+                <h2 id="catalog-unknown" className="section-title">
+                  Status unavailable
+                </h2>
+                <div className="poll-grid">
+                  {unknownPolls.map((poll) => (
+                    <PollCard key={poll.id} poll={poll} now={now} closed={null} />
+                  ))}
+                </div>
+              </section>
+            ) : null}
           </>
         )}
         <EarlierNetworks />

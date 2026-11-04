@@ -27,7 +27,7 @@ Author in the footer: Peter Ploskikh — [X](https://x.com/pittpv), [LinkedIn](h
 
 Same cards as home, with search and filters (topic, country, eligibility). Matching polls are split into **Active** and **Ended**.
 
-**Ended** means the catalog `endsAt` is already in the past. A poll with no catalog end date stays under **Active** (it stays open until `end_poll` or `cancel_poll`). A poll that has not started yet also stays under **Active**. Search and filters apply to both groups. An ended card still opens; Connect and Vote on that page stay locked.
+**Ended** means voting is closed: the catalog `endsAt` is already in the past, or the chain has closed the poll (`vote_ended`, cancel, or on-chain `ends_at`). A poll with no end date stays under **Active** until that chain close. A poll that has not started yet also stays under **Active**. Search and filters apply to both groups. An ended card still opens; Connect and Vote on that page stay locked. The card word **Open** is open eligibility (no identity check), not a statement that voting is still running. Once the poll has ended, that eligibility word is left off the card and the status badge is **Ended**.
 
 The **country** list includes ISO codes from catalog tags, self-served `nationalityIn` / `issuedBy`, and — when a poll uses a Dashboard `policyId` — `nationality` / `issuing_country` from that policy.
 
@@ -78,7 +78,7 @@ The **Ballot privacy** heading and the Private / Open controls have a clear gap 
 
 ## Schedule
 
-Poll cards and vote pages show **Upcoming / Live / Ended** when `startsAt` / `endsAt` are set (catalog ISO; vote page prefers on-chain unix seconds). Before start: countdown, Connect and Vote locked. After start: countdown to the end. Omit both dates for an always-open poll until `end_poll` or `cancel_poll`. On-chain pause also locks voting while guests can still read the question.
+Poll cards and vote pages show **Upcoming / Live / Ended** when `startsAt` / `endsAt` are set (catalog ISO; vote page prefers on-chain unix seconds). Cards also show **Ended** when `GET /api/poll-state?catalog=1` reports the poll closed, even if the catalog has no dates. Before start: countdown, Connect and Vote locked. After start: countdown to the end. Omit both dates for an always-open poll until `end_poll` or `cancel_poll`. On-chain pause also locks voting while guests can still read the question.
 
 ## Legal
 

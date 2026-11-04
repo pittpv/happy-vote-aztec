@@ -8,11 +8,14 @@ import { usePageSeo } from "../hooks/usePageSeo.js";
 import { SiteFooter } from "./SiteFooter.jsx";
 import { SiteHeader } from "./SiteHeader.jsx";
 import { PollCard } from "./PollCard.jsx";
+import { cardClosedFlag } from "../lib/catalogClosure.js";
+import { useCatalogClosures } from "../hooks/useCatalogClosures.js";
 
 export function HomePage({ walletConnect }) {
   const now = useNow(1000);
   const [polls, setPolls] = useState(() => listHomePolls());
   const [catalogStatus, setCatalogStatus] = useState("Loading featured polls…");
+  const { closures, error: closureError, ready: closuresReady } = useCatalogClosures();
 
   useEffect(() => {
     let cancelled = false;
@@ -99,6 +102,11 @@ export function HomePage({ walletConnect }) {
           </button>
         </div>
 
+        {closureError ? (
+          <p className="status" data-tone="error">
+            {closureError}
+          </p>
+        ) : null}
         {polls.length === 0 ? (
           <div className="catalog-empty">
             <p className="meta">No featured polls right now.</p>
@@ -106,10 +114,17 @@ export function HomePage({ walletConnect }) {
               Browse all polls
             </button>
           </div>
+        ) : !closuresReady && !closureError ? (
+          <p className="meta">Checking which polls have ended…</p>
         ) : (
           <div className="poll-grid">
             {polls.map((poll) => (
-              <PollCard key={poll.id} poll={poll} now={now} />
+              <PollCard
+                key={poll.id}
+                poll={poll}
+                now={now}
+                closed={closuresReady ? cardClosedFlag(closures, poll, now) : null}
+              />
             ))}
           </div>
         )}

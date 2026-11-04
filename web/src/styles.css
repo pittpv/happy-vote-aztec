@@ -836,6 +836,10 @@ body::before {
   font-variant-numeric: tabular-nums;
 }
 
+.poll-card-schedule.is-ended {
+  color: var(--mist);
+}
+
 .elig-badge.is-soon {
   color: var(--amber);
   border-color: rgba(227, 162, 58, 0.45);
@@ -847,7 +851,9 @@ body::before {
 }
 
 .elig-badge.is-ended {
-  opacity: 0.75;
+  color: var(--danger);
+  border-color: rgba(232, 106, 92, 0.55);
+  opacity: 1;
 }
 
 .topic-row {

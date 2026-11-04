@@ -66,6 +66,7 @@ Public Aztec Labs RPC rate-limits browsers (HTTP 429).
 | Item | Value |
 |------|-------|
 | Endpoint | `GET /api/poll-state?pollId=1&optionsCount=2` |
+| Catalog cards | `GET /api/poll-state?catalog=1` → `{ polls: { "<id>": { closed, votingOpen, cancelled, paused, startsAt, endsAt } } }`. Home and All polls use `closed` so an on-chain end moves the card to **Ended** without a catalog `endsAt`. Same ~15s cache |
 | File | `web/api/poll-state.js` |
 | Behavior | Batch `node_getPublicStorageAt`, cache ~15s. `?fresh=1` skips the cache and sends `Cache-Control: no-store` (after a ballot and on Refresh) |
 | Map slots | Stored with catalog metadata at publish (any poll id). A baked JSON file is only a fallback for older records |
@@ -90,7 +91,7 @@ Never put a freshly constructed `AztecAddress` in a React `useEffect` dependency
 | Publish | Authenticated `POST /api/polls` (operator-only; poll body, `homepage` flags, or `policyId` on an existing ZKPassport poll) |
 | Seed | `web/data/polls-catalog.json` |
 | Overlay | Optional object storage overlay on the host |
-| Home | Catalog fields `showOnHome` and `homeRank` select cards on `/`; `/polls` lists every poll, split into **Active** and **Ended** by catalog `endsAt`. Country filter also uses public Dashboard policy `nationality` / `issuing_country` when `policyId` is set. Replacing catalog `policyId` on an existing poll does not rewrite on-chain `metadata_hash`. |
+| Home | Catalog fields `showOnHome` and `homeRank` select cards on `/`; `/polls` lists every poll, split into **Active** and **Ended** by catalog `endsAt` or on-chain close from `GET /api/poll-state?catalog=1`. Country filter also uses public Dashboard policy `nationality` / `issuing_country` when `policyId` is set. Replacing catalog `policyId` on an existing poll does not rewrite on-chain `metadata_hash`. |
 | Cache | Overlay hits may be cached ~30s. A seed-only miss (overlay unread) is cached only briefly. Unknown-id `404` is not stored on the CDN. |
 
 Without the overlay, everyone still sees the seed catalog. Overlay polls appear after `GET /api/polls?id=` succeeds.
