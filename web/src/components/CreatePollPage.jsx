@@ -268,7 +268,7 @@ export function CreatePollPage({ walletConnect }) {
   });
 
   return (
-    <main className={sessionReady ? "app app-wide" : "app"}>
+    <main className="app app-wide">
       <SiteHeader walletConnect={walletConnect} current="create" />
       <section className="catalog" aria-label="Create a poll">
         <header className="catalog-hero">
