@@ -82,6 +82,8 @@ Default ZKPassport scope: **per poll** (`poll:{id}`).
 | Per platform | `happyvote-aztec` | Rare |
 | Per election family | `election:…` | One vote in a group |
 
+The poll author is the Aztec address that sent `create_user_poll`. That address is public. A private ballot still hides the voter. ZKPassport is not bound to the author. The catalog signing key is not an account key.
+
 ## 6. What we do not promise
 
 1. Full IP / timing anonymity (no Tor/relayer in MVP).
@@ -95,6 +97,7 @@ Site visit totals are a separate first-party counter (no cookies, IP not stored,
 - **Private:** address hidden; the chosen option still updates the public tally (unless sealed).
 - **Open:** address and choice are public.
 - **ZKPassport:** HappyVote does not receive passport document data.
+- **Author:** the creator’s Aztec address is public. A private ballot still hides the voter.
 
 ## 8. Privacy checklist
 

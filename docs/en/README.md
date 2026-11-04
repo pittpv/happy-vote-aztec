@@ -29,7 +29,7 @@ A minimal voting portal for **any topic**: binary sentiment (Happy/Sad), multi-o
 1. **Programmable privacy** — a ballot can hide the voter while the tally stays public (or sealed until close).
 2. **Voter choice** — private (default) or open, when the poll policy allows it.
 3. **ZKPassport** — personhood / age / nationality without sending passport data to HappyVote.
-4. **Two creation paths** — HappyVote publishes the featured polls; a connected account publishes a single-choice poll at `/create` on the current Testnet contract.
+4. **Two creation paths** — HappyVote publishes the featured polls. A connected account publishes a single-choice poll at `/create` with the same Connect dialog as voting. The author address is public. **Your polls** lists that address and can end a poll early.
 
 ## Principles
 

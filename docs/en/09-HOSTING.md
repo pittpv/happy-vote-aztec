@@ -88,10 +88,11 @@ Never put a freshly constructed `AztecAddress` in a React `useEffect` dependency
 |------|-------|
 | List | `GET /api/polls` — polls still inside their catalog window, plus homepage polls. Ended polls that are not on the homepage: `GET /api/polls?ended=1&lane=authoritative\|users&offset=&limit=` (default 24, maximum 48) |
 | One | `GET /api/polls?id=3` (vote pages fetch this first so Blob-only polls such as `/p/5` do not flash seed placeholders) |
+| By author | `GET /api/polls?creator=` — listings for that address on the current contract, including polls past `endsAt`, plus the three open on-chain slots. Hidden titles are omitted. |
 | Publish | Authenticated `POST /api/polls` (operator-only; poll body, `homepage` flags, or `policyId` on an existing ZKPassport poll) |
 | Seed | `web/data/polls-catalog.json` |
 | Overlay | Optional object storage overlay on the host |
-| Home | Catalog fields `showOnHome` and `homeRank` select cards on `/`. The creator of a poll cannot set those flags. `/polls` keeps two sections, **Авторитетные голосования** and **Users polls**, each with **Active** and **Ended**. Ended polls that are not on the homepage load 24 at a time. Country filter also uses public Dashboard policy `nationality` / `issuing_country` when `policyId` is set. Replacing catalog `policyId` on an existing poll does not rewrite on-chain `metadata_hash`. |
+| Home | Catalog fields `showOnHome` and `homeRank` select cards on `/`. The creator of a poll cannot set those flags. `/polls` keeps **Authoritative polls** and **User polls**, each with **Active**, then one shared **Ended** section. Ended polls that are not on the homepage load 24 at a time per `lane`. Country filter also uses public Dashboard policy `nationality` / `issuing_country` when `policyId` is set. Replacing catalog `policyId` on an existing poll does not rewrite on-chain `metadata_hash`. |
 | Cache | Overlay hits may be cached ~30s. A seed-only miss (overlay unread) is cached only briefly. Unknown-id `404` is not stored on the CDN. |
 
 Without the overlay, everyone still sees the seed catalog. Overlay polls appear after `GET /api/polls?id=` succeeds.

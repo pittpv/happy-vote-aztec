@@ -13,6 +13,7 @@ import {
 } from "./zkRequirements.js";
 import { pollPath as routePollPath } from "./routing.js";
 import { curatedHomeFlag } from "./catalogSections.js";
+import { normalizeAddress } from "./catalogMeta.js";
 import { isDailyVote, utcDayIndex, VOTE_FREQUENCY } from "./voteFrequency.js";
 import {
   fetchZkPassportPolicies,
@@ -496,6 +497,23 @@ function publishTokenOrThrow(publishToken) {
     (typeof sessionStorage !== "undefined" ? sessionStorage.getItem("happyvote.publishToken") : null);
   if (!token) throw new Error("Missing publish token");
   return token;
+}
+
+/**
+ * Listed polls for one public creator address, plus that account's open-poll slots.
+ * @param {string} creator
+ */
+export async function fetchCreatorPolls(creator) {
+  const address = normalizeAddress(creator);
+  const response = await fetchCatalog(`/api/polls?creator=${encodeURIComponent(address)}`);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok) {
+    throw new Error(data.error || `Catalog HTTP ${response.status}`);
+  }
+  if (!Array.isArray(data.polls) || !Array.isArray(data.openPolls)) {
+    throw new Error("Invalid creator catalog response");
+  }
+  return { polls: data.polls, openPolls: data.openPolls };
 }
 
 /** Signed account listing. The server checks the chain before it stores the card. */

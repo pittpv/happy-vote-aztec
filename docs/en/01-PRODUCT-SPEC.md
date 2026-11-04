@@ -109,7 +109,7 @@ Still manual: real-device ZKPassport E2E; participation receipt note.
 
 ### Iteration 2 — live on Testnet
 
-See [05-DEVELOPMENT-PLAN.md](./05-DEVELOPMENT-PLAN.md). A non-admin create, a catalog signature bound to `metadata_hash`, the daily and open-poll limits, All polls sections, a paged ended catalog, hide, and an authoritative mark are in this build. Noir tests passed (63). The published Testnet contract includes `create_user_poll`. The homepage stays curated. The creator cannot put a poll on `/`. Ballots from the previous Testnet contract remain in Earlier networks.
+See [05-DEVELOPMENT-PLAN.md](./05-DEVELOPMENT-PLAN.md). A non-admin create, a catalog signature bound to `metadata_hash`, the daily and open-poll limits, All polls sections, a paged ended catalog, hide, and an authoritative mark are in this build. Noir tests passed (63). The published Testnet contract includes `create_user_poll`. Any connected account can publish. The sender is the public author. `/create` uses the same Connect dialog as voting and has two tabs: **Create poll**, and **Your polls** for that address, including an early `end_poll`. An installed wallet keeps the address after a refresh. A browser session starts a new address each Connect, so those polls are not listed again from a new session. The homepage stays curated. The creator cannot put a poll on `/`. Ballots from the previous Testnet contract remain in Earlier networks.
 
 ### Iteration 3 — not started
 

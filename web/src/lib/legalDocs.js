@@ -199,6 +199,7 @@ export const LEGAL_DOCUMENTS = {
         heading: "2. Similar technologies we use",
         bullets: [
           "localStorage — poll metadata catalog (happyvote.aztec.polls.v1) so created/listed polls persist in your browser; ZKPassport personhood id for a poll (happyvote.aztec.zkid.v1) for up to 12 hours so iPhone reloads do not require scanning again; a participation hint per poll (happyvote.aztec.voted.v1) that does not store a wallet address.",
+          "sessionStorage — a one-time catalog signing key (happyvote.aztec.catalogDraft.v1) kept until the poll listing is published or you dismiss it. It signs that poll’s catalog text.",
           "In-memory session state — wallet connection and admin key material for the current tab (not written to localStorage for admin import).",
           "Essential host/CDN cookies — our hosting or security edge may set strictly necessary cookies to deliver the site.",
           "Third-party flows — connecting an external Aztec wallet or completing ZKPassport may involve cookies or storage controlled by those providers.",

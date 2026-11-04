@@ -29,87 +29,62 @@ function PollGrid({ polls, now, closures, closed }) {
   );
 }
 
-function CatalogLane({
-  id,
-  title,
-  note,
-  polls,
-  archive,
-  archiveTotal,
-  onArchiveMore,
-  archiveBusy,
-  sort,
-  lane,
-  now,
-  closures,
-  closureError,
-  filtersOn,
-  emptyLabel,
-}) {
+function uniquePolls(polls) {
+  const seen = new Set();
+  const out = [];
+  for (const poll of polls) {
+    const id = String(poll.id);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(poll);
+  }
+  return out;
+}
+
+function endedInLane(polls, archive, sort, now, closures, lane) {
   const groups = partitionPolls(polls, now, closures);
-  const endedCards =
-    lane === "authoritative"
-      ? orderAuthoritative([...groups.ended, ...archive], sort)
-      : sortPolls([...groups.ended, ...archive], sort);
-  const laneEmpty = polls.length === 0 && archive.length === 0;
+  const merged = [...groups.ended, ...archive];
+  return lane === "authoritative" ? orderAuthoritative(merged, sort) : sortPolls(merged, sort);
+}
+
+function CatalogLane({ id, title, note, polls, now, closures, closureError, filtersOn, emptyLabel }) {
+  const groups = partitionPolls(polls, now, closures);
+  const showActive = groups.active.length > 0 || groups.unknown.length === 0;
   return (
     <section className="catalog-lane" aria-labelledby={id}>
-      <h2 id={id} className="catalog-lane-title">
-        {title}
-      </h2>
-      <p className="meta">{note}</p>
-      {laneEmpty ? (
-        <p className="meta">
-          {filtersOn ? `No ${emptyLabel} polls match these filters.` : `No ${emptyLabel} polls yet.`}
-        </p>
-      ) : (
-        <>
-          {!closureError || groups.active.length > 0 ? (
-            <section className="catalog-group" aria-labelledby={`${id}-active`}>
-              <h3 id={`${id}-active`} className="section-title">
-                Active
-              </h3>
-              {groups.active.length === 0 ? (
-                <p className="meta">No active polls.</p>
-              ) : (
-                <PollGrid polls={groups.active} now={now} closures={closures} />
-              )}
-            </section>
-          ) : null}
-          {!closureError || endedCards.length > 0 ? (
-            <section className="catalog-group" aria-labelledby={`${id}-ended`}>
-              <h3 id={`${id}-ended`} className="section-title">
-                Ended
-              </h3>
-              {endedCards.length === 0 ? (
-                <p className="meta">{archiveBusy ? "Loading ended polls…" : "No ended polls."}</p>
-              ) : (
-                <>
-                  <PollGrid polls={endedCards} now={now} closures={closures} closed />
-                  {archive.length < archiveTotal ? (
-                    <button
-                      type="button"
-                      className="btn btn-ghost catalog-more"
-                      disabled={archiveBusy}
-                      onClick={onArchiveMore}
-                    >
-                      {archiveBusy ? "Loading…" : "Show more ended polls"}
-                    </button>
-                  ) : null}
-                </>
-              )}
-            </section>
-          ) : null}
-          {groups.unknown.length > 0 ? (
-            <section className="catalog-group" aria-labelledby={`${id}-unknown`}>
-              <h3 id={`${id}-unknown`} className="section-title">
-                Status unavailable
-              </h3>
-              <PollGrid polls={groups.unknown} now={now} closures={closures} closed={null} />
-            </section>
-          ) : null}
-        </>
-      )}
+      <header className="catalog-lane-head">
+        <h2 id={id} className="section-title">
+          {title}
+        </h2>
+        <p className="section-lede">{note}</p>
+      </header>
+      {showActive ? (
+        <section className="catalog-group" aria-labelledby={`${id}-active`}>
+          <h3 id={`${id}-active`} className="catalog-group-title">
+            Active
+            {groups.active.length > 0 ? (
+              <span className="catalog-count">{groups.active.length}</span>
+            ) : null}
+          </h3>
+          {groups.active.length === 0 ? (
+            <p className="meta">
+              {filtersOn
+                ? `No active ${emptyLabel} polls match these filters.`
+                : `No active ${emptyLabel} polls.`}
+            </p>
+          ) : (
+            <PollGrid polls={groups.active} now={now} closures={closures} />
+          )}
+        </section>
+      ) : null}
+      {groups.unknown.length > 0 ? (
+        <section className="catalog-group" aria-labelledby={`${id}-unknown`}>
+          <h3 id={`${id}-unknown`} className="catalog-group-title">
+            Status unavailable
+          </h3>
+          <PollGrid polls={groups.unknown} now={now} closures={closures} closed={null} />
+        </section>
+      ) : null}
     </section>
   );
 }
@@ -199,8 +174,51 @@ export function PollListPage({ walletConnect }) {
   const filtersOn =
     topic !== "all" || country !== "all" || eligibility !== "all" || query.trim() !== "";
 
+  const endedBusy = archiveBusy.authoritative || archiveBusy.users;
+  const endedCards =
+    lanes == null
+      ? []
+      : uniquePolls(
+          sort === "id"
+            ? [
+                ...endedInLane(
+                  lanes.authoritative,
+                  archive.authoritative,
+                  sort,
+                  now,
+                  closureMap,
+                  "authoritative",
+                ),
+                ...endedInLane(lanes.users, archive.users, sort, now, closureMap, "users"),
+              ]
+            : sortPolls(
+                [
+                  ...endedInLane(
+                    lanes.authoritative,
+                    archive.authoritative,
+                    sort,
+                    now,
+                    closureMap,
+                    "authoritative",
+                  ),
+                  ...endedInLane(lanes.users, archive.users, sort, now, closureMap, "users"),
+                ],
+                sort,
+              ),
+        );
+  const liveEndedCount =
+    lanes == null
+      ? 0
+      : partitionPolls(lanes.authoritative, now, closureMap).ended.length +
+        partitionPolls(lanes.users, now, closureMap).ended.length;
+  const endedTotal = archiveTotal.authoritative + archiveTotal.users + liveEndedCount;
+  const endedHasMore =
+    archive.authoritative.length < archiveTotal.authoritative ||
+    archive.users.length < archiveTotal.users;
+
   useEffect(() => {
     let cancelled = false;
+    setArchiveBusy({ authoritative: true, users: true });
     const timer = setTimeout(() => {
       setArchive({ authoritative: [], users: [] });
       setArchiveTotal({ authoritative: 0, users: 0 });
@@ -236,26 +254,35 @@ export function PollListPage({ walletConnect }) {
     };
   }, [sort, query, topic, country, eligibility]);
 
-  function loadMoreEnded(lane) {
-    const offset = archive[lane].length;
-    if (archiveBusy[lane] || offset >= archiveTotal[lane]) return;
-    setArchiveBusy((prev) => ({ ...prev, [lane]: true }));
-    fetchEndedPollPage({
-      lane,
-      offset,
-      sort,
-      query,
-      topic,
-      country,
-      eligibility,
-    })
-      .then((page) => {
-        setArchive((prev) => ({ ...prev, [lane]: [...prev[lane], ...page.polls] }));
-        setArchiveTotal((prev) => ({ ...prev, [lane]: page.total }));
+  function loadMoreEnded() {
+    for (const lane of ["authoritative", "users"]) {
+      const offset = archive[lane].length;
+      if (archiveBusy[lane] || offset >= archiveTotal[lane]) continue;
+      setArchiveBusy((prev) => ({ ...prev, [lane]: true }));
+      fetchEndedPollPage({
+        lane,
+        offset,
+        sort,
+        query,
+        topic,
+        country,
+        eligibility,
       })
-      .finally(() => {
-        setArchiveBusy((prev) => ({ ...prev, [lane]: false }));
-      });
+        .then((page) => {
+          setArchive((prev) => ({ ...prev, [lane]: [...prev[lane], ...page.polls] }));
+          setArchiveTotal((prev) => ({ ...prev, [lane]: page.total }));
+        })
+        .finally(() => {
+          setArchiveBusy((prev) => ({ ...prev, [lane]: false }));
+        });
+    }
+  }
+
+  function clearFilters() {
+    setTopic("all");
+    setCountry("all");
+    setEligibility("all");
+    setQuery("");
   }
 
   const pollsTitle = pageTitle("All polls");
@@ -289,18 +316,18 @@ export function PollListPage({ walletConnect }) {
 
       <section id="polls" className="catalog" aria-label="All polls">
 
-        <div className="catalog-toolbar">
-          <label className="filter-field grow">
-            <span className="sr-only">Search</span>
+        <div className="catalog-toolbar catalog-toolbar--filters" role="search">
+          <label className="filter-field filter-search">
+            <span className="filter-label">Search</span>
             <input
               type="search"
-              placeholder="Search title or topic…"
+              placeholder="Search title or topic"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
           </label>
-          <label className="filter-field">
-            Topic
+          <label className="filter-field filter-select">
+            <span className="filter-label">Topic</span>
             <select value={topic} onChange={(e) => setTopic(e.target.value)}>
               <option value="all">All topics</option>
               {topics.map((t) => (
@@ -310,8 +337,8 @@ export function PollListPage({ walletConnect }) {
               ))}
             </select>
           </label>
-          <label className="filter-field">
-            Country
+          <label className="filter-field filter-select">
+            <span className="filter-label">Country</span>
             <select value={country} onChange={(e) => setCountry(e.target.value)}>
               <option value="all">All countries</option>
               {countries.map((c) => (
@@ -321,22 +348,27 @@ export function PollListPage({ walletConnect }) {
               ))}
             </select>
           </label>
-          <label className="filter-field">
-            Eligibility
+          <label className="filter-field filter-select">
+            <span className="filter-label">Eligibility</span>
             <select value={eligibility} onChange={(e) => setEligibility(e.target.value)}>
               <option value="all">Any</option>
               <option value="open">Open</option>
               <option value="zk">ZKPassport</option>
             </select>
           </label>
-          <label className="filter-field">
-            Sort
+          <label className="filter-field filter-select">
+            <span className="filter-label">Sort</span>
             <select value={sort} onChange={(e) => setSort(e.target.value)}>
               <option value="id">Poll id</option>
               <option value="newest">Newest</option>
               <option value="ending">Ending soon</option>
             </select>
           </label>
+          {filtersOn ? (
+            <button type="button" className="btn btn-ghost catalog-clear" onClick={clearFilters}>
+              Clear
+            </button>
+          ) : null}
         </div>
 
         {closureError ? (
@@ -350,15 +382,9 @@ export function PollListPage({ walletConnect }) {
           <>
             <CatalogLane
               id="catalog-authoritative"
-              title="Авторитетные голосования"
-              note="Polls published by HappyVote, and polls from accounts marked authoritative."
+              title="Authoritative polls"
+              note="Polls published by HappyVote and by accounts marked authoritative."
               polls={lanes.authoritative}
-              archive={archive.authoritative}
-              archiveTotal={archiveTotal.authoritative}
-              onArchiveMore={() => loadMoreEnded("authoritative")}
-              archiveBusy={archiveBusy.authoritative}
-              sort={sort}
-              lane="authoritative"
               now={now}
               closures={closureMap}
               closureError={closureError}
@@ -367,21 +393,53 @@ export function PollListPage({ walletConnect }) {
             />
             <CatalogLane
               id="catalog-users"
-              title="Users polls"
+              title="User polls"
               note="Polls published by other accounts."
               polls={lanes.users}
-              archive={archive.users}
-              archiveTotal={archiveTotal.users}
-              onArchiveMore={() => loadMoreEnded("users")}
-              archiveBusy={archiveBusy.users}
-              sort={sort}
-              lane="users"
               now={now}
               closures={closureMap}
               closureError={closureError}
               filtersOn={filtersOn}
               emptyLabel="user"
             />
+            {!closureError || endedCards.length > 0 ? (
+              <section className="catalog-lane catalog-ended" aria-labelledby="catalog-ended" aria-busy={endedBusy}>
+                <header className="catalog-lane-head">
+                  <h2 id="catalog-ended" className="section-title">
+                    Ended
+                    {endedCards.length > 0 ? (
+                      <span className="catalog-count">
+                        {endedHasMore ? `${endedCards.length} of ${endedTotal}` : endedCards.length}
+                      </span>
+                    ) : null}
+                  </h2>
+                  <p className="section-lede">Polls whose voting has closed, from both sections above.</p>
+                </header>
+                {endedCards.length === 0 ? (
+                  <p className="meta">
+                    {endedBusy
+                      ? "Loading ended polls…"
+                      : filtersOn
+                        ? "No ended polls match these filters."
+                        : "No ended polls."}
+                  </p>
+                ) : (
+                  <>
+                    <PollGrid polls={endedCards} now={now} closures={closureMap} closed />
+                    {endedHasMore ? (
+                      <button
+                        type="button"
+                        className="btn btn-ghost catalog-more"
+                        disabled={endedBusy}
+                        onClick={loadMoreEnded}
+                      >
+                        {endedBusy ? "Loading…" : "Show more ended polls"}
+                      </button>
+                    ) : null}
+                  </>
+                )}
+              </section>
+            ) : null}
           </>
         )}
         <EarlierNetworks />

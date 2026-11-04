@@ -3,6 +3,7 @@
  *
  * GET  /api/polls          → { polls: PollMeta[], source }
  * GET  /api/polls?id=3     → single poll
+ * GET  /api/polls?creator= → that account's listed polls, including ended, plus open-poll slots
  * POST /api/polls          → upsert poll (Authorization: Bearer POLLS_PUBLISH_TOKEN)
  * POST /api/polls { homepage: [{ id, showOnHome, homeRank }] } → featured flags for `/`
  * POST /api/polls { policy: { id, policyId } } → Dashboard PolicyID for an existing poll
@@ -18,7 +19,7 @@ import {
   writeBlobCatalog,
 } from "./poll-catalog.js";
 import { fallbackSlots, isUsableSlotEntry } from "./poll-slots.js";
-import { readAuthoritativeFlag, verifyAccountPoll } from "./verify-account-poll.js";
+import { readAuthoritativeFlag, readCreatorChain, verifyAccountPoll } from "./verify-account-poll.js";
 import { normalizeAddress } from "../src/lib/catalogMeta.js";
 import {
   accountHomeFlag,
@@ -88,6 +89,16 @@ export async function readNextPollId() {
 
 function onCurrentContract(poll, nextPollId) {
   return Number(poll.id) > 0 && Number(poll.id) < nextPollId;
+}
+
+function creatorAddressMatches(poll, creator) {
+  if (!poll?.creator) return false;
+  try {
+    return normalizeAddress(poll.creator) === creator;
+  } catch (error) {
+    if (error?.message === "Invalid Aztec address") return false;
+    throw error;
+  }
 }
 
 function checkAuth(req) {
@@ -358,6 +369,7 @@ async function publishAccountPoll(res, body) {
   const seed = loadSeed();
   const overlay = (await readBlobCatalog()) || { version: 1, polls: {} };
   poll.showOnHome = accountHomeFlag((overlay.polls || {})[poll.id]);
+  if ((overlay.polls || {})[poll.id]?.hidden === true) poll.hidden = true;
   const next = nextOverlay(overlay, { ...(overlay.polls || {}), [poll.id]: poll });
   const mergedForClients = mergeCatalogs(seed, next);
   try {
@@ -484,6 +496,36 @@ export default async function handler(req, res) {
         });
       }
       const nextPollId = await readNextPollId();
+      const creatorParam = url.searchParams.get("creator");
+      if (creatorParam != null && creatorParam !== "") {
+        let creator;
+        try {
+          creator = normalizeAddress(creatorParam);
+        } catch (error) {
+          return res.status(400).json({ ok: false, error: error?.message || "Invalid creator address" });
+        }
+        const accounts = accountSet(catalog);
+        const polls = Object.values(catalog.polls)
+          .filter((poll) => onCurrentContract(poll, nextPollId))
+          .filter((poll) => poll.hidden !== true)
+          .filter((poll) => creatorAddressMatches(poll, creator))
+          .map((poll) => annotatePoll(poll, accounts));
+        const chain = await readCreatorChain(
+          creator,
+          polls.map((poll) => poll.id),
+        );
+        const withChain = polls.map((poll) => {
+          const status = chain.byId[String(poll.id)];
+          if (!status) throw new Error(`Chain status missing for poll ${poll.id}`);
+          return { ...poll, voteEnded: status.voteEnded, cancelled: status.cancelled };
+        });
+        res.setHeader("Cache-Control", "private, no-store");
+        return res.status(200).json({
+          ok: true,
+          polls: withChain,
+          openPolls: chain.openPolls,
+        });
+      }
       const id = url.searchParams.get("id");
       if (id) {
         const poll = catalog.polls[String(id)];

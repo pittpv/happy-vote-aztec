@@ -71,7 +71,7 @@ export function AdminTrust({
       setAccounts(list);
       setStatus({
         text: enabled
-          ? "Authoritative mark saved. That account’s polls can sit in Авторитетные голосования."
+          ? "Authoritative mark saved. That account’s polls can sit in Authoritative polls."
           : "Mark removed.",
         tone: "ok",
       });

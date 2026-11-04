@@ -37,7 +37,7 @@ export const FAQ_ITEMS = [
     id: "create",
     question: "Can I publish a poll?",
     answer:
-      "Yes. Create in the header opens a public page. A browser session signs the listing; that signing key stays in the tab and is not sent to the server. Private still hides your address, and the tally is public unless you seal it. One account can publish one poll per UTC day, and at most three of its polls can be open. Homepage placement is chosen by HappyVote.",
+      "Yes. Create in the header opens a public page with two tabs: Create poll and Your polls. Connect Aztec wallet uses the same dialog as voting. The connected address is the public author. Your polls lists polls that address created and can end one that is still open. Reconnect the same wallet after a refresh to see them again. A browser session starts a new address each Connect. Private still hides a voter’s address, and the tally is public unless the poll is sealed. One account can publish one poll per UTC day, and at most three of its polls can be open. Homepage placement is chosen by HappyVote.",
   },
   {
     id: "fee",

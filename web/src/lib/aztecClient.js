@@ -360,6 +360,13 @@ export async function senderFeeTxOptions() {
   return { fee: { gasSettings: { maxFeesPerGas: await readMaxFeesPerGas() } } };
 }
 
+/** Testnet create and end use the Sponsored FPC. Mainnet uses the sender's Fee Juice. */
+export async function accountFeeOptions(wallet, mainnet) {
+  if (mainnet) return senderFeeTxOptions();
+  if (!wallet) throw new Error("Wallet is required");
+  return sponsoredTxOptions(await getSponsoredPaymentMethod(wallet));
+}
+
 /**
  * One registration per wallet address for the life of the page.
  * Opening another poll must not upload artifacts or re-simulate views.

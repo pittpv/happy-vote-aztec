@@ -22,7 +22,7 @@ Smoke creates poll `1` with the deploy account. **Browser session** creates an *
 
 - Brand **HappyVote on Aztec** + mission / privacy pillars + author links
 - Home featured polls; full catalog `/polls` with search / filters
-- Site header + hamburger menu (wallet connect / connected address)
+- Site header: desktop bar from 900px (All polls, Create, FAQ, compact wallet). Narrow screens use the menu button. Logo returns home.
 - Poll pages `/p/:id` — 1080px, ballot | live results; catalog-only ids load via `GET /api/polls?id=`
 - Private vs open ballot (when policy = voter_choice)
 - Public tallies without a wallet (`/api/poll-state`)

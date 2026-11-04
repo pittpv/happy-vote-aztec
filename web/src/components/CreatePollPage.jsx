@@ -1,20 +1,25 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   AztecAddress,
   Fr,
   PRIVACY,
+  accountFeeOptions,
   asFieldBigInt,
-  getSponsoredPaymentMethod,
   pollIdFromRaw,
   registerHappyVote,
   registerStandardContracts,
-  senderFeeTxOptions,
-  sponsoredTxOptions,
 } from "../lib/aztecClient.js";
+import {
+  clearCatalogDraft,
+  createCatalogSigningKey,
+  readCatalogDraft,
+  signCatalogDraft,
+  writeCatalogDraft,
+} from "../lib/catalogDraft.js";
+import { MyPollsPanel } from "./MyPollsPanel.jsx";
 import {
   assertListingText,
   canonicalContent,
-  canonicalListing,
   fieldFromUtf8,
   MAX_WINDOW_MS,
   normalizeAddress,
@@ -66,18 +71,18 @@ function voteFrequencyHint(frequency) {
   return "One ballot per Aztec account for the life of this poll. Switching private/open does not add a second vote.";
 }
 
-function fieldBigInt(value) {
-  const text = typeof value?.toString === "function" ? value.toString() : String(value);
-  return BigInt(text);
+function parseCreateTab(hash = typeof window === "undefined" ? "" : window.location.hash) {
+  return String(hash || "").replace(/^#/, "") === "yours" ? "yours" : "create";
 }
 
 export function CreatePollPage({ walletConnect }) {
   const place = networkPlace();
   const mainnet = place === "mainnet";
   const connected = walletConnect.phase.kind === "connected";
-  const signingKey = connected ? walletConnect.phase.signingKey : null;
-  const sessionReady = Boolean(signingKey);
+  const address = connected ? String(walletConnect.phase.address) : "";
+  const sessionAccount = Boolean(connected && walletConnect.phase.signingKey);
   const connectDialogOpen = !["idle", "connected", "disconnected"].includes(walletConnect.phase.kind);
+  const [tab, setTabState] = useState(parseCreateTab);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [topics, setTopics] = useState("");
@@ -88,6 +93,20 @@ export function CreatePollPage({ walletConnect }) {
   const [privacy, setPrivacy] = useState(PRIVACY.VOTER_CHOICE);
   const [zkDraft, setZkDraft] = useState(null);
   const onZkDraft = useCallback((rules) => setZkDraft(rules), []);
+
+  useEffect(() => {
+    function onHash() {
+      setTabState(parseCreateTab());
+    }
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  function selectTab(id) {
+    setTabState(id);
+    const next = `${window.location.pathname}${window.location.search}#${id}`;
+    window.history.replaceState({}, "", next);
+  }
   const [sealed, setSealed] = useState(false);
   const [voteFrequency, setVoteFrequency] = useState(VOTE_FREQUENCY.ONCE);
   const [feeMode, setFeeMode] = useState(mainnet ? FEE_MODE.VOTER : FEE_MODE.SPONSORED);
@@ -146,18 +165,23 @@ export function CreatePollPage({ walletConnect }) {
       setError("Mainnet does not offer the Sponsored FPC for a new poll.");
       return;
     }
-    if (!connected || !walletConnect.phase.wallet) {
-      setError("Connect a browser session before publishing.");
+    if (!connected || !walletConnect.phase.wallet || !address) {
+      setError("Connect an Aztec wallet before publishing.");
       return;
     }
-    if (!signingKey) {
+    const pending = readCatalogDraft();
+    if (
+      pending?.pollId &&
+      normalizeAddress(pending.creator) === normalizeAddress(address)
+    ) {
       setError(
-        "Publishing signs the catalog with the browser session key. That key stays in this tab and is not sent to the server. Connect a browser session, not an external wallet.",
+        `Poll #${pending.pollId} is on-chain in this tab and still needs its listing. Open Your polls to publish it.`,
       );
+      selectTab("yours");
       return;
     }
     const wallet = walletConnect.phase.wallet;
-    const creator = String(walletConnect.phase.address);
+    const creator = address;
     setBusy(true);
     try {
       setStatus("Registering the contract…");
@@ -181,34 +205,55 @@ export function CreatePollPage({ walletConnect }) {
       if (typeof contract.methods.get_creator !== "function") {
         throw new Error("This artifact has no get_creator view. The listing was not published.");
       }
-      const { Schnorr } = await import("@aztec-labs/foundation/crypto/schnorr");
-      const { Fr: BnFr } = await import("@aztec-labs/foundation/curves/bn254");
-      const schnorr = new Schnorr();
-      const point = await schnorr.computePublicKey(signingKey);
+      const catalogKey = await createCatalogSigningKey();
       const from = AztecAddress.fromStringUnsafe(creator);
       const before = asFieldBigInt(
         await contract.methods.get_next_poll_id().simulate({ from }),
       );
-      const txOptions = mainnet
-        ? await senderFeeTxOptions()
-        : await sponsoredTxOptions(await getSponsoredPaymentMethod(wallet));
+      const txOptions = await accountFeeOptions(wallet, mainnet);
+      const pollBody = {
+        id: "",
+        title: text.title,
+        description: text.description,
+        options: optionRows.map((row) => {
+          const label = row.label.trim();
+          const note = row.description.trim();
+          return note ? { label, description: note } : { label };
+        }),
+        topics: text.topics,
+        creator,
+        privacyPolicy: privacy,
+        eligibilityMode,
+        zkRequirements: zk,
+        sealed,
+        voteFrequency,
+        startsAt: startIso,
+        endsAt: endIso,
+      };
+      writeCatalogDraft({
+        creator,
+        signingKey: catalogKey.signingKey,
+        publicKey: catalogKey.publicKey,
+        poll: pollBody,
+        pollId: null,
+      });
       setStatus("Proving the poll…");
-      await contract.methods
-        .create_user_poll(
-          text.labels.length,
-          privacy,
-          eligibilityMode,
-          new Fr(BigInt(contentHash)),
-          sealed,
-          isoToUnixSeconds(startIso),
-          isoToUnixSeconds(endIso),
-          voteFrequency,
-          FEE_CODE[feeMode],
-          FALLBACK_CODE[feeFallback],
-          new Fr(fieldBigInt(point.x)),
-          new Fr(fieldBigInt(point.y)),
-        )
-        .send({ from, ...txOptions, wait: { timeout: 600 } });
+      const createCall = contract.methods.create_user_poll(
+        text.labels.length,
+        privacy,
+        eligibilityMode,
+        new Fr(BigInt(contentHash)),
+        sealed,
+        isoToUnixSeconds(startIso),
+        isoToUnixSeconds(endIso),
+        voteFrequency,
+        FEE_CODE[feeMode],
+        FALLBACK_CODE[feeFallback],
+        new Fr(BigInt(catalogKey.publicKey.x)),
+        new Fr(BigInt(catalogKey.publicKey.y)),
+      );
+      await createCall.simulate({ from });
+      await createCall.send({ from, ...txOptions, wait: { timeout: 600 } });
       const after = asFieldBigInt(await contract.methods.get_next_poll_id().simulate({ from }));
       const owned = [];
       for (let id = before; id < after; id += 1n) {
@@ -223,44 +268,26 @@ export function CreatePollPage({ walletConnect }) {
         );
       }
       const pollId = owned[0].toString();
-      const signedListing = await fieldFromUtf8(
-        canonicalListing({
-          contract: contractAddress,
-          pollId,
-          title: text.title,
-          description: text.description,
-          options: text.labels,
-          topics: text.topics,
-          zk,
-        }),
-      );
-      const signature = await schnorr.constructSignature(new BnFr(BigInt(signedListing)), signingKey);
-      const signatureBytes = signature.toBuffer();
-      const signatureHex = [...signatureBytes].map((byte) => byte.toString(16).padStart(2, "0")).join("");
-      setStatus("Publishing the listing…");
-      await publishAccountPoll({
-        poll: {
-          id: pollId,
-          title: text.title,
-          description: text.description,
-          options: optionRows.map((row) => {
-            const label = row.label.trim();
-            const note = row.description.trim();
-            return note ? { label, description: note } : { label };
-          }),
-          topics: text.topics,
-          creator,
-          privacyPolicy: privacy,
-          eligibilityMode,
-          zkRequirements: zk,
-          sealed,
-          voteFrequency,
-          startsAt: startIso,
-          endsAt: endIso,
-        },
-        signature: signatureHex,
-        signingPublicKey: { x: fieldBigInt(point.x).toString(), y: fieldBigInt(point.y).toString() },
+      writeCatalogDraft({
+        creator,
+        signingKey: catalogKey.signingKey,
+        publicKey: catalogKey.publicKey,
+        poll: pollBody,
+        pollId,
       });
+      setStatus("Publishing the listing…");
+      await publishAccountPoll(
+        await signCatalogDraft(
+          {
+            creator,
+            signingKey: catalogKey.signingKey,
+            publicKey: catalogKey.publicKey,
+            poll: pollBody,
+          },
+          pollId,
+        ),
+      );
+      clearCatalogDraft();
       navigate(pollPath(pollId));
     } catch (err) {
       console.error(err);
@@ -296,13 +323,69 @@ export function CreatePollPage({ walletConnect }) {
           <p className="vote-kicker">Create</p>
           <h1 className="catalog-hero-title">Publish a poll</h1>
           <p className="lede">
-            {sessionReady
-              ? "A private ballot hides your address. The tally is public unless you seal it until the poll ends."
-              : "Connect a browser session, then write the question. The catalog signature stays in this tab."}
+            {connected
+              ? "A private ballot hides the voter’s address. The tally is public unless you seal it until the poll ends. The connected address is the public author."
+              : "Connect an Aztec wallet, then write the question or open the polls that address already created."}
           </p>
+          {connected ? (
+            <p className="meta">
+              Public author <code>{address}</code>
+              {sessionAccount
+                ? ". A browser session starts a new address each Connect. An installed wallet keeps the same address after you reconnect."
+                : ". Reconnect this wallet to see these polls and end one early."}
+            </p>
+          ) : (
+            <div className="create-gate">
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={connectDialogOpen}
+                onClick={() => walletConnect.start()}
+              >
+                {connectDialogOpen ? "Connecting…" : "Connect Aztec wallet"}
+              </button>
+              {connectDialogOpen ? <p className="status">Finish connecting in the dialog.</p> : null}
+            </div>
+          )}
         </header>
 
-        {sessionReady ? (
+        <div className="admin-tabs" role="tablist" aria-label="Create sections">
+          <button
+            type="button"
+            role="tab"
+            id="create-tab-create"
+            className="admin-tab"
+            aria-selected={tab === "create"}
+            aria-controls="create-panel-create"
+            tabIndex={tab === "create" ? 0 : -1}
+            onClick={() => selectTab("create")}
+          >
+            <span className="admin-tab-label">Create poll</span>
+            <span className="admin-tab-desc">New question and rules</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            id="create-tab-yours"
+            className="admin-tab"
+            aria-selected={tab === "yours"}
+            aria-controls="create-panel-yours"
+            tabIndex={tab === "yours" ? 0 : -1}
+            onClick={() => selectTab("yours")}
+          >
+            <span className="admin-tab-label">Your polls</span>
+            <span className="admin-tab-desc">End a poll from this address</span>
+          </button>
+        </div>
+
+        <div
+          id="create-panel-create"
+          role="tabpanel"
+          aria-labelledby="create-tab-create"
+          hidden={tab !== "create"}
+          className="admin-panel"
+        >
+        {connected ? (
           <form
             className="admin-form"
             onSubmit={(event) => {
@@ -313,7 +396,8 @@ export function CreatePollPage({ walletConnect }) {
             <h2>Create poll</h2>
             <p className="meta">
               On-chain: option count, ballot privacy, vote frequency, eligibility, sealed flag, end
-              time, and metadata hash. Labels stay in the shared catalog.
+              time, and metadata hash. The question is signed into the catalog from this tab. The
+              account key stays in the wallet.
             </p>
 
             <fieldset className="zk-req">
@@ -537,21 +621,18 @@ export function CreatePollPage({ walletConnect }) {
             </button>
           </form>
         ) : (
-          <div className="create-gate">
-            {connected && !signingKey ? (
-              <p className="status" data-tone="error">
-                This connection cannot sign a new poll. Connect a browser session.
-              </p>
-            ) : null}
-            {connectDialogOpen ? (
-              <p className="status">Finish connecting in the dialog.</p>
-            ) : (
-              <button type="button" className="btn btn-primary" onClick={() => walletConnect.start()}>
-                Connect browser session
-              </button>
-            )}
-          </div>
+          <p className="meta">Connect an Aztec wallet to write a poll.</p>
         )}
+        </div>
+        <div
+          id="create-panel-yours"
+          role="tabpanel"
+          aria-labelledby="create-tab-yours"
+          hidden={tab !== "yours"}
+          className="admin-panel"
+        >
+          <MyPollsPanel walletConnect={walletConnect} active={tab === "yours"} />
+        </div>
       </section>
       <SiteFooter disclaimer="HappyVote is a technology layer on Aztec Network. It is not an official electoral authority." />
     </main>

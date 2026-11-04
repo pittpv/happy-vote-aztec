@@ -235,6 +235,10 @@ After the encrypted channel opens, HappyVote and the wallet each show the same e
 
 `cast_vote_private` and `cast_vote_open` are private entrypoints on HappyVote, so a session account does not need a public account deploy to vote.
 
+### 4.4 Creating and ending your poll
+
+`/create` uses the same Connect dialog as a ballot. `create_user_poll` records `msg_sender` as the public author. **Your polls** reads `GET /api/polls?creator=` (listings on this contract, including polls whose end time has passed) and the three open on-chain slots. The creator can send `end_poll`. The catalog signature is a one-time key committed in that create transaction. The browser keeps it in `sessionStorage` until the listing is published or dismissed. Account keys are not stored. Reconnecting an installed wallet restores the same author address. A browser session does not.
+
 ### 4.2 Wallet capabilities
 
 Some wallet-sdk wallets check **every call** in `sendTx` against the dapp `transaction.scope`. A Testnet ballot is two private calls:

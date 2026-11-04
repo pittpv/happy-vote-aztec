@@ -101,6 +101,28 @@ async function mapSlot(hashApi, base, key) {
   return slot.toString();
 }
 
+/** Unread public storage is zero. An RPC error still throws. */
+async function rpcFieldOrZero(nodeUrl, contract, slot) {
+  const response = await fetch(nodeUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "node_getPublicStorageAt",
+      params: ["latest", padHex32(contract), padHex32(slot)],
+    }),
+  });
+  const json = await response.json();
+  if (!response.ok || json.error) {
+    throw new Error(json?.error?.message || `Chain read failed (${response.status})`);
+  }
+  const raw = json.result;
+  const value = raw && typeof raw === "object" && "value" in raw ? raw.value : raw;
+  if (value == null || value === "") return 0n;
+  return BigInt(value);
+}
+
 async function verifySchnorr(messageField, signatureHex, x, y) {
   const { Schnorr, SchnorrSignature } = await import("@aztec-labs/foundation/crypto/schnorr");
   const { Fr } = await import("@aztec-labs/foundation/curves/bn254");
@@ -292,6 +314,64 @@ async function poseidonMarker(hashApi, fields) {
   const { poseidon2Hash } = await import("@aztec-labs/foundation/crypto/poseidon");
   const marker = await poseidon2Hash(fields);
   return BigInt(marker.toString());
+}
+
+const CREATOR_OPEN_TAGS = [210n, 211n, 212n];
+
+async function readPollChainRow(hashApi, nodeUrl, contract, pollId) {
+  const idKey = BigInt(pollId);
+  const tallyRoot = await mapSlot(hashApi, SLOTS.tally, idKey);
+  const [endedSlot, cancelledSlot, endsSlot, hashSlot, xSlot] = await Promise.all([
+    mapSlot(hashApi, SLOTS.vote_ended, idKey),
+    mapSlot(hashApi, SLOTS.cancelled, idKey),
+    mapSlot(hashApi, SLOTS.ends_at, idKey),
+    mapSlot(hashApi, SLOTS.metadata_hash, idKey),
+    mapSlot(hashApi, BigInt(tallyRoot), TAG_PUBX),
+  ]);
+  const [voteEnded, cancelled, endsAt, metadataHash, signingPubX] = await Promise.all([
+    rpcFieldOrZero(nodeUrl, contract, endedSlot),
+    rpcFieldOrZero(nodeUrl, contract, cancelledSlot),
+    rpcFieldOrZero(nodeUrl, contract, endsSlot),
+    rpcFieldOrZero(nodeUrl, contract, hashSlot),
+    rpcFieldOrZero(nodeUrl, contract, xSlot),
+  ]);
+  return {
+    id: String(pollId),
+    voteEnded: voteEnded !== 0n,
+    cancelled: cancelled !== 0n,
+    endsAt: isoFromUnix(endsAt),
+    metadataHash: metadataHash.toString(),
+    signingPubX: signingPubX.toString(),
+  };
+}
+
+/**
+ * The three open-poll slots stored under this account, plus chain closure for
+ * those ids and any catalog ids the caller already knows.
+ * @param {string} account
+ * @param {string[]} pollIds
+ */
+export async function readCreatorChain(account, pollIds) {
+  const contract = requiredEnv("VITE_HAPPY_VOTE_CONTRACT_ADDRESS");
+  const nodeUrl = requiredEnv("VITE_AZTEC_NODE_URL");
+  const hashApi = await loadHash();
+  const creator = BigInt(normalizeAddress(account));
+  const ownerRoot = await mapSlot(hashApi, SLOTS.tally, creator);
+  const openIds = [];
+  for (const tag of CREATOR_OPEN_TAGS) {
+    const slot = await mapSlot(hashApi, BigInt(ownerRoot), tag);
+    const value = await rpcFieldOrZero(nodeUrl, contract, slot);
+    if (value !== 0n) openIds.push(value.toString());
+  }
+  const ids = [...new Set([...openIds, ...pollIds.map((id) => String(id))])];
+  const rows = await Promise.all(
+    ids.map((id) => readPollChainRow(hashApi, nodeUrl, contract, id)),
+  );
+  const byId = Object.fromEntries(rows.map((row) => [row.id, row]));
+  return {
+    openPolls: openIds.map((id) => byId[id]),
+    byId,
+  };
 }
 
 export async function readAuthoritativeFlag(account) {

@@ -46,14 +46,16 @@ export function EarlierNetworks() {
   const savedOn = archive.source === "snapshot" ? formatCaptured(archive.capturedAt) : "";
 
   return (
-    <section className="catalog-group" aria-labelledby="catalog-earlier">
-      <h2 id="catalog-earlier" className="section-title">
-        Earlier networks
-      </h2>
-      <p className="meta">
-        Ballots recorded on previous Aztec networks. Voting on this site uses the current network.
-        {savedOn ? ` Snapshot from ${savedOn}.` : ""}
-      </p>
+    <section className="catalog-lane" aria-labelledby="catalog-earlier">
+      <header className="catalog-lane-head">
+        <h2 id="catalog-earlier" className="section-title">
+          Earlier networks
+        </h2>
+        <p className="section-lede">
+          Ballots recorded on previous Aztec networks. Voting on this site uses the current network.
+          {savedOn ? ` Snapshot from ${savedOn}.` : ""}
+        </p>
+      </header>
       {archive.networks.map((network) => (
         <div key={network.id} className="archive-network">
           <h3 className="archive-network-name">{network.name}</h3>

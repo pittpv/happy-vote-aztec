@@ -2,8 +2,9 @@ import { useEffect, useId, useRef, useState } from "react";
 import { shortAddr } from "../lib/format.js";
 import { createPath, homePath, faqPath, navigate, pollsPath } from "../lib/routing.js";
 
+const DESKTOP_HEADER = "(min-width: 900px)";
+
 const NAV = [
-  { id: "home", label: "Home", path: homePath() },
   { id: "polls", label: "All polls", path: pollsPath() },
   { id: "create", label: "Create", path: createPath() },
   { id: "faq", label: "FAQ", path: faqPath() },
@@ -13,6 +14,7 @@ export function SiteHeader({ walletConnect, current }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
   const menuBtnRef = useRef(null);
+  const logoRef = useRef(null);
   const connected = walletConnect?.phase.kind === "connected";
   const connecting =
     walletConnect &&
@@ -21,6 +23,24 @@ export function SiteHeader({ walletConnect, current }) {
   useEffect(() => {
     setOpen(false);
   }, [current]);
+
+  useEffect(() => {
+    const media = window.matchMedia(DESKTOP_HEADER);
+    function onChange() {
+      if (!media.matches) return;
+      setOpen(false);
+      const active = document.activeElement;
+      if (
+        active instanceof HTMLElement &&
+        active.closest(".site-menu-btn, .site-menu-panel") &&
+        logoRef.current
+      ) {
+        logoRef.current.focus();
+      }
+    }
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  }, []);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -53,7 +73,7 @@ export function SiteHeader({ walletConnect, current }) {
 
   return (
     <header className={`site-header${open ? " is-open" : ""}`}>
-      <button type="button" className="site-logo" onClick={() => go(homePath())}>
+      <button ref={logoRef} type="button" className="site-logo" onClick={() => go(homePath())}>
         HappyVote <span className="brand-on">on</span> <span className="brand-aztec">Aztec</span>
       </button>
 
@@ -71,10 +91,28 @@ export function SiteHeader({ walletConnect, current }) {
             </button>
           ))}
         </nav>
-        {connected ? (
-          <span className="site-wallet-chip" title={String(walletConnect.phase.address)}>
-            {shortAddr(String(walletConnect.phase.address))}
-          </span>
+        {walletConnect ? (
+          <div className="site-wallet-desktop">
+            {connected ? (
+              <>
+                <span className="site-wallet-chip" title={String(walletConnect.phase.address)}>
+                  {shortAddr(String(walletConnect.phase.address))}
+                </span>
+                <button type="button" className="site-disconnect" onClick={disconnectWallet}>
+                  Disconnect
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                className="site-connect"
+                disabled={connecting}
+                onClick={connectWallet}
+              >
+                {connecting ? "Connecting…" : "Connect"}
+              </button>
+            )}
+          </div>
         ) : null}
         <button
           ref={menuBtnRef}
