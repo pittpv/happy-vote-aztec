@@ -1,4 +1,104 @@
 {
-  "capturedAt": null,
-  "networks": []
+  "capturedAt": "2026-11-04T13:59:10.271Z",
+  "networks": [
+    {
+      "id": "testnet-6.0.0-previous",
+      "name": "Testnet 6.0.0 · previous contract",
+      "contractAddress": "0x20053869edad8edf92f0b7144bfc6344e0534866f26b0f330cee87431ebd9e14",
+      "polls": [
+        {
+          "id": "1",
+          "title": "How are you feeling?",
+          "total": 6,
+          "resultsHidden": false,
+          "options": [
+            {
+              "label": "Happy",
+              "votes": 6
+            },
+            {
+              "label": "Sad",
+              "votes": 0
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "title": "Which demo feature should we ship next?",
+          "total": 1,
+          "resultsHidden": false,
+          "options": [
+            {
+              "label": "Sealed tallies",
+              "votes": 1
+            },
+            {
+              "label": "Share embeds",
+              "votes": 0
+            },
+            {
+              "label": "ZKPassport gates",
+              "votes": 0
+            }
+          ]
+        },
+        {
+          "id": "3",
+          "title": "ZKPassport personhood test",
+          "total": 0,
+          "resultsHidden": false,
+          "options": [
+            {
+              "label": "Works for me",
+              "votes": 0
+            },
+            {
+              "label": "Blocked / unclear",
+              "votes": 0
+            }
+          ]
+        },
+        {
+          "id": "4",
+          "title": "Should results stay hidden until voting ends?",
+          "total": 1,
+          "resultsHidden": false,
+          "options": [
+            {
+              "label": "Yes, hide until close",
+              "votes": 1
+            },
+            {
+              "label": "No, show live tallies",
+              "votes": 0
+            },
+            {
+              "label": "Only for high-stakes polls",
+              "votes": 0
+            }
+          ]
+        },
+        {
+          "id": "5",
+          "title": "Who should control the U.S. House after the 2026 midterms?",
+          "total": 0,
+          "resultsHidden": false,
+          "options": [
+            {
+              "label": "Democratic Party",
+              "votes": 0
+            },
+            {
+              "label": "Republican Party",
+              "votes": 0
+            },
+            {
+              "label": "Undecided / other",
+              "votes": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }

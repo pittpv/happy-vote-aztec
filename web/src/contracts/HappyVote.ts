@@ -167,20 +167,32 @@ paused: {
     /** cast_vote_private(poll_id: struct, option_id: field, identity_commitment: field, vote_period: field) */
     cast_vote_private: ((poll_id: { id: FieldLike }, option_id: FieldLike, identity_commitment: FieldLike, vote_period: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** commit_pool_ballot(poll_id: struct, fee_cap: integer) */
+    commit_pool_ballot: ((poll_id: { id: FieldLike }, fee_cap: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** constructor(admin: struct) */
     constructor: ((admin: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** create_poll(poll_id: struct, options_count: integer, privacy_policy: integer, eligibility_mode: integer, metadata_hash: field, sealed: boolean, starts_at: integer, ends_at: integer, vote_frequency: integer) */
     create_poll: ((poll_id: { id: FieldLike }, options_count: (bigint | number), privacy_policy: (bigint | number), eligibility_mode: (bigint | number), metadata_hash: FieldLike, sealed: boolean, starts_at: (bigint | number), ends_at: (bigint | number), vote_frequency: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** create_user_poll(options_count: integer, privacy_policy: integer, eligibility_mode: integer, metadata_hash: field, sealed: boolean, starts_at: integer, ends_at: integer, vote_frequency: integer, fee_mode: integer, fee_fallback: integer, signing_pubkey_x: field, signing_pubkey_y: field) */
+    create_user_poll: ((options_count: (bigint | number), privacy_policy: (bigint | number), eligibility_mode: (bigint | number), metadata_hash: FieldLike, sealed: boolean, starts_at: (bigint | number), ends_at: (bigint | number), vote_frequency: (bigint | number), fee_mode: (bigint | number), fee_fallback: (bigint | number), signing_pubkey_x: FieldLike, signing_pubkey_y: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** end_poll(poll_id: struct) */
     end_poll: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** fund_pool(poll_id: struct, count: integer, juice: integer) */
+    fund_pool: ((poll_id: { id: FieldLike }, count: (bigint | number), juice: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_admin() */
     get_admin: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_cancelled(poll_id: struct) */
     get_cancelled: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_creator(poll_id: struct) */
+    get_creator: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_current_vote_period(poll_id: struct) */
     get_current_vote_period: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -190,6 +202,9 @@ paused: {
 
     /** get_ends_at(poll_id: struct) */
     get_ends_at: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_fee_mode(poll_id: struct) */
+    get_fee_mode: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_metadata_hash(poll_id: struct) */
     get_metadata_hash: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -206,11 +221,23 @@ paused: {
     /** get_paused() */
     get_paused: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** get_pool_juice(poll_id: struct) */
+    get_pool_juice: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_pool_refunded(poll_id: struct) */
+    get_pool_refunded: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_pool_remaining(poll_id: struct) */
+    get_pool_remaining: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** get_privacy_policy(poll_id: struct) */
     get_privacy_policy: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_sealed(poll_id: struct) */
     get_sealed: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_signing_pubkey_x(poll_id: struct) */
+    get_signing_pubkey_x: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_starts_at(poll_id: struct) */
     get_starts_at: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -230,6 +257,9 @@ paused: {
     /** has_identity_voted(poll_id: struct, identity_commitment: field) */
     has_identity_voted: ((poll_id: { id: FieldLike }, identity_commitment: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** is_authoritative(account: struct) */
+    is_authoritative: ((account: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** is_voting_open(poll_id: struct) */
     is_voting_open: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
@@ -239,8 +269,20 @@ paused: {
     /** public_dispatch(selector: field) */
     public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** quote_pool(poll_id: struct, fee_cap: integer) */
+    quote_pool: ((poll_id: { id: FieldLike }, fee_cap: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** set_allow_sponsored(allowed: boolean) */
+    set_allow_sponsored: ((allowed: boolean) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** set_authoritative(account: struct, enabled: boolean) */
+    set_authoritative: ((account: AztecAddressLike, enabled: boolean) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** set_paused(paused: boolean) */
     set_paused: ((paused: boolean) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** set_pool_payer(payer: struct) */
+    set_pool_payer: ((payer: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** sync_state(scope: struct) */
     sync_state: ((scope: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;

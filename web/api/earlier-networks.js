@@ -5,7 +5,7 @@
  */
 import manifest from "../data/earlier-networks.json" with { type: "json" };
 import snapshotFile from "../data/earlier-networks-snapshot.json" with { type: "json" };
-import { fallbackSlots } from "./poll-slots.js";
+import { fallbackSlots, isUsableSlotEntry, sliceSlots } from "./poll-slots.js";
 
 const SNAPSHOT_BLOB = "happyvote/earlier-networks-snapshot.json";
 const LIVE_FETCH_MS = 3000;
@@ -89,7 +89,9 @@ function readPlan(network) {
     if (!Array.isArray(options) || options.length < 1) {
       throw new Error(`Archive poll ${poll.id} has no options`);
     }
-    const slots = fallbackSlots(poll.id, options.length);
+    const slots = isUsableSlotEntry(poll.storageSlots, options.length)
+      ? sliceSlots(poll.storageSlots, options.length)
+      : fallbackSlots(poll.id, options.length);
     if (!slots) {
       throw new Error(`Archive poll ${poll.id} has no storage slots`);
     }

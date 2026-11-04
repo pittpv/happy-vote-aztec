@@ -27,7 +27,6 @@ import {
   partitionCatalogWindow,
   sortPolls,
 } from "../src/lib/catalogSections.js";
-import { pollCountryCodes } from "../src/lib/zkRequirements.js";
 
 function cors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -207,13 +206,22 @@ function pageNumber(value, fallback, max, min = 0) {
   return Math.min(parsed, max);
 }
 
+function catalogCountryCodes(poll) {
+  const codes = new Set();
+  for (const code of poll?.countries || []) codes.add(String(code).toUpperCase());
+  const req = poll?.zkRequirements || {};
+  for (const code of req.nationalityIn || []) codes.add(String(code).toUpperCase());
+  for (const code of req.issuedBy || []) codes.add(String(code).toUpperCase());
+  return [...codes];
+}
+
 function matchesCatalogQuery(poll, query) {
   const topic = query.get("topic") || "all";
   const country = query.get("country") || "all";
   const eligibility = query.get("eligibility") || "all";
   const q = String(query.get("q") || "").trim().toLowerCase();
   if (topic !== "all" && !(poll.topics || []).includes(topic)) return false;
-  if (country !== "all" && !pollCountryCodes(poll).includes(country)) return false;
+  if (country !== "all" && !catalogCountryCodes(poll).includes(country)) return false;
   if (eligibility === "open" && poll.requiresZkPassport) return false;
   if (eligibility === "zk" && !poll.requiresZkPassport) return false;
   if (q) {

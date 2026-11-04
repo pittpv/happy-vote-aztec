@@ -1,5 +1,5 @@
 /**
- * Deploy HappyVote + polls to Aztec Testnet 6.0.0-rc.3.
+ * Deploy HappyVote + polls to Aztec Testnet 6.0.0.
  *
  * Usage (WSL):
  *   cd aztec
@@ -204,7 +204,6 @@ async function main() {
   logger.info(`SponsoredFPC: ${sponsoredFPC.address}`);
 
   logger.info("Deploying admin account…");
-  process.env.FORCE_ACCOUNT_DEPLOY = "true";
   const admin = await deploySchnorrAccount(wallet);
   logger.info(`Admin: ${admin.address}`);
 
@@ -292,7 +291,7 @@ async function main() {
 
   const publicDoc = `# Testnet addresses — HappyVote on Aztec
 
-Network: **Aztec Testnet 6.0.0-rc.3**  
+Network: **Aztec Testnet 6.0.0**  
 RPC: \`https://aztec-testnet.drpc.org\`  
 Explorer: https://testnet.aztecscan.xyz  
 Deployed: ${new Date().toISOString()}
@@ -304,7 +303,7 @@ Deployed: ${new Date().toISOString()}
 | Poll id | \`1\` Happy/Sad (daily) · \`2\` single-choice (3 opts) · \`3\` ZKPassport personhood · \`4\` sealed tallies |
 | Eligibility modes | \`0\` open · \`1\` ZKPassport personhood · \`2\` gated |
 
-Testnet 6.0.0-rc.3 is a new genesis. Transactions and the HappyVote address from Testnet 5.1.0 are not on this network.
+Testnet 6.0.0 is a new genesis. Transactions and the HappyVote address from Testnet 6.0.0-rc.3 are not on this network.
 
 ## Frontend env
 

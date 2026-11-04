@@ -13,7 +13,7 @@ The header menu (desktop and mobile) has Home, All polls, Create, FAQ, and walle
 
 ## Create a poll
 
-Open **Create** (`/create`) and connect a browser session. The form publishes one single-choice poll with 2–32 options. **Yes / No** and **Scale 1–5** fill the labels. Choose privacy (voter choice, private only, or open only), eligibility (any account or ZKPassport personhood), whether the tally stays sealed until close, and whether each account votes once or once per UTC day. Set an end time. The window is at most 90 days. One account can create one poll per UTC day and keep at most three polls open. Homepage placement is chosen by HappyVote. On the current Testnet contract, Create reports that this artifact has no user-create entry until that contract is replaced with the Iteration 2 source.
+Open **Create** (`/create`) and connect a browser session. The form publishes one single-choice poll with 2–32 options. **Yes / No** and **Scale 1–5** fill the labels. Choose privacy (voter choice, private only, or open only), eligibility (any account or ZKPassport personhood), whether the tally stays sealed until close, and whether each account votes once or once per UTC day. Set an end time. The window is at most 90 days. One account can create one poll per UTC day and keep at most three polls open. Homepage placement is chosen by HappyVote. Create publishes that poll on the current Testnet contract.
 
 Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data Safety, Cookies, GDPR).
 
@@ -23,7 +23,7 @@ Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data
 - See **start/end times** and a live countdown when a poll is scheduled
 - View **Live results** (public tallies; hidden while a poll is sealed and still open — option buttons show labels only, no zeros)
 - If the contract is paused or a poll is cancelled, the ballot stays locked; the question remains readable
-- Share a deep link: `/p/1` (Happy/Sad), `/p/2` (single-choice), `/p/3` (ZKPassport demo), `/p/4` (sealed tallies), `/p/5` (gated catalog poll)
+- Share a deep link: `/p/1` (Happy/Sad), `/p/2` (single-choice), `/p/3` (ZKPassport demo), `/p/4` (sealed tallies). Ballots from the previous Testnet contract, including its fifth poll, are listed under **Earlier networks** and do not open `/p/:id`.
 - Read the contract on [Aztecscan](https://testnet.aztecscan.xyz)
 
 ## Vote (private or open)

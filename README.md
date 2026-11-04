@@ -23,12 +23,12 @@ Compile and test with the **`aztec` CLI** (not `nargo` or `bb` directly). Offici
 
 ## Testnet
 
-Contract: [`0x20053869edad8edf92f0b7144bfc6344e0534866f26b0f330cee87431ebd9e14`](https://testnet.aztecscan.xyz/address/0x20053869edad8edf92f0b7144bfc6344e0534866f26b0f330cee87431ebd9e14)  
+Contract: [`0x08cc6d5b022900717c01af9b2800a83177aeab263cfd920416b33b56f6bc5881`](https://testnet.aztecscan.xyz/address/0x08cc6d5b022900717c01af9b2800a83177aeab263cfd920416b33b56f6bc5881)  
 RPC: `https://aztec-testnet.drpc.org`  
 Sponsored FPC: `0x2d8fff82a3b0c15d0a89169e7d8d043e079ab94d52031f1de1e4972ebad169d3`  
 Details: [docs/en/10-TESTNET-ADDRESSES.md](./docs/en/10-TESTNET-ADDRESSES.md)
 
-Testnet 6.0.0 is a new genesis relative to 5.1.0. The Testnet 5.1.0 contract is not on this network. Earlier ballots are listed on the site under **Earlier networks** when a live read or a saved snapshot exists.
+Testnet 6.0.0 is a new genesis relative to 5.1.0. The Testnet 5.1.0 contract is not on this network. Ballots from the previous Testnet 6.0.0 contract stay on the site under **Earlier networks**. Those rows do not open `/p/:id`.
 
 ## Architecture (short)
 

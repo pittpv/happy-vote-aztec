@@ -52,6 +52,20 @@ export function happyVoteCapabilities() {
         { contract: happyVote, function: "get_cancelled" },
         { contract: happyVote, function: "get_vote_frequency" },
         { contract: happyVote, function: "get_current_vote_period" },
+        { contract: happyVote, function: "create_user_poll" },
+        { contract: happyVote, function: "fund_pool" },
+        { contract: happyVote, function: "quote_pool" },
+        { contract: happyVote, function: "commit_pool_ballot" },
+        { contract: happyVote, function: "set_pool_payer" },
+        { contract: happyVote, function: "set_allow_sponsored" },
+        { contract: happyVote, function: "set_authoritative" },
+        { contract: happyVote, function: "is_authoritative" },
+        { contract: happyVote, function: "get_creator" },
+        { contract: happyVote, function: "get_fee_mode" },
+        { contract: happyVote, function: "get_pool_remaining" },
+        { contract: happyVote, function: "get_pool_juice" },
+        { contract: happyVote, function: "get_pool_refunded" },
+        { contract: happyVote, function: "get_signing_pubkey_x" },
       ]
     : [];
 
