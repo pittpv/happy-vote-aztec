@@ -1,7 +1,8 @@
 /**
  * Canonical poll text for the on-chain metadata hash and the catalog signature.
- * The chain binds title, description, and option labels. The signature also binds
- * the contract, poll id, and topics so a listing cannot be replayed.
+ * The chain binds title, description, and option labels. When a user poll sets
+ * ZKPassport rules, those rules are part of the same hash and the catalog signature.
+ * Omitting `zk` keeps the previous payload so an already signed listing still matches.
  */
 
 export const BN254_MODULUS =
@@ -22,23 +23,27 @@ export function optionLabels(options) {
   });
 }
 
-export function canonicalContent({ title, description, options }) {
-  return JSON.stringify({
+export function canonicalContent({ title, description, options, zk }) {
+  const body = {
     description: String(description || "").trim(),
     options: optionLabels(options),
     title: String(title || "").trim(),
-  });
+  };
+  if (zk) body.zk = zk;
+  return JSON.stringify(body);
 }
 
-export function canonicalListing({ contract, pollId, title, description, options, topics }) {
-  return JSON.stringify({
+export function canonicalListing({ contract, pollId, title, description, options, topics, zk }) {
+  const body = {
     contract: String(contract || "").trim().toLowerCase(),
     description: String(description || "").trim(),
     options: optionLabels(options),
     pollId: String(pollId),
     title: String(title || "").trim(),
     topics: normalizeTopics(topics),
-  });
+  };
+  if (zk) body.zk = zk;
+  return JSON.stringify(body);
 }
 
 export function normalizeTopics(topics) {

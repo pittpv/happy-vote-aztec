@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   AztecAddress,
   Fr,
@@ -24,10 +24,15 @@ import { datetimeLocalToIso, isoToUnixSeconds } from "../lib/pollSchedule.js";
 import { networkPlace } from "../lib/networkLabel.js";
 import { FEE_FALLBACK, FEE_MODE } from "../lib/feeMode.js";
 import { VOTE_FREQUENCY } from "../lib/voteFrequency.js";
+import {
+  eligibilityModeFromAccountRules,
+  normalizeAccountZkRules,
+} from "../lib/zkRuleCanonical.js";
 import { explainError } from "../lib/userMessages.js";
 import { navigate, pollPath } from "../lib/routing.js";
 import { SiteFooter } from "./SiteFooter.jsx";
 import { SiteHeader } from "./SiteHeader.jsx";
+import { ZkRequirementsFields } from "./ZkRequirementsFields.jsx";
 import { usePageSeo } from "../hooks/usePageSeo.js";
 import { CREATE_PAGE_DESCRIPTION, pageTitle, webPageJsonLd } from "../lib/seo.js";
 import { SITE_NAME } from "../lib/site.js";
@@ -81,7 +86,8 @@ export function CreatePollPage({ walletConnect }) {
     { label: "No", description: "" },
   ]);
   const [privacy, setPrivacy] = useState(PRIVACY.VOTER_CHOICE);
-  const [important, setImportant] = useState(false);
+  const [zkDraft, setZkDraft] = useState(null);
+  const onZkDraft = useCallback((rules) => setZkDraft(rules), []);
   const [sealed, setSealed] = useState(false);
   const [voteFrequency, setVoteFrequency] = useState(VOTE_FREQUENCY.ONCE);
   const [feeMode, setFeeMode] = useState(mainnet ? FEE_MODE.VOTER : FEE_MODE.SPONSORED);
@@ -100,6 +106,8 @@ export function CreatePollPage({ walletConnect }) {
     setError("");
     setStatus("");
     let text;
+    let zk = null;
+    let eligibilityMode = 0;
     try {
       text = assertListingText({
         title,
@@ -109,6 +117,10 @@ export function CreatePollPage({ walletConnect }) {
       });
       if (optionRows.some((row) => row.description.trim().length > 160)) {
         throw new Error("Each option description must be 160 characters or fewer.");
+      }
+      if (zkDraft) {
+        zk = normalizeAccountZkRules(zkDraft);
+        eligibilityMode = eligibilityModeFromAccountRules(zk);
       }
     } catch (err) {
       setError(err.message);
@@ -156,7 +168,14 @@ export function CreatePollPage({ walletConnect }) {
           "This HappyVote artifact has no create_user_poll entry. Compile with aztec compile, run codegen, and deploy that contract before a new listing can be published.",
         );
       }
-      const contentHash = await fieldFromUtf8(canonicalContent(text));
+      const contentHash = await fieldFromUtf8(
+        canonicalContent({
+          title: text.title,
+          description: text.description,
+          options: text.labels,
+          zk,
+        }),
+      );
       const contractAddress = String(import.meta.env.VITE_HAPPY_VOTE_CONTRACT_ADDRESS || "");
       if (!contractAddress) throw new Error("VITE_HAPPY_VOTE_CONTRACT_ADDRESS is not set");
       if (typeof contract.methods.get_creator !== "function") {
@@ -178,7 +197,7 @@ export function CreatePollPage({ walletConnect }) {
         .create_user_poll(
           text.labels.length,
           privacy,
-          important ? 1 : 0,
+          eligibilityMode,
           new Fr(BigInt(contentHash)),
           sealed,
           isoToUnixSeconds(startIso),
@@ -212,6 +231,7 @@ export function CreatePollPage({ walletConnect }) {
           description: text.description,
           options: text.labels,
           topics: text.topics,
+          zk,
         }),
       );
       const signature = await schnorr.constructSignature(new BnFr(BigInt(signedListing)), signingKey);
@@ -231,7 +251,8 @@ export function CreatePollPage({ walletConnect }) {
           topics: text.topics,
           creator,
           privacyPolicy: privacy,
-          eligibilityMode: important ? 1 : 0,
+          eligibilityMode,
+          zkRequirements: zk,
           sealed,
           voteFrequency,
           startsAt: startIso,
@@ -474,23 +495,7 @@ export function CreatePollPage({ walletConnect }) {
               </button>
             </fieldset>
 
-            <fieldset className="zk-req">
-              <legend>Voter eligibility</legend>
-              <label className="check-row">
-                <input
-                  type="checkbox"
-                  checked={important}
-                  disabled={busy}
-                  onChange={(event) => setImportant(event.target.checked)}
-                />
-                Important poll — require ZKPassport
-              </label>
-              <p className="meta">
-                {important
-                  ? "Voters prove personhood. Age, nationality, and document rules are not set on this form."
-                  : "Any Aztec account can ballot. Turn this on to require ZKPassport personhood."}
-              </p>
-            </fieldset>
+            <ZkRequirementsFields disabled={busy} onChange={onZkDraft} />
 
             <fieldset className="zk-req">
               <legend>Ballot fee</legend>

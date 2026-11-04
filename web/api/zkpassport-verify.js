@@ -12,6 +12,8 @@
  */
 import "./bb-crs-env.js";
 import { ZKPassport } from "@zkpassport/sdk";
+import { loadMergedCatalog } from "./poll-catalog.js";
+import { querySatisfiesAccountRules } from "../src/lib/zkRuleCanonical.js";
 
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
@@ -41,6 +43,13 @@ export default async function handler(req, res) {
         ok: false,
         error: "Missing proofs, originalQuery, or queryResult",
       });
+    }
+
+    try {
+      await bindQueryToPoll(pollId, originalQuery);
+    } catch (error) {
+      const status = error?.code === "NO_CATALOG" ? 503 : error?.status || 400;
+      return res.status(status).json({ ok: false, error: error?.message || String(error) });
     }
 
     const resolvedDomain =
@@ -120,6 +129,35 @@ export default async function handler(req, res) {
       error: error?.message || String(error),
     });
   }
+}
+
+async function bindQueryToPoll(pollId, originalQuery) {
+  const id = String(pollId ?? "").trim();
+  if (!/^[1-9]\d*$/.test(id)) {
+    const error = new Error("pollId is required");
+    error.status = 400;
+    throw error;
+  }
+  let catalog;
+  try {
+    catalog = await loadMergedCatalog();
+  } catch (cause) {
+    const error = new Error("Poll catalog is unavailable");
+    error.code = "NO_CATALOG";
+    error.cause = cause;
+    throw error;
+  }
+  const poll = (catalog.polls || []).find((item) => String(item.id) === id);
+  if (!poll) {
+    const error = new Error("Poll is not in the catalog");
+    error.status = 404;
+    throw error;
+  }
+  if (poll.publisher !== "account") return;
+  const mode = Number(poll.eligibilityMode ?? 0);
+  if (mode === 0 && !poll.zkRequirements) return;
+  if (!poll.zkRequirements) throw new Error("Identity rules for this poll are missing");
+  querySatisfiesAccountRules(originalQuery, poll.zkRequirements);
 }
 
 function stringifyLogArg(value) {

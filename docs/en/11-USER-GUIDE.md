@@ -7,13 +7,13 @@ UI notes: [12-UI-UX.md](./12-UI-UX.md)
 
 1. Open https://aztec.happyvote.xyz.
 2. Read the short mission / privacy pillars (optional).
-3. Under **Featured polls**, open a card, or go to **All polls** (`/polls`). The page has two sections, **Авторитетные голосования** and **Users polls**. Each section has **Active** and **Ended**. Ended polls that are not on the homepage appear 24 at a time. Search and filters (topic, country, eligibility) apply to both. Country includes ZKPassport Dashboard policy countries when the poll uses a `policyId`.
+3. Under **Featured polls**, open a card, or go to **All polls** (`/polls`). The page has **Authoritative polls** and **User polls**, each with **Active**. **Ended** is one section at the end and lists closed polls from both. Ended polls that are not on the homepage appear 24 at a time. Search and filters (topic, country, eligibility) apply throughout. Country includes ZKPassport Dashboard policy countries when the poll uses a `policyId`.
 
-The header menu (desktop and mobile) has Home, All polls, Create, FAQ, and wallet connect / connected address.
+The header logo returns home. From 900px up, the bar shows **All polls**, **Create**, **FAQ**, and a compact wallet control: **Connect**, or the short address and **Disconnect**. Narrower screens keep those links, the wallet, and a later language / theme slot behind the menu button. There is no **Home** link.
 
 ## Create a poll
 
-Open **Create** (`/create`) and connect a browser session. The form stays hidden until that session is connected. It publishes one single-choice poll with 2–32 options. Each option has a label and an optional short description. Privacy is voter choice, private only, or open only. Frequency is once per account or once per UTC day. The tally can stay sealed until close. Eligibility is any account, or ZKPassport personhood. Set an end time. The window is at most 90 days. One account can create one poll per UTC day and keep at most three polls open. Homepage placement is chosen by HappyVote. The ballot fee is Sponsored FPC on Testnet, the voter’s Fee Juice, or a poll pool. Create publishes that poll on the current Testnet contract.
+Open **Create** (`/create`) and connect a browser session. The form stays hidden until that session is connected. It publishes one single-choice poll with 2–32 options. Each option has a label and an optional short description. Privacy is voter choice, private only, or open only. Frequency is once per account or once per UTC day. The tally can stay sealed until close. Eligibility is any account, or ZKPassport. Personhood is the base check. Age, birthdate, nationality, document, sanctions, and facematch can be added; those rules are signed with the listing and checked again on the server before a ballot unlocks. A Dashboard policy id is not set here. Set an end time. The window is at most 90 days. One account can create one poll per UTC day and keep at most three polls open. Homepage placement is chosen by HappyVote. The ballot fee is Sponsored FPC on Testnet, the voter’s Fee Juice, or a poll pool. Create publishes that poll on the current Testnet contract.
 
 Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data Safety, Cookies, GDPR).
 

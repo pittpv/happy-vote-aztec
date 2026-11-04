@@ -10,10 +10,15 @@ import {
   normalizeAddress,
   sameField,
 } from "../src/lib/catalogMeta.js";
+import {
+  eligibilityModeFromAccountRules,
+  normalizeAccountZkRules,
+} from "../src/lib/zkRuleCanonical.js";
 
 const SLOTS = {
   options_count: 2n,
   privacy_policy: 3n,
+  eligibility_mode: 4n,
   metadata_hash: 5n,
   tally: 6n,
   total_votes: 7n,
@@ -125,6 +130,8 @@ export async function verifyAccountPoll(raw) {
   if (!raw || typeof raw !== "object") throw new Error("Invalid account poll");
   const poll = raw.poll && typeof raw.poll === "object" ? raw.poll : raw;
   const text = assertListingText(poll);
+  const zk = poll.zkRequirements == null ? null : normalizeAccountZkRules(poll.zkRequirements);
+  const derivedMode = zk ? eligibilityModeFromAccountRules(zk) : 0;
   const contract = requiredEnv("VITE_HAPPY_VOTE_CONTRACT_ADDRESS");
   const nodeUrl = requiredEnv("VITE_AZTEC_NODE_URL");
   const pollId = String(poll.id || "").trim();
@@ -143,6 +150,7 @@ export async function verifyAccountPoll(raw) {
       title: text.title,
       description: text.description,
       options: text.labels,
+      zk,
     }),
   );
   const listingHash = await fieldFromUtf8(
@@ -153,6 +161,7 @@ export async function verifyAccountPoll(raw) {
       description: text.description,
       options: text.labels,
       topics: text.topics,
+      zk,
     }),
   );
   await verifySchnorr(listingHash, raw.signature, x, y);
@@ -179,6 +188,7 @@ export async function verifyAccountPoll(raw) {
     chainFeePacked,
     chainEnds,
     chainStarts,
+    chainEligibility,
   ] = await Promise.all([
     rpcField(nodeUrl, contract, slots.metadata_hash),
     rpcField(nodeUrl, contract, creatorSlot),
@@ -188,6 +198,7 @@ export async function verifyAccountPoll(raw) {
     rpcField(nodeUrl, contract, feeSlot),
     rpcField(nodeUrl, contract, slots.ends_at),
     rpcField(nodeUrl, contract, slots.starts_at),
+    rpcField(nodeUrl, contract, slots.eligibility_mode),
   ]);
 
   if (chainHash !== BigInt(contentHash)) {
@@ -206,6 +217,9 @@ export async function verifyAccountPoll(raw) {
   const chainFallback = chainFeePacked / 16n;
   if (chainFee > 2n || chainFallback > 1n) throw new Error("Fee mode on the poll is not valid");
   if (chainEnds === 0n) throw new Error("The poll has no end on the chain");
+  if (chainEligibility !== BigInt(derivedMode)) {
+    throw new Error("Eligibility on the poll does not match the identity rules");
+  }
 
   const endsAt = isoFromUnix(chainEnds);
   const startsAt = isoFromUnix(chainStarts);
@@ -222,17 +236,15 @@ export async function verifyAccountPoll(raw) {
   }
 
   const privacy = Number(poll.privacyPolicy ?? 2);
-  const eligibility = Number(poll.eligibilityMode ?? 0);
-  if (![0, 1, 2].includes(privacy) || ![0, 1, 2].includes(eligibility)) {
-    throw new Error("Invalid privacy or eligibility");
-  }
+  if (![0, 1, 2].includes(privacy)) throw new Error("Invalid privacy");
+  const eligibility = derivedMode;
 
   return {
     id: pollId,
     title: text.title,
     description: text.description || undefined,
     topics: text.topics,
-    countries: Array.isArray(poll.countries) ? poll.countries : [],
+    countries: zk ? [...new Set([...zk.nationalityIn, ...zk.issuedBy])].sort() : [],
     options: text.labels.map((label, index) => {
       const rawOption = Array.isArray(poll.options) ? poll.options[index] : null;
       const rawLabel =
@@ -249,7 +261,7 @@ export async function verifyAccountPoll(raw) {
     eligibilityMode: eligibility,
     privacyPolicy: privacy,
     voteFrequency: Number(poll.voteFrequency) === 1 ? 1 : 0,
-    zkRequirements: eligibility > 0 ? { personhood: true } : null,
+    zkRequirements: zk,
     sealed: Boolean(poll.sealed),
     startsAt,
     endsAt,

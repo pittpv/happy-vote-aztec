@@ -180,7 +180,7 @@ The vote page states the active mode before Connect: sponsored, your Fee Juice, 
 
 ### Discovery
 
-All polls searches title, topic, country, and eligibility. The first section is **Авторитетные голосования**: polls published by HappyVote, then polls whose creator the admin has marked authoritative. The next section is **Users polls**. Active and Ended stay inside each section. Sort defaults to poll id, with newest and ending soon. The default order is still by id.
+All polls searches title, topic, country, and eligibility. The first section is **Authoritative polls**: polls published by HappyVote, then polls whose creator has been marked authoritative. The next section is **User polls**, with **Active** inside each. **Ended** is one shared section after both. Sort defaults to poll id, with newest and ending soon. The default order is still by id, and inside **Ended** that keeps authoritative polls ahead of the others.
 
 ### Create page
 
@@ -188,13 +188,13 @@ A public create page, linked from the header when this iteration ships:
 
 - Title, description, 2–32 options, topics.
 - Privacy: voter choice (default), private only, or open only.
-- Eligibility: open, or ZKPassport personhood.
+- Eligibility: open, or ZKPassport personhood with optional age, birthdate, nationality, document, sanctions, and facematch checks.
 - Sealed tally.
 - Start, and a required end inside the 90-day bound.
 - Once per poll, or once per UTC day.
 - Fee mode. Testnet defaults to the Sponsored FPC. Mainnet defaults to the voter’s Fee Juice. A poll pool is optional. The page shows the mode and the fallback before publish.
 - Connect, prove, then the catalog signature.
-- The form blocks are details, options, voting type, schedule, eligibility, and ballot fee. Homepage placement and ZKPassport policy rules are not on this form.
+- The form blocks are details, options, voting type, schedule, eligibility, and ballot fee. Homepage placement and a Dashboard policy id are not on this form. Age, birthdate, nationality, document, sanctions, and facematch are signed with the listing.
 - Copy says that private hides the address, and that the tally is public unless the poll is sealed.
 
 This flow is not the operator screen.
