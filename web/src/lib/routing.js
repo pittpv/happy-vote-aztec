@@ -2,6 +2,7 @@
  * Client routes:
  *   /                 — home (featured polls)
  *   /polls            — full poll catalog
+ *   /create           — publish a poll
  *   /faq              — questions and answers
  *   /p/:id            — poll detail / vote
  *   /admin            — admin import + create poll
@@ -14,6 +15,7 @@ export function parseRoute(pathname = window.location.pathname) {
   const path = String(pathname || "/").replace(/\/+$/, "") || "/";
   if (path === "/admin") return { kind: "admin" };
   if (path === "/polls") return { kind: "polls" };
+  if (path === "/create") return { kind: "create" };
   if (path === "/faq") return { kind: "faq" };
   const legal = path.match(/^\/legal\/([a-z0-9-]+)$/);
   if (legal) {
@@ -31,6 +33,10 @@ export function homePath() {
 
 export function pollsPath() {
   return "/polls";
+}
+
+export function createPath() {
+  return "/create";
 }
 
 export function faqPath() {

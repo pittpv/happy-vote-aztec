@@ -12,7 +12,7 @@ Landing explains *why* the portal exists (privacy + verified personhood + safer 
 
 Landing: brand, mission, pillars, **featured polls** (catalog `showOnHome`), trust, footer. The full catalog is **All polls** (`/polls`) — search, topic / country / eligibility filters.
 
-Header (desktop and mobile): logo, desktop nav shortcuts (Home, All polls, FAQ), hamburger menu with the same links, wallet connect or connected address, and a slot for later language / theme. The vote page labels the network with its version (`testnet v6`). The footer repeats that version under the Aztec links.
+Header (desktop and mobile): logo, desktop nav shortcuts (Home, All polls, Create, FAQ), hamburger menu with the same links, wallet connect or connected address, and a slot for later language / theme. The vote page labels the network with its version (`testnet v6`). The footer repeats that version under the Aztec links.
 
 ### Content blocks
 
@@ -25,7 +25,11 @@ Author in the footer: Peter Ploskikh — [X](https://x.com/pittpv), [LinkedIn](h
 
 ## All polls (`/polls`)
 
-Same cards as home, with search and filters (topic, country, eligibility). Matching polls are split into **Active** and **Ended**.
+Same cards as home, with search, filters (topic, country, eligibility), and sort (poll id, newest, ending soon). The first section is **Авторитетные голосования**. The next is **Users polls**. **Active** and **Ended** sit inside each section. Polls still inside their catalog window, and polls that stay on the homepage, load with the page. **Ended** then shows 24 cards at a time, with **Show more ended polls** for the next page. An account HappyVote has marked authoritative gets an **Authoritative** mark, and that account’s polls can sit in the first section. HappyVote’s own polls stay there without that mark.
+
+## Create (`/create`)
+
+Header link **Create**. One single-choice poll, 2–32 options. **Yes / No** and **Scale 1–5** fill the labels. Privacy is voter choice, private only, or open only. Eligibility is any account or ZKPassport personhood. The tally can stay sealed until close. Frequency is one ballot per account, or one per UTC day. An end time is required, and the window is at most 90 days. One create per account per UTC day, and at most three of that account’s polls stay open. The creator does not choose homepage placement. Testnet can sponsor that one daily create transaction. Mainnet create pays the sender’s Fee Juice. The ballot fee is separate: Sponsored FPC on Testnet, the voter’s Fee Juice, or a poll pool.
 
 **Ended** means voting is closed: the catalog `endsAt` is already in the past, or the chain has closed the poll (`vote_ended`, cancel, or on-chain `ends_at`). A poll with no end date stays under **Active** until that chain close. A poll that has not started yet also stays under **Active**. Search and filters apply to both groups. An ended card still opens; Connect and Vote on that page stay locked. The card word **Open** is open eligibility (no identity check), not a statement that voting is still running. Once the poll has ended, that eligibility word is left off the card and the status badge is **Ended**.
 
@@ -96,7 +100,7 @@ Effective date: **15 August 2026**. Contact: **legal@happyvote.xyz**. See [13-LE
 
 ## SEO
 
-Per-route `document.title`, meta description, canonical, Open Graph, Twitter card, and JSON-LD. Crawlers receive that head from `/api/document` before the app hydrates. Each poll page is unique: its own title, description, `og:*`, `twitter:*`, image URL (`/api/og?path=/p/:id`), and a `Question` with one suggested `Answer` per option. Home is `Organization` / `WebSite` / `WebApplication`. FAQ is an `FAQPage`. `robots.txt` allows indexing of public pages. `sitemap.xml` lists home, **All polls** `/polls`, **FAQ** `/faq`, poll pages `/p/1`–`/p/5`, and legal URLs.
+Per-route `document.title`, meta description, canonical, Open Graph, Twitter card, and JSON-LD. Crawlers receive that head from `/api/document` before the app hydrates. Each poll page is unique: its own title, description, `og:*`, `twitter:*`, image URL (`/api/og?path=/p/:id`), and a `Question` with one suggested `Answer` per option. Home is `Organization` / `WebSite` / `WebApplication`. FAQ is an `FAQPage`. `robots.txt` allows indexing of public pages. `sitemap.xml` lists home, **All polls** `/polls`, **Create** `/create`, **FAQ** `/faq`, poll pages `/p/1`–`/p/5`, and legal URLs.
 
 No third-party analytics counter on this subdomain. First-party cookieless daily aggregates only (`POST /api/site-stats`).
 

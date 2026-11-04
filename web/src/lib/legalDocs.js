@@ -70,6 +70,7 @@ export const LEGAL_DOCUMENTS = {
         heading: "5. Polls and content",
         paragraphs: [
           "Poll titles, descriptions, and options may be stored as off-chain metadata (including in your browser or our hosting configuration) while tallies and vote logic live in smart contracts. Operators do not endorse every poll’s political or commercial message. You rely on on-chain state and explorers for authoritative tallies.",
+          "If you publish a poll, you are responsible for its question and options. HappyVote may hide the card and may stop voting. Hiding or cancelling does not erase the chain row. HappyVote is not an electoral authority.",
         ],
       },
       {

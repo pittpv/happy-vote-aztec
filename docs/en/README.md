@@ -29,7 +29,7 @@ A minimal voting portal for **any topic**: binary sentiment (Happy/Sad), multi-o
 1. **Programmable privacy** — a ballot can hide the voter while the tally stays public (or sealed until close).
 2. **Voter choice** — private (default) or open, when the poll policy allows it.
 3. **ZKPassport** — personhood / age / nationality without sending passport data to HappyVote.
-4. **Two creation iterations** — operators first; later, user-created polls.
+4. **Two creation paths** — HappyVote publishes the featured polls; a connected account can prepare a single-choice poll at `/create`. Recording that poll on the published Testnet contract waits until this Iteration 2 source replaces that contract.
 
 ## Principles
 
@@ -40,9 +40,9 @@ A minimal voting portal for **any topic**: binary sentiment (Happy/Sad), multi-o
 - **Aztec-native tooling** — `aztec` CLI, Poseidon2, SDK version = network version.
 - **No identity custody** — ZKPassport document data stays on the voter’s device.
 
-## Live status (2026-10-30)
+## Live status (2026-11-04)
 
-Single contract `HappyVote` on **Aztec Testnet 6.0.0**: [`0x20053869edad8edf92f0b7144bfc6344e0534866f26b0f330cee87431ebd9e14`](https://testnet.aztecscan.xyz/address/0x20053869edad8edf92f0b7144bfc6344e0534866f26b0f330cee87431ebd9e14). The same stable **6.0.0** image is on Aztec Mainnet. This site still votes on Testnet. Stable 6.0.0 is a new genesis: Testnet 6.0.0-rc.3 transactions and the previous contract address are not on this network. Polls `/p/1` Happy/Sad, `/p/2` single-choice, `/p/3` ZKPassport personhood, `/p/4` sealed tallies. Noir tests **48/48**. Frontend: https://aztec.happyvote.xyz.
+Single contract `HappyVote` on **Aztec Testnet 6.0.0**: [`0x20053869edad8edf92f0b7144bfc6344e0534866f26b0f330cee87431ebd9e14`](https://testnet.aztecscan.xyz/address/0x20053869edad8edf92f0b7144bfc6344e0534866f26b0f330cee87431ebd9e14). The same stable **6.0.0** image is on Aztec Mainnet. This site still votes on Testnet. Stable 6.0.0 is a new genesis: Testnet 6.0.0-rc.3 transactions and the previous contract address are not on this network. Polls `/p/1` Happy/Sad, `/p/2` single-choice, `/p/3` ZKPassport personhood, `/p/4` sealed tallies. Iteration 2 Noir tests **63/63**. The website includes `/create`, the two All polls sections, and a paged ended catalog. That Testnet address is unchanged, so a user-created poll is stored there only after this contract source replaces it. Frontend: https://aztec.happyvote.xyz.
 
 ## Official sources
 

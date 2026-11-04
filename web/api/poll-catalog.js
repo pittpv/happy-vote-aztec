@@ -83,10 +83,14 @@ export function mergeCatalogs(seed, overlay) {
       polls[String(id)] = meta;
     }
   }
+  const accounts = Array.isArray(overlay?.authoritativeAccounts)
+    ? overlay.authoritativeAccounts.map((item) => String(item))
+    : [];
   return {
     version: Math.max(Number(seed.version || 1), Number(overlay?.version || 1)),
     updatedAt: overlay?.updatedAt || seed.updatedAt || null,
     polls,
+    authoritativeAccounts: accounts,
     sources: {
       seed: true,
       blob: Boolean(overlay),

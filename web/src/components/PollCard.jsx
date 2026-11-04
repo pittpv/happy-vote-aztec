@@ -10,7 +10,7 @@ function optionKindLabel(poll) {
   return "Single choice";
 }
 
-export function PollCard({ poll, now, closed = null }) {
+export function PollCard({ poll, now, closed = null, preview = false }) {
   const codes = pollCountryCodes(poll);
   const schedule = getPollSchedule(poll, now);
   const ended = closed === true || schedule.phase === POLL_PHASE.CLOSED;
@@ -39,7 +39,9 @@ export function PollCard({ poll, now, closed = null }) {
     <button
       type="button"
       className="poll-card"
-      onClick={() => navigate(pollPath(poll.id))}
+      onClick={() => {
+        if (!preview) navigate(pollPath(poll.id));
+      }}
     >
       <div className="poll-card-top">
         <span className="poll-card-id">#{poll.id}</span>
@@ -47,6 +49,9 @@ export function PollCard({ poll, now, closed = null }) {
           {badge ? <span className={`elig-badge is-${badge.kind}`}>{badge.label}</span> : null}
           {showEligibility ? (
             <span className={`elig-badge${poll.requiresZkPassport ? " is-zk" : ""}`}>{modeLabel}</span>
+          ) : null}
+          {poll.creatorAuthoritative ? (
+            <span className="elig-badge is-authority">Authoritative</span>
           ) : null}
           {poll.sealed ? <span className="elig-badge">Sealed</span> : null}
           {Number(poll.voteFrequency) === 1 ? <span className="elig-badge">Daily</span> : null}

@@ -1,5 +1,6 @@
 use crate::test::utils;
-use aztec::protocol::storage::map::derive_storage_slot_in_map;
+use aztec::protocol::{address::AztecAddress, storage::map::derive_storage_slot_in_map};
+use aztec::test::helpers::test_environment::TestEnvironment;
 
 use crate::HappyVote;
 use crate::HappyVote::PollId;
@@ -657,4 +658,225 @@ unconstrained fn test_fail_daily_identity_same_day() {
         bob,
         HappyVote::at(contract_address).cast_vote_private(poll_id, 1, identity, period),
     );
+}
+
+unconstrained fn user_create_at(
+    env: &mut TestEnvironment,
+    contract_address: AztecAddress,
+    creator: AztecAddress,
+    ends_at: u64,
+    fee_mode: u8,
+    fee_fallback: u8,
+) {
+    env.call_public(
+        creator,
+        HappyVote::at(contract_address).create_user_poll(
+            2,
+            2,
+            0,
+            7,
+            false,
+            0,
+            ends_at,
+            0,
+            fee_mode,
+            fee_fallback,
+            3,
+            4,
+        ),
+    );
+}
+
+#[test]
+unconstrained fn test_user_create_poll() {
+    let (mut env, contract_address, admin) = utils::setup();
+    let alice = env.create_light_account();
+    let start = env.last_block_timestamp();
+    user_create_at(&mut env, contract_address, alice, start + 86400, 0, 0);
+
+    let poll_id = PollId::new(Field::from(1));
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_creator(poll_id)), alice);
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_fee_mode(poll_id)), 0);
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_signing_pubkey_x(poll_id)), 3);
+    assert(alice.eq(admin) == false);
+    let _ = admin;
+}
+
+#[test]
+unconstrained fn test_user_create_does_not_overwrite() {
+    let (mut env, contract_address, admin) = utils::setup();
+    let alice = env.create_light_account();
+    let poll_id = PollId::new(Field::from(1));
+    utils::create_happy_sad_poll(&mut env, contract_address, admin, poll_id);
+    let start = env.last_block_timestamp();
+    user_create_at(&mut env, contract_address, alice, start + 86400, 0, 0);
+
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_options_count(poll_id)), 2);
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_creator(poll_id)), admin);
+    let user_poll = PollId::new(Field::from(2));
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_creator(user_poll)), alice);
+}
+
+#[test(should_fail_with = "End is required")]
+unconstrained fn test_fail_user_create_without_end() {
+    let (mut env, contract_address, _) = utils::setup();
+    let alice = env.create_light_account();
+    user_create_at(&mut env, contract_address, alice, 0, 0, 0);
+}
+
+#[test(should_fail_with = "Window exceeds 90 days")]
+unconstrained fn test_fail_user_create_window() {
+    let (mut env, contract_address, _) = utils::setup();
+    let alice = env.create_light_account();
+    let start = env.last_block_timestamp();
+    user_create_at(&mut env, contract_address, alice, start + 7776001, 0, 0);
+}
+
+#[test(should_fail_with = "Contract is paused")]
+unconstrained fn test_fail_user_create_while_paused() {
+    let (mut env, contract_address, admin) = utils::setup();
+    let alice = env.create_light_account();
+    env.call_public(admin, HappyVote::at(contract_address).set_paused(true));
+    let start = env.last_block_timestamp();
+    user_create_at(&mut env, contract_address, alice, start + 86400, 0, 0);
+}
+
+#[test(should_fail_with = "Already created today")]
+unconstrained fn test_fail_user_create_twice_same_day() {
+    let (mut env, contract_address, _) = utils::setup();
+    let alice = env.create_light_account();
+    let start = env.last_block_timestamp();
+    user_create_at(&mut env, contract_address, alice, start + 86400, 0, 0);
+    user_create_at(&mut env, contract_address, alice, start + 86400, 0, 0);
+}
+
+#[test(should_fail_with = "Too many open polls")]
+unconstrained fn test_fail_fourth_open_user_poll() {
+    let (mut env, contract_address, _) = utils::setup();
+    let alice = env.create_light_account();
+    let t0 = env.last_block_timestamp();
+    let horizon = t0 + 86400 * 10;
+    user_create_at(&mut env, contract_address, alice, horizon, 0, 0);
+    env.set_next_block_timestamp(t0 + 86400);
+    user_create_at(&mut env, contract_address, alice, horizon, 0, 0);
+    env.set_next_block_timestamp(t0 + 86400 * 2);
+    user_create_at(&mut env, contract_address, alice, horizon, 0, 0);
+    env.set_next_block_timestamp(t0 + 86400 * 3);
+    user_create_at(&mut env, contract_address, alice, horizon, 0, 0);
+}
+
+#[test]
+unconstrained fn test_creator_can_end_user_poll() {
+    let (mut env, contract_address, _) = utils::setup();
+    let alice = env.create_light_account();
+    let start = env.last_block_timestamp();
+    user_create_at(&mut env, contract_address, alice, start + 86400, 0, 0);
+    let poll_id = PollId::new(Field::from(1));
+    env.call_public(alice, HappyVote::at(contract_address).end_poll(poll_id));
+    assert(env.view_public(HappyVote::at(contract_address).get_vote_ended(poll_id)));
+}
+
+#[test(should_fail_with = "Only admin")]
+unconstrained fn test_fail_stranger_end_user_poll() {
+    let (mut env, contract_address, _) = utils::setup();
+    let alice = env.create_light_account();
+    let bob = env.create_light_account();
+    let start = env.last_block_timestamp();
+    user_create_at(&mut env, contract_address, alice, start + 86400, 0, 0);
+    env.call_public(bob, HappyVote::at(contract_address).end_poll(PollId::new(Field::from(1))));
+}
+
+#[test]
+unconstrained fn test_admin_can_cancel_user_poll() {
+    let (mut env, contract_address, admin) = utils::setup();
+    let alice = env.create_light_account();
+    let start = env.last_block_timestamp();
+    user_create_at(&mut env, contract_address, alice, start + 86400, 0, 0);
+    let poll_id = PollId::new(Field::from(1));
+    env.call_public(admin, HappyVote::at(contract_address).cancel_poll(poll_id));
+    assert(env.view_public(HappyVote::at(contract_address).get_cancelled(poll_id)));
+}
+
+#[test(should_fail_with = "Sponsored fees are not available")]
+unconstrained fn test_fail_mainnet_rejects_sponsored() {
+    let (mut env, contract_address, admin) = utils::setup();
+    let alice = env.create_light_account();
+    env.call_public(admin, HappyVote::at(contract_address).set_allow_sponsored(false));
+    let start = env.last_block_timestamp();
+    user_create_at(&mut env, contract_address, alice, start + 86400, 0, 0);
+}
+
+#[test]
+unconstrained fn test_pool_pays_until_empty_then_fallback_and_refund() {
+    let (mut env, contract_address, admin) = utils::setup();
+    let alice = env.create_light_account();
+    let payer = env.create_light_account();
+    env.call_public(admin, HappyVote::at(contract_address).set_pool_payer(payer));
+    let start = env.last_block_timestamp();
+    // fee mode pool (2), fallback stop (0)
+    user_create_at(&mut env, contract_address, alice, start + 86400, 2, 0);
+    let poll_id = PollId::new(Field::from(1));
+    env.call_public(alice, HappyVote::at(contract_address).fund_pool(poll_id, 2, 200));
+    assert_eq(
+        env.view_public(HappyVote::at(contract_address).quote_pool(poll_id, 80)),
+        0,
+    );
+    assert_eq(
+        env.call_public(payer, HappyVote::at(contract_address).commit_pool_ballot(poll_id, 80)),
+        0,
+    );
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_pool_remaining(poll_id)), 1);
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_pool_juice(poll_id)), 120);
+    // Juice no longer covers this cap. Stop fallback, nothing spent.
+    assert_eq(
+        env.call_public(payer, HappyVote::at(contract_address).commit_pool_ballot(poll_id, 200)),
+        2,
+    );
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_pool_remaining(poll_id)), 1);
+    assert_eq(
+        env.call_public(payer, HappyVote::at(contract_address).commit_pool_ballot(poll_id, 80)),
+        0,
+    );
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_pool_remaining(poll_id)), 0);
+    assert_eq(
+        env.call_public(payer, HappyVote::at(contract_address).commit_pool_ballot(poll_id, 10)),
+        2,
+    );
+    env.call_public(alice, HappyVote::at(contract_address).end_poll(poll_id));
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_pool_juice(poll_id)), 0);
+    assert_eq(env.view_public(HappyVote::at(contract_address).get_pool_refunded(poll_id)), 40);
+}
+
+#[test]
+unconstrained fn test_pool_voter_fallback_when_empty() {
+    let (mut env, contract_address, admin) = utils::setup();
+    let alice = env.create_light_account();
+    let payer = env.create_light_account();
+    env.call_public(admin, HappyVote::at(contract_address).set_pool_payer(payer));
+    let start = env.last_block_timestamp();
+    // fallback voter (1), unfunded
+    user_create_at(&mut env, contract_address, alice, start + 86400, 2, 1);
+    let poll_id = PollId::new(Field::from(1));
+    assert_eq(
+        env.view_public(HappyVote::at(contract_address).quote_pool(poll_id, 50)),
+        1,
+    );
+}
+
+#[test]
+unconstrained fn test_set_authoritative_admin_only() {
+    let (mut env, contract_address, admin) = utils::setup();
+    let alice = env.create_light_account();
+    env.call_public(admin, HappyVote::at(contract_address).set_authoritative(alice, true));
+    assert(env.view_public(HappyVote::at(contract_address).is_authoritative(alice)));
+    env.call_public(admin, HappyVote::at(contract_address).set_authoritative(alice, false));
+    assert(env.view_public(HappyVote::at(contract_address).is_authoritative(alice)) == false);
+}
+
+#[test(should_fail_with = "Only admin")]
+unconstrained fn test_fail_authoritative_non_admin() {
+    let (mut env, contract_address, _) = utils::setup();
+    let alice = env.create_light_account();
+    let bob = env.create_light_account();
+    env.call_public(alice, HappyVote::at(contract_address).set_authoritative(bob, true));
 }

@@ -1,10 +1,11 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { shortAddr } from "../lib/format.js";
-import { homePath, faqPath, navigate, pollsPath } from "../lib/routing.js";
+import { createPath, homePath, faqPath, navigate, pollsPath } from "../lib/routing.js";
 
 const NAV = [
   { id: "home", label: "Home", path: homePath() },
   { id: "polls", label: "All polls", path: pollsPath() },
+  { id: "create", label: "Create", path: createPath() },
   { id: "faq", label: "FAQ", path: faqPath() },
 ];
 

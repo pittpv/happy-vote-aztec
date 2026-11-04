@@ -2,6 +2,7 @@ import { LEGAL_DOCUMENTS, getLegalNavItem } from "./legalDocs.js";
 import { SITE_DESCRIPTION, SITE_NAME } from "./site.js";
 import {
   FAQ_PAGE_DESCRIPTION,
+  CREATE_PAGE_DESCRIPTION,
   POLLS_PAGE_DESCRIPTION,
   canonicalPath,
   faqPageJsonLd,
@@ -46,6 +47,24 @@ export function resolvePageSeo(pathname, catalog) {
         breadcrumbs: [
           { name: SITE_NAME, path: "/" },
           { name: "All polls", path: "/polls" },
+        ],
+      }),
+    };
+  }
+  if (path === "/create") {
+    const title = pageTitle("Create a poll");
+    return {
+      title,
+      description: CREATE_PAGE_DESCRIPTION,
+      path,
+      noindex: false,
+      jsonLd: webPageJsonLd({
+        title,
+        description: CREATE_PAGE_DESCRIPTION,
+        path,
+        breadcrumbs: [
+          { name: SITE_NAME, path: "/" },
+          { name: "Create a poll", path: "/create" },
         ],
       }),
     };

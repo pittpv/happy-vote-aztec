@@ -34,6 +34,12 @@ export const FAQ_ITEMS = [
       "Browser session is always offered. It is an in-page account for this browser, with a new address each time you connect. Installed wallets that speak this network are listed by name. To keep an account, use Nulo Wallet (https://nulo.sh/).",
   },
   {
+    id: "create",
+    question: "Can I publish a poll?",
+    answer:
+      "Yes. Create in the header opens a public page. A browser session signs the listing; that signing key stays in the tab and is not sent to the server. Private still hides your address, and the tally is public unless you seal it. One account can publish one poll per UTC day, and at most three of its polls can be open. Homepage placement is chosen by HappyVote.",
+  },
+  {
     id: "fee",
     question: "Do I pay a fee to vote?",
     answer:

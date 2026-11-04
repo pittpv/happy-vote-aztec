@@ -163,7 +163,7 @@ Vite + React. Маршруты:
 | Endpoint | Роль |
 |----------|------|
 | `GET /api/poll-state` | Batch `node_getPublicStorageAt`, кэш ~15с. `fresh=1` обходит кэш (`Cache-Control: no-store`) после бюллетеня и по Refresh. Poseidon-слоты из метаданных каталога. Id, которого нет на текущем контракте, отвечает 404. |
-| `GET /api/polls` | Seed JSON + опциональный Blob (`showOnHome` / `homeRank` для `/`). В списке только опросы, созданные на текущем контракте. `GET /api/polls?id=` гидратирует один опрос (страница `/p/:id`). Фильтр стран на `/polls` также берёт страны из Dashboard policy, если задан `policyId`. |
+| `GET /api/polls` | Seed JSON + опциональный Blob (`showOnHome` / `homeRank` для `/`). В списке только опросы текущего контракта, у которых окно в каталоге ещё не кончилось, плюс опросы, которые остаются на главной. Завершённые вне главной — `GET /api/polls?ended=1` с `lane` `authoritative` или `users` (`offset`, `limit` по умолчанию 24, максимум 48). `GET /api/polls?id=` гидратирует один опрос, включая завершённый (`/p/:id`). Фильтр стран на `/polls` также берёт страны из Dashboard policy, если задан `policyId`. |
 | `POST /api/polls` | Публикация метаданных каталога (только оператор): тело опроса, флаги `homepage` или `policyId` у существующего ZKPassport-опроса |
 | `POST /api/zkpassport-verify` | Server re-verify |
 | `POST /api/client-error` | Ошибки в логи Vercel |

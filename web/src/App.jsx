@@ -8,6 +8,7 @@ import {
   registerHappyVote,
   registerStandardContracts,
   getSponsoredPaymentMethod,
+  senderFeeTxOptions,
   sponsoredTxOptions,
   submitProvenBallot,
   createWallet,
@@ -38,6 +39,9 @@ import { AdminContractControls } from "./components/AdminContractControls.jsx";
 import { AdminSiteStats } from "./components/AdminSiteStats.jsx";
 import { AdminHomePolls } from "./components/AdminHomePolls.jsx";
 import { AdminPolicyIdForm } from "./components/AdminPolicyIdForm.jsx";
+import { AdminTrust } from "./components/AdminTrust.jsx";
+import { CreatePollPage } from "./components/CreatePollPage.jsx";
+import { ballotFeeCopy, FEE_MODE, feeFallbackOf, hasExplicitFeeMode } from "./lib/feeMode.js";
 import { AdminPanel, AdminTabs, parseAdminTab } from "./components/AdminTabs.jsx";
 import { trackPageview } from "./lib/siteStats.js";
 import { PollListPage } from "./components/PollListPage.jsx";
@@ -152,6 +156,15 @@ export default function App() {
     );
   }
 
+  if (route.kind === "create") {
+    return (
+      <>
+        <CreatePollPage walletConnect={walletConnect} />
+        <AppWalletModal walletConnect={walletConnect} allowAdminImport={false} />
+      </>
+    );
+  }
+
   if (route.kind === "polls") {
     return (
       <>
@@ -205,10 +218,14 @@ function AppWalletModal({ walletConnect, allowAdminImport }) {
     try {
       const proverEnabled = import.meta.env.VITE_PROVER_ENABLED === "true";
       const nextWallet = await createWallet({ proverEnabled, onProgress });
-      const { account: nextAccount } = importedKeys
+      const created = importedKeys
         ? await importAccount(nextWallet, importedKeys, { onProgress })
         : await createSessionAccount(nextWallet, { onProgress });
-      walletConnect.adoptSession(nextWallet, nextAccount.address.toString());
+      walletConnect.adoptSession(
+        nextWallet,
+        created.account.address.toString(),
+        importedKeys ? null : created.keys?.signingKey,
+      );
     } catch (error) {
       console.error(error);
       walletConnect.fail(error);
@@ -422,6 +439,16 @@ function AdminRoute({ walletConnect }) {
           <AdminPanel id="visits" active={adminTab}>
             <AdminSiteStats />
           </AdminPanel>
+          <AdminPanel id="trust" active={adminTab}>
+            <AdminTrust
+              contract={contract}
+              accountAddress={accountAddress}
+              paymentMethod={paymentMethod}
+              busy={busy}
+              setBusy={setBusy}
+              setStatus={setStatus}
+            />
+          </AdminPanel>
           <AdminPanel id="contract" active={adminTab}>
             <AdminContractControls
               contract={contract}
@@ -512,6 +539,8 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
   const [chainEndsAt, setChainEndsAt] = useState(null);
   const [cancelled, setCancelled] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [poolRemaining, setPoolRemaining] = useState(null);
+  const [payWithJuice, setPayWithJuice] = useState(false);
   const [voteFrequency, setVoteFrequency] = useState(
     () => Number(getPollMeta(routePollId).voteFrequency) || VOTE_FREQUENCY.ONCE,
   );
@@ -627,9 +656,17 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
   const identityOk = pollKnown && (!requiresZk || Boolean(zkId));
   const preparingWallet =
     walletConnect.phase.kind === "connected" && (!accountAddress || sessionPending);
+  const poolLocked =
+    pollMeta.feeMode === FEE_MODE.POOL && feeFallbackOf(pollMeta) !== FEE_MODE.VOTER;
+  const poolNeedsJuice =
+    pollMeta.feeMode === FEE_MODE.POOL &&
+    feeFallbackOf(pollMeta) === FEE_MODE.VOTER &&
+    !payWithJuice;
   const canVote =
     votingOpen &&
     publicReady &&
+    !poolLocked &&
+    !poolNeedsJuice &&
     Boolean(accountAddress && contract && identityOk && !busy) &&
     (policy === PRIVACY.VOTER_CHOICE ||
       (policy === PRIVACY.PRIVATE_ONLY && privacyMode === "private") ||
@@ -645,6 +682,8 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
     setChainEndsAt(null);
     setCancelled(false);
     setPaused(false);
+    setPoolRemaining(null);
+    setPayWithJuice(false);
     setVoteEnded(false);
     const known = hasKnownPollMeta(routePollId);
     const meta = getPollMeta(routePollId);
@@ -808,6 +847,7 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
     if (result.startsAt != null) setChainStartsAt(result.startsAt);
     if (result.endsAt != null) setChainEndsAt(result.endsAt);
     if (result.voteFrequency != null) setVoteFrequency(Number(result.voteFrequency));
+    setPoolRemaining(result.poolRemaining == null ? null : Number(result.poolRemaining));
     setPublicReady(true);
   }
 
@@ -900,9 +940,17 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
         identityCommitment = await identityCommitmentFromUid(zkId, Fr);
       }
 
+      const payWithSender =
+        pollMeta.feeMode === FEE_MODE.VOTER ||
+        (pollMeta.feeMode === FEE_MODE.POOL && payWithJuice);
+      if (pollMeta.feeMode === FEE_MODE.POOL && !payWithJuice) {
+        throw new Error("This poll’s fee pool cannot pay a ballot from this page. Vote stays closed.");
+      }
       showStep(
         "Preparing fee…",
-        "Reading the sponsored fee cap so the proof still pays under the current base fee.",
+        payWithSender
+          ? "Reading the fee cap. This ballot pays with your Fee Juice."
+          : "Reading the sponsored fee cap so the proof still pays under the current base fee.",
       );
       const period = new Fr(dailyVote ? utcDayIndex() : 0);
       const supportsPeriod = typeof contract.methods.get_vote_frequency === "function";
@@ -920,7 +968,9 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
             ? contract.methods.cast_vote_open(pollId, new Fr(selected), identityCommitment, period)
             : contract.methods.cast_vote_open(pollId, new Fr(selected), identityCommitment);
 
-      const txOpts = await sponsoredTxOptions(paymentMethod);
+      const txOpts = payWithSender
+        ? await senderFeeTxOptions()
+        : await sponsoredTxOptions(paymentMethod);
       showStep(
         "Proving ballot…",
         inPageProver
@@ -1064,6 +1114,12 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
           <header className="vote-hero">
             <p className="vote-kicker">Poll #{routePollId}</p>
             <h1 className="question">{pollMeta.title}</h1>
+            {pollMeta.hidden ? (
+              <p className="vote-hidden-note">This listing was hidden. The chain row is still here.</p>
+            ) : null}
+            {pollMeta.creatorAuthoritative ? (
+              <p className="elig-badge is-authority">Authoritative</p>
+            ) : null}
             {pollMeta.description ? <p className="poll-desc">{pollMeta.description}</p> : null}
             {(pollMeta.topics || []).length > 0 ? (
               <div className="topic-row">
@@ -1231,6 +1287,23 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
             </p>
           )}
 
+          <p className="hint">{ballotFeeCopy(pollMeta, { poolRemaining })}</p>
+          {pollMeta.feeMode === FEE_MODE.POOL && feeFallbackOf(pollMeta) === FEE_MODE.VOTER ? (
+            <label className="filter-field">
+              <input
+                type="checkbox"
+                checked={payWithJuice}
+                onChange={(event) => setPayWithJuice(event.target.checked)}
+              />{" "}
+              Pay this ballot with my Fee Juice
+            </label>
+          ) : null}
+          {poolLocked ? (
+            <p className="hint">
+              The published fallback keeps Vote closed when the pool cannot pay. This page does not
+              charge the Sponsored FPC for a pool poll.
+            </p>
+          ) : null}
           <div className="vote-cta">
             <div className="vote-cta-actions">
               {!votingOpen ? (
@@ -1392,11 +1465,8 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
 
       <div className="vote-extras">
         <details className="vote-details">
-          <summary>Fees on testnet</summary>
-          <p className="fee-hint">
-            On Testnet, the ballot fee is covered by the Sponsored FPC. HappyVote does not charge a
-            separate fee to vote.
-          </p>
+          <summary>{hasExplicitFeeMode(pollMeta) ? "Network fee" : "Fees on testnet"}</summary>
+          <p className="fee-hint">{ballotFeeCopy(pollMeta, { poolRemaining })}</p>
         </details>
 
         <details className="vote-details" id="howto">

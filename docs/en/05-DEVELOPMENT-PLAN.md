@@ -79,7 +79,7 @@ HappyVote at https://aztec.happyvote.xyz still casts ballots on **Testnet**. Put
 
 ## Iteration 2 — user-created polls
 
-**Status: not started.** Iteration 1 stays operator-published. This is the implementation plan.
+**Status: website build includes Iteration 2; the published Testnet contract is unchanged.** `aztec test` passed 63 tests. This site lists polls that are still inside their catalog window, plus polls that stay on the homepage, in one response. Ended polls that are not on the homepage load in pages of 24. Chain open/ended reads skip a poll whose catalog end time has already passed. Create, the two All polls sections, and the catalog signature are in this build. The published contract address does not yet include `create_user_poll`, and the web artifact has not been regenerated, so Create says so until that contract is replaced. Existing `create_poll` and `cast_vote_*` calls stay as they are. Votes already on the current contract stay there.
 
 ### Outcome
 
@@ -107,11 +107,25 @@ The new entry fails closed:
 
 Noir tests: non-admin create, reject overwrite, reject a missing end, reject create while paused, reject a fourth open poll, creator can end, a stranger cannot end, admin cancel still works.
 
+### Earlier networks
+
+A new Aztec rollup does not receive this contract’s polls. Previous results already stay on All polls under **Earlier networks**. `GET /api/earlier-networks` stores a snapshot while the old network still answers, then serves that snapshot after the old network is gone. Those rows are not links to `/p/:id`, and they are not added to a tally on the current contract. Iteration 2 does not add `export_poll`, `import_poll`, or a contract-class upgrade to copy a poll onto the next rollup. Voting on the site stays on the current network. A poll that was still open when the rollup changed remains in that archive. A poll on the new network starts from zero. Leftover Fee Juice returns to the creator only when `end_poll` or `cancel_poll` runs on the rollup that holds that pool. The new deployment does not pull it across, and Earlier networks does not send the transaction. If that call is not included while the old rollup still accepts it, the juice stays in the old fee contract.
+
+### Noir 1
+
+`aztec compile` already stamps this contract with Noir `1.0.0-rc.3` (`noir_version` on the HappyVote artifact). That is the compiler in Aztec CLI 6.0.0, and the version the v6.0.0 release names for the proving stack. Iteration 2 is compiled and tested with that CLI. The existing functions already match it: no `as_slice`, `std::hash::keccak`, `Vec`, `SignedField`, or `u1`, no `#[note]` struct inside the contract, and hashing via Poseidon2. `Nargo.toml` keeps `compiler_version = ">=0.25.0"`. A floor of `>=1.0.0` excludes `1.0.0-rc.3`. That floor changes in the same commit that moves the Aztec CLI onto a compiler which satisfies it.
+
+Noir 1.x keeps the language stable for the major version. A break waits for a later major and a migration note. Sources: [Noir 1.0](https://aztec.network/blog/noir-1-0-is-live), [Migrating from v1.0.0-rc.0](https://noir-lang.org/docs/migrating_from_rc0). New Iteration 2 functions use the same syntax. A `#[note]` struct declared inside the contract is `pub`. A later Aztec release that bumps Noir is a recompile with that CLI, plus a source fix only where that release’s notes reject the file.
+
 ### Catalog
 
 The chain does not store titles. After the create transaction is included, the creator publishes labels to the catalog with a signature from the same address that sent the transaction. The server checks that signature and checks that `metadata_hash` matches the canonical JSON of the title, description, and option labels. A missing signature or a mismatched hash is not listed.
 
-The creator cannot set homepage flags. A new poll is listed on All polls only.
+The creator cannot set homepage flags. A new poll is listed on All polls only. HappyVote chooses homepage placement afterwards.
+
+### Catalog size
+
+`GET /api/polls` returns polls that can still be open, and polls that remain on the homepage. A poll whose `endsAt` is already past, and that is not on the homepage, is not in that list. Those polls are `GET /api/polls?ended=1&lane=authoritative|users` with `offset` and `limit` (default 24, maximum 48). The same search, topic, country, eligibility, and sort apply to the page. All polls shows the first page under **Ended** in each section and loads the next page on request. `GET /api/poll-state?catalog=1` reads chain closure only for polls that are not already past `endsAt`. A poll with no end date is still read, so an operator close stays visible. `GET /api/polls?id=` is unchanged, including for an ended poll.
 
 ### Anti-spam
 
@@ -166,7 +180,7 @@ The vote page states the active mode before Connect: sponsored, your Fee Juice, 
 
 ### Discovery
 
-All polls already searches title, topic, country, and eligibility, and splits Active and Ended. Add sort: newest, and ending soon. Until that sort ships, order stays by poll id. User-created polls use the same Active / Ended rules as operator polls.
+All polls searches title, topic, country, and eligibility. The first section is **Авторитетные голосования**: polls published by HappyVote, then polls whose creator the admin has marked authoritative. The next section is **Users polls**. Active and Ended stay inside each section. Sort defaults to poll id, with newest and ending soon. The default order is still by id.
 
 ### Create page
 
@@ -197,7 +211,7 @@ Before the create page is public, Terms gain a short user-generated clause: the 
 
 | Step | Exit |
 |------|------|
-| 2.1 Contract and Noir tests | Non-admin create, the caps above, and fee mode pass `aztec test`. Mainnet config rejects `sponsored`. A pool pays while the count is above zero and the juice covers the cap. At zero, only the fallback chosen at create runs. Leftover juice returns to the creator. |
+| 2.1 Contract and Noir tests | Non-admin create, the caps above, and fee mode pass `aztec test` on the Noir `1.0.0-rc.3` compiler in Aztec CLI 6.0.0. Mainnet config rejects `sponsored`. A pool pays while the count is above zero and the juice covers the cap. At zero, only the fallback chosen at create runs. Leftover juice returns to the creator. |
 | 2.2 Catalog signature | A create with a matching hash is listed. A mismatched hash is not |
 | 2.3 Create page | An account that is not the contract admin can publish a poll and open it from All polls |
 | 2.4 Moderation | Hide removes the listing. Cancel stops voting. The share URL still explains the poll |
@@ -205,7 +219,7 @@ Before the create page is public, Terms gain a short user-generated clause: the 
 
 ### Out of scope
 
-DAO, treasury, multisig, and prediction-market adapters are Iteration 3. Also out of scope: ranked choice, delegation, a HappyVote price on the Vote button, and UI translations. The network fee in the section above is the Aztec transaction fee, not a HappyVote price.
+DAO, treasury, multisig, and prediction-market adapters are Iteration 3. Also out of scope: ranked choice, delegation, a HappyVote price on the Vote button, UI translations, and copying polls onto a new rollup. Earlier networks already archives the previous tally. The network fee in the section above is the Aztec transaction fee, not a HappyVote price.
 
 ## Iteration 3 — governance adapters
 

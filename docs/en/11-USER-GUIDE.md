@@ -7,9 +7,13 @@ UI notes: [12-UI-UX.md](./12-UI-UX.md)
 
 1. Open https://aztec.happyvote.xyz.
 2. Read the short mission / privacy pillars (optional).
-3. Under **Featured polls**, open a card, or go to **All polls** (`/polls`) to search and filter the full catalog (topic, country, eligibility). The list is split into **Active** and **Ended** (catalog end time already passed, or the poll is closed on-chain). Country includes ZKPassport Dashboard policy countries when the poll uses a `policyId`.
+3. Under **Featured polls**, open a card, or go to **All polls** (`/polls`). The page has two sections, **Авторитетные голосования** and **Users polls**. Each section has **Active** and **Ended**. Ended polls that are not on the homepage appear 24 at a time. Search and filters (topic, country, eligibility) apply to both. Country includes ZKPassport Dashboard policy countries when the poll uses a `policyId`.
 
-The header menu (desktop and mobile) has Home, All polls, and wallet connect / connected address.
+The header menu (desktop and mobile) has Home, All polls, Create, FAQ, and wallet connect / connected address.
+
+## Create a poll
+
+Open **Create** (`/create`) and connect a browser session. The form publishes one single-choice poll with 2–32 options. **Yes / No** and **Scale 1–5** fill the labels. Choose privacy (voter choice, private only, or open only), eligibility (any account or ZKPassport personhood), whether the tally stays sealed until close, and whether each account votes once or once per UTC day. Set an end time. The window is at most 90 days. One account can create one poll per UTC day and keep at most three polls open. Homepage placement is chosen by HappyVote. On the current Testnet contract, Create reports that this artifact has no user-create entry until that contract is replaced with the Iteration 2 source.
 
 Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data Safety, Cookies, GDPR).
 

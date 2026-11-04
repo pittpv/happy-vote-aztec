@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { listPolls, publishHomepage, refreshSharedCatalog } from "../lib/polls.js";
+import { listPolls, publishHomepage, refreshPollMetaById, refreshSharedCatalog } from "../lib/polls.js";
+import { curatedHomeFlag } from "../lib/catalogSections.js";
 import { Notice } from "./Notice.jsx";
 
 function rankOf(poll, index) {
@@ -18,6 +19,7 @@ function sortRows(rows) {
 export function AdminHomePolls({ active = true, busy, setBusy, setStatus }) {
   const [rows, setRows] = useState([]);
   const [loaded, setLoaded] = useState(false);
+  const [addId, setAddId] = useState("");
   const [publishToken, setPublishToken] = useState(
     () =>
       (typeof sessionStorage !== "undefined" && sessionStorage.getItem("happyvote.publishToken")) ||
@@ -36,7 +38,7 @@ export function AdminHomePolls({ active = true, busy, setBusy, setStatus }) {
         const next = listPolls().map((poll, index) => ({
           id: String(poll.id),
           title: poll.title,
-          showOnHome: poll.showOnHome !== false,
+          showOnHome: curatedHomeFlag(poll),
           homeRank: rankOf(poll, index),
         }));
         setRows(sortRows(next));
@@ -53,6 +55,40 @@ export function AdminHomePolls({ active = true, busy, setBusy, setStatus }) {
     [rows],
   );
   const featuredCount = featuredRows.length;
+
+  async function addById() {
+    const id = addId.trim();
+    if (!/^\d+$/.test(id)) {
+      setStatus({ text: "Enter the poll id.", tone: "error" });
+      return;
+    }
+    setBusy(true);
+    try {
+      const meta = await refreshPollMetaById(id);
+      if (!meta) {
+        setStatus({ text: "That poll is not in the catalog.", tone: "error" });
+        return;
+      }
+      setRows((prev) => {
+        if (prev.some((row) => row.id === String(meta.id))) return prev;
+        return sortRows([
+          ...prev,
+          {
+            id: String(meta.id),
+            title: meta.title,
+            showOnHome: curatedHomeFlag(meta),
+            homeRank: rankOf(meta, prev.length),
+          },
+        ]);
+      });
+      setAddId("");
+      setStatus({ text: `Poll #${meta.id} is in the list. Check it, then save.`, tone: "ok" });
+    } catch (error) {
+      setStatus({ text: error?.message || String(error), tone: "error" });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   function toggle(id) {
     setRows((prev) => {
@@ -149,8 +185,9 @@ export function AdminHomePolls({ active = true, busy, setBusy, setStatus }) {
     <form className="admin-form" onSubmit={save}>
       <h2>Homepage polls</h2>
       <p className="meta">
-        Home shows only the polls you mark here, in this order. The full catalog stays on All polls.
-        Keep the home list short — three to six cards reads clearly.
+        Home shows only the polls you mark here, in this order. A poll published from Create stays off
+        the homepage until you check it. The person who created it cannot put it here. Keep the home
+        list short — three to six cards reads clearly.
       </p>
       {featuredCount === 0 ? (
         <Notice tone="error" title="Nothing on home">
@@ -158,6 +195,25 @@ export function AdminHomePolls({ active = true, busy, setBusy, setStatus }) {
           one poll.
         </Notice>
       ) : null}
+
+      <div className="catalog-toolbar">
+        <label className="filter-field grow">
+          Poll id
+          <input
+            inputMode="numeric"
+            value={addId}
+            disabled={busy}
+            onChange={(e) => setAddId(e.target.value)}
+            placeholder="Ended poll id"
+          />
+        </label>
+        <button type="button" className="btn btn-ghost" disabled={busy} onClick={addById}>
+          Add to this list
+        </button>
+      </div>
+      <p className="meta">
+        Open polls are listed below. An ended poll stays out of that list until you add its id.
+      </p>
 
       <ul className="home-pick-list">
         {rows.map((row) => {

@@ -4,6 +4,7 @@ const TABS = [
   { id: "home", label: "Homepage", description: "Featured poll cards" },
   { id: "visits", label: "Visits", description: "Cookieless site totals" },
   { id: "contract", label: "Contract", description: "Pause, end, transfer" },
+  { id: "trust", label: "Trust", description: "Authoritative accounts" },
 ];
 
 const TAB_IDS = TABS.map((tab) => tab.id);

@@ -17,7 +17,7 @@ export function isUsableSlotEntry(entry, optionsCount) {
 }
 
 export function sliceSlots(entry, optionsCount) {
-  return {
+  const slots = {
     tallies: entry.tallies.slice(0, optionsCount),
     total: entry.total,
     policy: entry.policy,
@@ -27,6 +27,10 @@ export function sliceSlots(entry, optionsCount) {
     endsAt: entry.endsAt,
     cancelled: entry.cancelled,
   };
+  if (typeof entry.poolRemaining === "string" && entry.poolRemaining.length > 0) {
+    slots.poolRemaining = entry.poolRemaining;
+  }
+  return slots;
 }
 
 export function fallbackSlots(pollId, optionsCount) {

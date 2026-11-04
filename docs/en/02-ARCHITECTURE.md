@@ -166,7 +166,7 @@ Guest and connected tallies both use same-origin `/api/poll-state` (public Testn
 | Endpoint | Role |
 |----------|------|
 | `GET /api/poll-state?pollId=&optionsCount=` | Batch `node_getPublicStorageAt`, ~15s cache. `fresh=1` skips that cache (`Cache-Control: no-store`) after a ballot and on Refresh. Poseidon map slots from catalog metadata (any poll id) |
-| `GET /api/polls` | Seed JSON + optional Blob overlay (`showOnHome` / `homeRank` for `/`). Only polls created on the current contract are returned. `GET /api/polls?id=` hydrates a single poll (used by `/p/:id`). The `/polls` country filter also uses Dashboard policy countries when `policyId` is set. |
+| `GET /api/polls` | Seed JSON + optional Blob overlay (`showOnHome` / `homeRank` for `/`). Only polls created on the current contract are returned. The list is polls still inside their catalog window, plus polls that stay on the homepage. Ended polls that are not on the homepage are `GET /api/polls?ended=1&lane=authoritative\|users` (`offset`, `limit` default 24, maximum 48). `GET /api/polls?id=` hydrates one poll, including an ended poll (`/p/:id`). The `/polls` country filter also uses Dashboard policy countries when `policyId` is set. |
 | `POST /api/polls` | Authenticated catalog publish (operator-only): new poll body, `homepage` flags, or `policyId` on an existing ZKPassport poll |
 | `POST /api/zkpassport-verify` | Server re-verify `@zkpassport/sdk` |
 | `POST /api/client-error` | Boot / vote errors → Vercel logs |

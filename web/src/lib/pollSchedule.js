@@ -77,6 +77,19 @@ export function getPollSchedule(meta, now = Date.now()) {
   };
 }
 
+/**
+ * The catalog end time has passed. Early `end_poll` is not visible here.
+ * An unparseable end stays open so the card is not dropped.
+ */
+export function scheduleEnded(poll, now = Date.now()) {
+  try {
+    const endMs = parsePollInstant(poll?.endsAt);
+    return endMs != null && Number(now) >= endMs;
+  } catch {
+    return false;
+  }
+}
+
 export function isVotingOpen(schedule, voteEnded = false) {
   if (voteEnded) return false;
   return schedule.phase === POLL_PHASE.ALWAYS || schedule.phase === POLL_PHASE.OPEN;

@@ -320,37 +320,44 @@ let sponsoredFeeCache = null;
  * sponsor_unconditionally only sets the fee payer; it does not read the FPC's
  * private notes, so the sender account is the only scope the ballot needs.
  */
+async function readMaxFeesPerGas() {
+  const now = Date.now();
+  if (sponsoredFeeCache && now - sponsoredFeeCache.at < SPONSORED_FEE_TTL_MS) {
+    return sponsoredFeeCache.maxFeesPerGas;
+  }
+  const node = createHappyVoteNode(getNodeUrl());
+  const blockNumber = await node.getBlockNumber();
+  const block = await node.getBlock(blockNumber);
+  if (!block) {
+    throw new Error(`Aztec node did not return block ${blockNumber}`);
+  }
+  const { feePerDaGas, feePerL2Gas } = gasFeeFromBlock(block, blockNumber);
+  if (feePerL2Gas === 0n) {
+    throw new Error(`Block ${blockNumber} reported a zero L2 base fee`);
+  }
+  const maxFeesPerGas = {
+    feePerDaGas: feePerDaGas * 2n,
+    feePerL2Gas: feePerL2Gas * 2n,
+  };
+  sponsoredFeeCache = { at: now, maxFeesPerGas };
+  return maxFeesPerGas;
+}
+
 export async function sponsoredTxOptions(paymentMethod) {
   if (!paymentMethod) {
     throw new Error("Sponsored fee payment method is required");
   }
-  const now = Date.now();
-  let maxFeesPerGas = null;
-  if (sponsoredFeeCache && now - sponsoredFeeCache.at < SPONSORED_FEE_TTL_MS) {
-    maxFeesPerGas = sponsoredFeeCache.maxFeesPerGas;
-  } else {
-    const node = createHappyVoteNode(getNodeUrl());
-    const blockNumber = await node.getBlockNumber();
-    const block = await node.getBlock(blockNumber);
-    if (!block) {
-      throw new Error(`Aztec node did not return block ${blockNumber}`);
-    }
-    const { feePerDaGas, feePerL2Gas } = gasFeeFromBlock(block, blockNumber);
-    if (feePerL2Gas === 0n) {
-      throw new Error(`Block ${blockNumber} reported a zero L2 base fee`);
-    }
-    maxFeesPerGas = {
-      feePerDaGas: feePerDaGas * 2n,
-      feePerL2Gas: feePerL2Gas * 2n,
-    };
-    sponsoredFeeCache = { at: now, maxFeesPerGas };
-  }
   return {
     fee: {
       paymentMethod,
-      gasSettings: { maxFeesPerGas },
+      gasSettings: { maxFeesPerGas: await readMaxFeesPerGas() },
     },
   };
+}
+
+/** Gas cap with no Sponsored FPC. The connected account pays Fee Juice. */
+export async function senderFeeTxOptions() {
+  return { fee: { gasSettings: { maxFeesPerGas: await readMaxFeesPerGas() } } };
 }
 
 /**

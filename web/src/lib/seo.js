@@ -4,6 +4,9 @@ import { SITE_AUTHOR, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "./site.js";
 export const POLLS_PAGE_DESCRIPTION =
   "Browse every HappyVote poll on Aztec Testnet. Search by title or topic, filter by country and eligibility, then open a ballot.";
 
+export const CREATE_PAGE_DESCRIPTION =
+  "Publish a poll on HappyVote. A private ballot hides your address. The tally is public unless the poll is sealed.";
+
 export const FAQ_PAGE_DESCRIPTION =
   "Answers about private ballots, public tallies, ZKPassport, wallets, fees, and sealed polls on HappyVote on Aztec.";
 

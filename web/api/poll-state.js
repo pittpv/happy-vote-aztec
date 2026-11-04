@@ -9,6 +9,7 @@
 import { loadMergedCatalog } from "./poll-catalog.js";
 import { readNextPollId } from "./polls.js";
 import { resolvePollSlots } from "./poll-slots.js";
+import { scheduleEnded } from "../src/lib/pollSchedule.js";
 
 const DEFAULT_NODE = "https://aztec-testnet.drpc.org";
 const CACHE_TTL_MS = 15_000;
@@ -32,6 +33,14 @@ function env(name) {
 function padHex32(hex) {
   const h = String(hex).replace(/^0x/i, "").toLowerCase();
   return `0x${h.padStart(64, "0")}`;
+}
+
+function low64Number(value) {
+  let raw = value;
+  if (raw && typeof raw === "object" && "value" in raw) raw = raw.value;
+  if (raw == null || raw === "" || raw === "0x") return 0;
+  const n = typeof raw === "bigint" ? raw : BigInt(raw);
+  return Number(n & ((1n << 64n) - 1n));
 }
 
 function fieldToNumber(value) {
@@ -130,8 +139,10 @@ export async function loadCatalogClosure({ contractAddress, nodeUrl }) {
 
   const catalog = await loadMergedCatalog();
   const nextPollId = await readNextPollId();
+  const now = Date.now();
   const polls = Object.values(catalog.polls || {})
     .filter((poll) => Number(poll?.id) > 0 && Number(poll.id) < nextPollId)
+    .filter((poll) => !scheduleEnded(poll, now))
     .sort((a, b) => Number(a.id) - Number(b.id));
 
   const contract = padHex32(contractAddress);
@@ -322,6 +333,18 @@ export default async function handler(req, res) {
     const endsAt = fieldToNumber(results[optionsCount + 5]);
     const cancelled = fieldToNumber(results[optionsCount + 6]) !== 0;
     const paused = fieldToNumber(results[optionsCount + 7]) !== 0;
+    let poolRemaining;
+    if (slots.poolRemaining) {
+      const poolValue = await withRetry(() =>
+        rpcBatch(nodeUrl, [
+          {
+            method: "node_getPublicStorageAt",
+            params: ["latest", contract, padHex32(slots.poolRemaining)],
+          },
+        ]),
+      );
+      poolRemaining = low64Number(poolValue[0]);
+    }
     const voteFrequency = (sealedFlags >> 1) & 1;
     const nowSec = Math.floor(Date.now() / 1000);
     const closed =
@@ -342,6 +365,7 @@ export default async function handler(req, res) {
       endsAt,
       voteFrequency,
       votingOpen,
+      ...(poolRemaining == null ? {} : { poolRemaining }),
     };
 
     memoryCache = { key: cacheKey, at: now, data };

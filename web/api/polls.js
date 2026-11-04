@@ -18,6 +18,16 @@ import {
   writeBlobCatalog,
 } from "./poll-catalog.js";
 import { fallbackSlots, isUsableSlotEntry } from "./poll-slots.js";
+import { readAuthoritativeFlag, verifyAccountPoll } from "./verify-account-poll.js";
+import { normalizeAddress } from "../src/lib/catalogMeta.js";
+import {
+  accountHomeFlag,
+  isAuthoritativePoll,
+  orderAuthoritative,
+  partitionCatalogWindow,
+  sortPolls,
+} from "../src/lib/catalogSections.js";
+import { pollCountryCodes } from "../src/lib/zkRequirements.js";
 
 function cors(res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -71,7 +81,10 @@ export async function readNextPollId() {
   const raw = json.result;
   const value = raw && typeof raw === "object" && "value" in raw ? raw.value : raw;
   if (value == null || value === "") throw new Error("next_poll_id storage is empty");
-  return Number(BigInt(value));
+  // Bit 63 is the sponsored-fee flag on the Iteration 2 contract. Older
+  // deployments leave it clear, so the counter is the same value.
+  const counter = BigInt(value) & ((1n << 63n) - 1n);
+  return Number(counter);
 }
 
 function onCurrentContract(poll, nextPollId) {
@@ -181,6 +194,61 @@ function publicPoll(poll) {
   return rest;
 }
 
+function accountSet(catalog) {
+  return new Set((catalog.authoritativeAccounts || []).map((item) => String(item).toLowerCase()));
+}
+
+const ENDED_PAGE_MAX = 48;
+
+function pageNumber(value, fallback, max, min = 0) {
+  if (value == null || String(value).trim() === "") return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < min) return fallback;
+  return Math.min(parsed, max);
+}
+
+function matchesCatalogQuery(poll, query) {
+  const topic = query.get("topic") || "all";
+  const country = query.get("country") || "all";
+  const eligibility = query.get("eligibility") || "all";
+  const q = String(query.get("q") || "").trim().toLowerCase();
+  if (topic !== "all" && !(poll.topics || []).includes(topic)) return false;
+  if (country !== "all" && !pollCountryCodes(poll).includes(country)) return false;
+  if (eligibility === "open" && poll.requiresZkPassport) return false;
+  if (eligibility === "zk" && !poll.requiresZkPassport) return false;
+  if (q) {
+    const hay = `${poll.title || ""} ${poll.description || ""} ${(poll.topics || []).join(" ")}`.toLowerCase();
+    if (!hay.includes(q)) return false;
+  }
+  return true;
+}
+
+function listedPolls(catalog, nextPollId) {
+  const accounts = accountSet(catalog);
+  return Object.values(catalog.polls)
+    .filter((poll) => onCurrentContract(poll, nextPollId))
+    .filter((poll) => poll.hidden !== true)
+    .map((poll) => annotatePoll(poll, accounts));
+}
+
+function annotatePoll(poll, accounts) {
+  const pub = publicPoll(poll);
+  const creator = String(pub.creator || "").toLowerCase();
+  return {
+    ...pub,
+    creatorAuthoritative: pub.publisher === "account" && accounts.has(creator),
+  };
+}
+
+function nextOverlay(overlay, polls, accounts) {
+  return {
+    version: Number(overlay.version || 1),
+    updatedAt: new Date().toISOString(),
+    polls,
+    authoritativeAccounts: accounts ?? overlay.authoritativeAccounts ?? [],
+  };
+}
+
 function normalizeHomepageEntries(raw) {
   if (!Array.isArray(raw) || raw.length === 0) {
     throw new Error("homepage must be a non-empty array");
@@ -271,6 +339,126 @@ function applyHomepage(mergedPolls, overlayPolls, entries) {
   return next;
 }
 
+async function publishAccountPoll(res, body) {
+  let poll;
+  try {
+    poll = await verifyAccountPoll(body);
+  } catch (error) {
+    const status = error?.code === "NO_AZTEC_LIBS" ? 503 : 400;
+    return res.status(status).json({ ok: false, error: error?.message || String(error) });
+  }
+  const seed = loadSeed();
+  const overlay = (await readBlobCatalog()) || { version: 1, polls: {} };
+  poll.showOnHome = accountHomeFlag((overlay.polls || {})[poll.id]);
+  const next = nextOverlay(overlay, { ...(overlay.polls || {}), [poll.id]: poll });
+  const mergedForClients = mergeCatalogs(seed, next);
+  try {
+    const blob = await writeBlobCatalog(next);
+    return res.status(200).json({
+      ok: true,
+      poll: annotatePoll(poll, accountSet(mergedForClients)),
+      persisted: true,
+      blobUrl: blob.url,
+    });
+  } catch (error) {
+    if (error?.code === "NO_BLOB") {
+      return res.status(503).json({
+        ok: false,
+        error: "BLOB_READ_WRITE_TOKEN is not configured — the poll was not listed.",
+        persisted: false,
+      });
+    }
+    throw error;
+  }
+}
+
+async function publishAuthoritative(res, seed, overlay, raw) {
+  let address;
+  try {
+    address = normalizeAddress(raw.address);
+  } catch (error) {
+    return res.status(400).json({ ok: false, error: error?.message || String(error) });
+  }
+  const enabled = Boolean(raw.enabled);
+  let onChain = false;
+  try {
+    onChain = await readAuthoritativeFlag(address);
+  } catch (error) {
+    if (error?.code === "NO_AZTEC_LIBS") {
+      return res.status(503).json({ ok: false, error: error.message });
+    }
+    return res.status(400).json({
+      ok: false,
+      error: error?.message || "Could not read the authoritative flag on the contract",
+    });
+  }
+  if (enabled !== onChain) {
+    return res.status(409).json({
+      ok: false,
+      error: "The contract flag does not match this change. Send set_authoritative first.",
+    });
+  }
+  const current = new Set((overlay.authoritativeAccounts || []).map((item) => String(item).toLowerCase()));
+  if (enabled) current.add(address);
+  else current.delete(address.toLowerCase());
+  const authoritativeAccounts = [...current];
+  const next = nextOverlay(overlay, overlay.polls || {}, authoritativeAccounts);
+  const mergedForClients = mergeCatalogs(seed, next);
+  try {
+    const blob = await writeBlobCatalog(next);
+    return res.status(200).json({
+      ok: true,
+      persisted: true,
+      blobUrl: blob.url,
+      authoritativeAccounts: mergedForClients.authoritativeAccounts,
+    });
+  } catch (error) {
+    if (error?.code === "NO_BLOB") {
+      return res.status(503).json({
+        ok: false,
+        error: "BLOB_READ_WRITE_TOKEN is not configured — the mark was not saved.",
+        persisted: false,
+      });
+    }
+    throw error;
+  }
+}
+
+async function publishHide(res, seed, overlay, merged, raw) {
+  const id = String(raw.id || "").trim();
+  if (!/^\d+$/.test(id)) {
+    return res.status(400).json({ ok: false, error: "hide.id must be a poll id" });
+  }
+  if (!merged.polls[id]) {
+    return res.status(404).json({ ok: false, error: `Unknown poll ${id}` });
+  }
+  const { nextRecord } = overlayPollRecord(merged.polls, overlay.polls || {}, id);
+  const polls = {
+    ...(overlay.polls || {}),
+    [id]: { ...nextRecord, hidden: Boolean(raw.hidden) },
+  };
+  const next = nextOverlay(overlay, polls);
+  const mergedForClients = mergeCatalogs(seed, next);
+  try {
+    const blob = await writeBlobCatalog(next);
+    return res.status(200).json({
+      ok: true,
+      persisted: true,
+      blobUrl: blob.url,
+      poll: annotatePoll(mergedForClients.polls[id], accountSet(mergedForClients)),
+    });
+  } catch (error) {
+    if (error?.code === "NO_BLOB") {
+      return res.status(503).json({
+        ok: false,
+        error: "BLOB_READ_WRITE_TOKEN is not configured — the listing was not updated.",
+        persisted: false,
+      });
+    }
+    throw error;
+  }
+}
+
 export default async function handler(req, res) {
   cors(res);
   if (req.method === "OPTIONS") return res.status(204).end();
@@ -278,8 +466,16 @@ export default async function handler(req, res) {
   try {
     if (req.method === "GET") {
       const catalog = await loadMergedCatalog();
-      const nextPollId = await readNextPollId();
       const url = new URL(req.url, "http://localhost");
+      if (url.searchParams.get("manage") === "1") {
+        if (!checkAuth(req)) return unauthorized(res);
+        res.setHeader("Cache-Control", "private, no-store");
+        return res.status(200).json({
+          ok: true,
+          authoritativeAccounts: catalog.authoritativeAccounts || [],
+        });
+      }
+      const nextPollId = await readNextPollId();
       const id = url.searchParams.get("id");
       if (id) {
         const poll = catalog.polls[String(id)];
@@ -288,22 +484,62 @@ export default async function handler(req, res) {
           return res.status(404).json({ ok: false, error: "Poll not found" });
         }
         res.setHeader("Cache-Control", catalogCacheControl(catalog));
-        return res.status(200).json({ ok: true, poll: publicPoll(poll), sources: catalog.sources });
+        return res.status(200).json({
+          ok: true,
+          poll: annotatePoll(poll, accountSet(catalog)),
+          sources: catalog.sources,
+        });
       }
-      const polls = Object.values(catalog.polls)
-        .filter((poll) => onCurrentContract(poll, nextPollId))
-        .map(publicPoll)
-        .sort((a, b) => Number(a.id) - Number(b.id));
+      const listed = listedPolls(catalog, nextPollId);
+      const windowed = partitionCatalogWindow(listed);
+      if (url.searchParams.get("ended") === "1") {
+        const lane = url.searchParams.get("lane");
+        if (lane !== "authoritative" && lane !== "users") {
+          return res.status(400).json({ ok: false, error: "ended list requires lane" });
+        }
+        const sort = url.searchParams.get("sort") || "id";
+        const sortMode = sort === "newest" || sort === "ending" ? sort : "id";
+        const offset = pageNumber(url.searchParams.get("offset"), 0, 100_000);
+        const limit = pageNumber(url.searchParams.get("limit"), 24, ENDED_PAGE_MAX, 1);
+        const matched = windowed.ended.filter(
+          (poll) =>
+            (lane === "authoritative" ? isAuthoritativePoll(poll) : !isAuthoritativePoll(poll)) &&
+            matchesCatalogQuery(poll, url.searchParams),
+        );
+        const ordered =
+          lane === "authoritative" ? orderAuthoritative(matched, sortMode) : sortPolls(matched, sortMode);
+        res.setHeader("Cache-Control", catalogCacheControl(catalog));
+        return res.status(200).json({
+          ok: true,
+          updatedAt: catalog.updatedAt,
+          polls: ordered.slice(offset, offset + limit),
+          ended: { lane, offset, limit, total: ordered.length },
+          sources: catalog.sources,
+        });
+      }
+      const polls = sortPolls(windowed.live, "id");
       res.setHeader("Cache-Control", catalogCacheControl(catalog));
       return res.status(200).json({
         ok: true,
         updatedAt: catalog.updatedAt,
         polls,
+        endedCount: windowed.ended.length,
         sources: catalog.sources,
       });
     }
 
     if (req.method === "POST") {
+      const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
+      if (body.accountPoll) {
+        if (body.homepage || body.policy || body.hide || body.authoritative) {
+          return res.status(400).json({
+            ok: false,
+            error: "Account publish cannot change operator fields",
+          });
+        }
+        return publishAccountPoll(res, body.accountPoll);
+      }
+
       if (!getPublishToken()) {
         return res.status(503).json({
           ok: false,
@@ -311,19 +547,24 @@ export default async function handler(req, res) {
         });
       }
       if (!checkAuth(req)) return unauthorized(res);
-
-      const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
       const seed = loadSeed();
       const overlay = (await readBlobCatalog()) || { version: 1, polls: {} };
       const merged = mergeCatalogs(seed, overlay);
 
+      if (body.authoritative && typeof body.authoritative === "object") {
+        return publishAuthoritative(res, seed, overlay, body.authoritative);
+      }
+
+      if (body.hide && typeof body.hide === "object") {
+        return publishHide(res, seed, overlay, merged, body.hide);
+      }
+
       if (Array.isArray(body.homepage)) {
         const entries = normalizeHomepageEntries(body.homepage);
-        const next = {
-          version: Number(overlay.version || 1),
-          updatedAt: new Date().toISOString(),
-          polls: applyHomepage(merged.polls, overlay.polls || {}, entries),
-        };
+        const next = nextOverlay(
+          overlay,
+          applyHomepage(merged.polls, overlay.polls || {}, entries),
+        );
         const mergedForClients = mergeCatalogs(seed, next);
         try {
           const blob = await writeBlobCatalog(next);
@@ -358,11 +599,7 @@ export default async function handler(req, res) {
         } catch (error) {
           return res.status(400).json({ ok: false, error: error?.message || String(error) });
         }
-        const next = {
-          version: Number(overlay.version || 1),
-          updatedAt: new Date().toISOString(),
-          polls: patchedPolls,
-        };
+        const next = nextOverlay(overlay, patchedPolls);
         const mergedForClients = mergeCatalogs(seed, next);
         const poll = publicPoll(mergedForClients.polls[patch.id]);
         try {
@@ -389,12 +626,20 @@ export default async function handler(req, res) {
         }
       }
 
-      const poll = normalizePoll(body.poll || body);
-      const next = {
-        version: Number(overlay.version || 1),
-        updatedAt: new Date().toISOString(),
-        polls: { ...(overlay.polls || {}), [poll.id]: poll },
-      };
+      const incoming = body.poll || body;
+      const poll = normalizePoll(incoming);
+      const prior = merged.polls[poll.id];
+      if (prior?.publisher) poll.publisher = prior.publisher;
+      if (prior?.creator) poll.creator = prior.creator;
+      if (prior?.feeMode) poll.feeMode = prior.feeMode;
+      if (prior?.feeFallback) poll.feeFallback = prior.feeFallback;
+      if (!Object.prototype.hasOwnProperty.call(incoming, "hidden")) {
+        poll.hidden = Boolean(prior?.hidden);
+      } else {
+        poll.hidden = Boolean(incoming.hidden);
+      }
+      if (poll.publisher === "account") poll.showOnHome = accountHomeFlag(prior);
+      const next = nextOverlay(overlay, { ...(overlay.polls || {}), [poll.id]: poll });
       // Keep seed polls visible even if blob only has overlays
       const mergedForClients = mergeCatalogs(seed, next);
 

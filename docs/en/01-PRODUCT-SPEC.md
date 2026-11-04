@@ -107,9 +107,9 @@ Important polls should require at least personhood. Details live in catalog JSON
 
 Still manual: real-device ZKPassport E2E; participation receipt note.
 
-### Iteration 2 — not started
+### Iteration 2 — on the website; published contract unchanged
 
-See the implementation plan in [05-DEVELOPMENT-PLAN.md](./05-DEVELOPMENT-PLAN.md): a non-admin create, catalog signature bound to `metadata_hash`, rate limits, listing on All polls, hide and cancel, then sort. The homepage stays curated.
+See [05-DEVELOPMENT-PLAN.md](./05-DEVELOPMENT-PLAN.md). A non-admin create, a catalog signature bound to `metadata_hash`, the daily and open-poll limits, All polls sections, a paged ended catalog, hide, and an authoritative mark are in this build. Noir tests passed (63). The published Testnet contract is unchanged until that source replaces it and the web artifact is regenerated. The homepage stays curated. The creator cannot put a poll on `/`.
 
 ### Iteration 3 — not started
 

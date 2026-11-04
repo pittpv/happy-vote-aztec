@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { listPolls, publishPollPolicyId, refreshSharedCatalog } from "../lib/polls.js";
+import { listPolls, publishPollPolicyId, refreshPollMetaById, refreshSharedCatalog } from "../lib/polls.js";
 import {
   fetchZkPassportPolicies,
   zkPassportPublicDomain,
@@ -23,6 +23,7 @@ export function AdminPolicyIdForm({ active = true, busy, setBusy, setStatus }) {
   const [polls, setPolls] = useState([]);
   const [loaded, setLoaded] = useState(false);
   const [pollId, setPollId] = useState("");
+  const [lookupId, setLookupId] = useState("");
   const [policyId, setPolicyId] = useState("");
   const [dashboardPolicies, setDashboardPolicies] = useState([]);
   const [publishToken, setPublishToken] = useState(
@@ -88,6 +89,29 @@ export function AdminPolicyIdForm({ active = true, busy, setBusy, setStatus }) {
   const canEdit = Boolean(selected && isZkPassportPoll(selected));
   const unchanged =
     (selected?.zkRequirements?.policyId || "") === String(policyId || "").trim();
+
+  async function loadById() {
+    const id = lookupId.trim();
+    if (!/^\d+$/.test(id)) {
+      setStatus({ text: "Enter the poll id.", tone: "error" });
+      return;
+    }
+    setBusy(true);
+    try {
+      const meta = await refreshPollMetaById(id);
+      if (!meta) {
+        setStatus({ text: "That poll is not in the catalog.", tone: "error" });
+        return;
+      }
+      setPolls((prev) => (prev.some((poll) => poll.id === meta.id) ? prev : [...prev, meta]));
+      setPollId(meta.id);
+      setStatus({ text: `Loaded poll #${meta.id}.`, tone: "ok" });
+    } catch (error) {
+      setStatus({ text: error?.message || String(error), tone: "error" });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function save(event) {
     event.preventDefault();
@@ -169,6 +193,19 @@ export function AdminPolicyIdForm({ active = true, busy, setBusy, setStatus }) {
 
       <fieldset className="zk-req">
         <legend>Poll</legend>
+        <label>
+          Poll id outside the open list
+          <input
+            inputMode="numeric"
+            value={lookupId}
+            disabled={busy}
+            onChange={(e) => setLookupId(e.target.value)}
+            placeholder="Ended poll id"
+          />
+        </label>
+        <button type="button" className="btn btn-ghost" disabled={busy} onClick={loadById}>
+          Load poll
+        </button>
         <label>
           Existing poll
           <select

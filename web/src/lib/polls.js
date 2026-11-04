@@ -12,6 +12,7 @@ import {
   pollCountryCodes,
 } from "./zkRequirements.js";
 import { pollPath as routePollPath } from "./routing.js";
+import { curatedHomeFlag } from "./catalogSections.js";
 import { isDailyVote, utcDayIndex, VOTE_FREQUENCY } from "./voteFrequency.js";
 import {
   fetchZkPassportPolicies,
@@ -228,11 +229,17 @@ export function mergePollMaps(seed, shared, local) {
     if (!Object.prototype.hasOwnProperty.call(local || {}, id)) continue;
     if (!merged[id]) continue;
     const patch = {};
-    if (Object.prototype.hasOwnProperty.call(published, "showOnHome")) {
-      patch.showOnHome = published.showOnHome;
-    }
-    if (Object.prototype.hasOwnProperty.call(published, "homeRank")) {
-      patch.homeRank = published.homeRank;
+    for (const key of [
+      "showOnHome",
+      "homeRank",
+      "hidden",
+      "publisher",
+      "creator",
+      "creatorAuthoritative",
+      "feeMode",
+      "feeFallback",
+    ]) {
+      if (Object.prototype.hasOwnProperty.call(published, key)) patch[key] = published[key];
     }
     if (Object.keys(patch).length === 0) continue;
     merged[id] = { ...merged[id], ...patch };
@@ -288,7 +295,7 @@ function homeRankValue(meta) {
 
 export function listHomePolls() {
   return listPolls()
-    .filter((poll) => poll.showOnHome)
+    .filter((poll) => poll.showOnHome && !poll.hidden)
     .sort((a, b) => {
       const byRank = homeRankValue(a) - homeRankValue(b);
       if (byRank !== 0) return byRank;
@@ -391,9 +398,9 @@ export async function refreshSharedCatalog() {
     for (const poll of data.polls || []) {
       if (poll?.id != null) next[String(poll.id)] = poll;
     }
-    // Blob-backed list is complete. Seed-only responses must not drop a poll
-    // already loaded via /api/polls?id= (cold share links such as /p/5).
-    sharedCatalog = data.sources?.blob ? next : { ...sharedCatalog, ...next };
+    // The list is the open catalog, not the ended archive. Keep a poll already
+    // loaded by id, such as a shared /p/5 link, when this response omits it.
+    sharedCatalog = { ...sharedCatalog, ...next };
     syncPublishedHomeFlags();
   } catch (error) {
     console.warn("[polls] shared catalog fetch failed", error);
@@ -402,6 +409,42 @@ export async function refreshSharedCatalog() {
     console.error("[polls] dashboard policy countries", error);
   });
   return listPolls();
+}
+
+const ENDED_PAGE_SIZE = 24;
+
+/**
+ * One page of polls whose catalog end time has passed and that are not on the homepage.
+ * @returns {Promise<{ polls: object[], total: number }>}
+ */
+export async function fetchEndedPollPage({
+  lane,
+  offset = 0,
+  limit = ENDED_PAGE_SIZE,
+  sort = "id",
+  query = "",
+  topic = "all",
+  country = "all",
+  eligibility = "all",
+}) {
+  const params = new URLSearchParams({
+    ended: "1",
+    lane,
+    offset: String(offset),
+    limit: String(limit),
+    sort,
+  });
+  const q = query.trim();
+  if (q) params.set("q", q);
+  if (topic !== "all") params.set("topic", topic);
+  if (country !== "all") params.set("country", country);
+  if (eligibility !== "all") params.set("eligibility", eligibility);
+  const response = await fetchCatalog(`/api/polls?${params}`);
+  if (!response.ok) throw new Error(`catalog HTTP ${response.status}`);
+  const data = await response.json();
+  const total = Number(data?.ended?.total);
+  if (!Number.isFinite(total)) throw new Error("Invalid ended catalog response");
+  return { polls: Array.isArray(data.polls) ? data.polls : [], total };
 }
 
 /**
@@ -444,6 +487,71 @@ export async function publishPollMeta(meta, publishToken) {
     error: data.error || (!response.ok ? `HTTP ${response.status}` : null),
     blobUrl: data.blobUrl || null,
   };
+}
+
+function publishTokenOrThrow(publishToken) {
+  const token =
+    publishToken ||
+    import.meta.env.VITE_POLLS_PUBLISH_TOKEN ||
+    (typeof sessionStorage !== "undefined" ? sessionStorage.getItem("happyvote.publishToken") : null);
+  if (!token) throw new Error("Missing publish token");
+  return token;
+}
+
+/** Signed account listing. The server checks the chain before it stores the card. */
+export async function publishAccountPoll(body) {
+  const response = await fetch("/api/polls", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ accountPoll: body }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok) {
+    throw new Error(data.error || `Catalog HTTP ${response.status}`);
+  }
+  if (data.poll?.id) sharedCatalog = { ...sharedCatalog, [String(data.poll.id)]: data.poll };
+  return data;
+}
+
+export async function fetchAuthoritativeAccounts(publishToken) {
+  const token = publishTokenOrThrow(publishToken);
+  const response = await fetch("/api/polls?manage=1", {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok) throw new Error(data.error || `Catalog HTTP ${response.status}`);
+  return Array.isArray(data.authoritativeAccounts) ? data.authoritativeAccounts : [];
+}
+
+export async function publishAuthoritativeAccount(body, publishToken) {
+  const token = publishTokenOrThrow(publishToken);
+  const response = await fetch("/api/polls", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ authoritative: body }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok) throw new Error(data.error || `Catalog HTTP ${response.status}`);
+  return data;
+}
+
+export async function publishHiddenPoll(body, publishToken) {
+  const token = publishTokenOrThrow(publishToken);
+  const response = await fetch("/api/polls", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ hide: body }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok) throw new Error(data.error || `Catalog HTTP ${response.status}`);
+  if (data.poll?.id) sharedCatalog = { ...sharedCatalog, [String(data.poll.id)]: data.poll };
+  return data;
 }
 
 /**
@@ -645,8 +753,14 @@ function hydrateMeta(meta) {
       : VOTE_FREQUENCY.ONCE,
     startsAt: meta.startsAt || null,
     endsAt: meta.endsAt || null,
-    showOnHome: meta.showOnHome !== false,
+    showOnHome: curatedHomeFlag(meta),
     homeRank: Number.isFinite(Number(meta.homeRank)) ? Number(meta.homeRank) : Number(meta.id) || 0,
+    publisher: meta.publisher === "account" ? "account" : "operator",
+    creator: meta.creator ? String(meta.creator) : null,
+    creatorAuthoritative: Boolean(meta.creatorAuthoritative),
+    feeMode: meta.feeMode || null,
+    feeFallback: meta.feeFallback || null,
+    hidden: Boolean(meta.hidden),
   };
 }
 

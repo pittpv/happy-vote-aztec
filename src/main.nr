@@ -24,12 +24,69 @@
 
 mod test;
 
+// Free helpers stay outside the contract. Extra #[internal] methods push
+// ContractSelfPrivate over the Noir type-complexity cap.
+fn sponsored_bit() -> u64 {
+    (1 as u64) << 63
+}
+
+fn id_counter(stored: u64) -> u64 {
+    stored & (((1 as u64) << 63) - 1)
+}
+
+fn sponsored_on(stored: u64) -> bool {
+    (stored >> 63) == (1 as u64)
+}
+
+fn with_sponsored(counter: u64, allowed: bool) -> u64 {
+    if allowed {
+        counter | sponsored_bit()
+    } else {
+        counter
+    }
+}
+
+fn pack_pool(remaining: u64, juice: u64, refunded: u64) -> Field {
+    let shift64: Field = 0x10000000000000000;
+    let shift128: Field = 0x100000000000000000000000000000000;
+    (remaining as Field) + (juice as Field) * shift64 + (refunded as Field) * shift128
+}
+
+fn unpack_pool(raw: Field) -> (u64, u64, u64) {
+    let b = raw.to_le_bytes::<32>();
+    let remaining = (b[0] as u64)
+        + ((b[1] as u64) << 8)
+        + ((b[2] as u64) << 16)
+        + ((b[3] as u64) << 24)
+        + ((b[4] as u64) << 32)
+        + ((b[5] as u64) << 40)
+        + ((b[6] as u64) << 48)
+        + ((b[7] as u64) << 56);
+    let juice = (b[8] as u64)
+        + ((b[9] as u64) << 8)
+        + ((b[10] as u64) << 16)
+        + ((b[11] as u64) << 24)
+        + ((b[12] as u64) << 32)
+        + ((b[13] as u64) << 40)
+        + ((b[14] as u64) << 48)
+        + ((b[15] as u64) << 56);
+    let refunded = (b[16] as u64)
+        + ((b[17] as u64) << 8)
+        + ((b[18] as u64) << 16)
+        + ((b[19] as u64) << 24)
+        + ((b[20] as u64) << 32)
+        + ((b[21] as u64) << 40)
+        + ((b[22] as u64) << 48)
+        + ((b[23] as u64) << 56);
+    (remaining, juice, refunded)
+}
+
 use aztec::macros::aztec;
 
 #[aztec]
 pub contract HappyVote {
     use aztec::macros::{functions::{external, initializer, internal, only_self, view}, storage::storage};
-    use aztec::protocol::{address::AztecAddress, hash::poseidon2_hash, traits::{Deserialize, Serialize, ToField}};
+    use aztec::protocol::{address::AztecAddress, hash::poseidon2_hash, traits::{Deserialize, FromField, Serialize, ToField}};
     use aztec::state_vars::{Map, Owned, PublicImmutable, PublicMutable, SingleUseClaim};
 
     global MAX_OPTIONS: u32 = 32;
@@ -54,6 +111,28 @@ pub contract HappyVote {
     global FLAG_SEALED: u8 = 1;
     /// Packed into `sealed` storage: bit 1 = UTC-day vote frequency.
     global FLAG_DAILY: u8 = 2;
+
+    /// Ballot network-fee mode, fixed at create.
+    global FEE_SPONSORED: u8 = 0;
+    global FEE_VOTER: u8 = 1;
+    global FEE_POOL: u8 = 2;
+    /// When sponsorship or the pool cannot pay.
+    global FALLBACK_STOP: u8 = 0;
+    global FALLBACK_VOTER: u8 = 1;
+    /// User-created polls: one create per account per UTC day, and at most this many still open.
+    global MAX_OPEN_USER_POLLS: u32 = 3;
+    /// ends_at may be at most this far after starts_at, or after the block time when starts_at is 0.
+    global MAX_WINDOW_SECONDS: u64 = 7776000;
+    /// Iteration 2 records live in the existing tally map, above any option index.
+    global TAG_CREATOR: Field = 200;
+    global TAG_FEE: Field = 201;
+    global TAG_POOL: Field = 202;
+    global TAG_PUBX: Field = 203;
+    global TAG_PUBY: Field = 204;
+    global TAG_SLOT0: Field = 210;
+    global TAG_SLOT1: Field = 211;
+    global TAG_SLOT2: Field = 212;
+    global TAG_PAYER: Field = 220;
 
     #[derive(Serialize, Deserialize)]
     pub struct PollId {
@@ -107,7 +186,7 @@ pub contract HappyVote {
         assert(!admin.eq(AztecAddress::zero()), "Admin must be non-zero");
         self.storage.admin.write(admin);
         self.storage.paused.write(false);
-        self.storage.next_poll_id.write(1 as u64);
+        self.storage.next_poll_id.write(crate::with_sponsored(1, true));
     }
 
     #[internal("public")]
@@ -224,8 +303,10 @@ pub contract HappyVote {
 
         let mut resolved_u64 = poll_id.id as u64;
         assert(poll_id.id == resolved_u64 as Field, "poll_id overflow");
+        let stored_next = self.storage.next_poll_id.read();
+        let next = crate::id_counter(stored_next);
         if resolved_u64 == (0 as u64) {
-            resolved_u64 = self.storage.next_poll_id.read();
+            resolved_u64 = next;
         }
         let resolved = PollId::new(resolved_u64 as Field);
         assert(
@@ -258,10 +339,18 @@ pub contract HappyVote {
         self.storage.cancelled.at(resolved).write(false);
         self.storage.total_votes.at(resolved).write(0);
         self.storage.active_at_block.at(resolved).initialize(self.context.block_number());
+        self.storage.tally.at(resolved).at(TAG_CREATOR).write(self.msg_sender().to_field());
+        let admin_fee: u8 = if crate::sponsored_on(self.storage.next_poll_id.read()) {
+            FEE_SPONSORED
+        } else {
+            FEE_VOTER
+        };
+        self.storage.tally.at(resolved).at(TAG_FEE).write((admin_fee + FALLBACK_STOP * 16) as Field);
+        self.storage.tally.at(resolved).at(TAG_PUBX).write(0);
+        self.storage.tally.at(resolved).at(TAG_PUBY).write(0);
 
-        let next = self.storage.next_poll_id.read();
         if resolved_u64 >= next {
-            self.storage.next_poll_id.write(resolved_u64 + 1);
+            self.storage.next_poll_id.write(crate::with_sponsored(resolved_u64 + 1, crate::sponsored_on(stored_next)));
         }
 
         resolved_u64 as Field
@@ -402,9 +491,31 @@ pub contract HappyVote {
 
     #[external("public")]
     fn end_poll(poll_id: PollId) {
-        self.internal.assert_admin();
+        let sender = self.msg_sender();
+        if sender.eq(self.storage.admin.read()) == false {
+            let creator_field = self.storage.tally.at(poll_id).at(TAG_CREATOR).read();
+            assert(creator_field != 0, "Only admin");
+            assert(creator_field == sender.to_field(), "Only admin");
+        }
         self.internal.assert_poll_exists(poll_id);
         self.storage.vote_ended.at(poll_id).write(true);
+        let creator_field = self.storage.tally.at(poll_id).at(TAG_CREATOR).read();
+        if creator_field != 0 {
+            let owner = PollId::new(creator_field);
+            if self.storage.tally.at(owner).at(TAG_SLOT0).read() == poll_id.id {
+                self.storage.tally.at(owner).at(TAG_SLOT0).write(0);
+            }
+            if self.storage.tally.at(owner).at(TAG_SLOT1).read() == poll_id.id {
+                self.storage.tally.at(owner).at(TAG_SLOT1).write(0);
+            }
+            if self.storage.tally.at(owner).at(TAG_SLOT2).read() == poll_id.id {
+                self.storage.tally.at(owner).at(TAG_SLOT2).write(0);
+            }
+        }
+        let (_, juice, _) = crate::unpack_pool(self.storage.tally.at(poll_id).at(TAG_POOL).read());
+        if juice != (0 as u64) {
+            self.storage.tally.at(poll_id).at(TAG_POOL).write(crate::pack_pool(0, 0, juice));
+        }
     }
 
     /// Cancel a poll that has received no votes (wrong dates / text). Closes voting.
@@ -416,6 +527,23 @@ pub contract HappyVote {
         assert(self.storage.total_votes.at(poll_id).read() == 0, "Poll already has votes");
         self.storage.cancelled.at(poll_id).write(true);
         self.storage.vote_ended.at(poll_id).write(true);
+        let creator_field = self.storage.tally.at(poll_id).at(TAG_CREATOR).read();
+        if creator_field != 0 {
+            let owner = PollId::new(creator_field);
+            if self.storage.tally.at(owner).at(TAG_SLOT0).read() == poll_id.id {
+                self.storage.tally.at(owner).at(TAG_SLOT0).write(0);
+            }
+            if self.storage.tally.at(owner).at(TAG_SLOT1).read() == poll_id.id {
+                self.storage.tally.at(owner).at(TAG_SLOT1).write(0);
+            }
+            if self.storage.tally.at(owner).at(TAG_SLOT2).read() == poll_id.id {
+                self.storage.tally.at(owner).at(TAG_SLOT2).write(0);
+            }
+        }
+        let (_, juice, _) = crate::unpack_pool(self.storage.tally.at(poll_id).at(TAG_POOL).read());
+        if juice != (0 as u64) {
+            self.storage.tally.at(poll_id).at(TAG_POOL).write(crate::pack_pool(0, 0, juice));
+        }
     }
 
     #[external("public")]
@@ -554,7 +682,7 @@ pub contract HappyVote {
     #[external("public")]
     #[view]
     fn get_next_poll_id() -> u64 {
-        self.storage.next_poll_id.read()
+        crate::id_counter(self.storage.next_poll_id.read())
     }
 
     #[external("public")]
@@ -590,4 +718,253 @@ pub contract HappyVote {
             false
         }
     }
+
+    /// Any account. The caller does not choose the id. Admin `create_poll` is unchanged.
+    #[external("public")]
+    fn create_user_poll(
+        options_count: u32,
+        privacy_policy: u8,
+        eligibility_mode: u8,
+        metadata_hash: Field,
+        sealed: bool,
+        starts_at: u64,
+        ends_at: u64,
+        vote_frequency: u8,
+        fee_mode: u8,
+        fee_fallback: u8,
+        signing_pubkey_x: Field,
+        signing_pubkey_y: Field,
+    ) -> Field {
+        self.internal.assert_not_paused();
+        assert(options_count >= 2, "Need at least 2 options");
+        assert(options_count <= MAX_OPTIONS, "Too many options");
+        assert(privacy_policy <= PRIVACY_VOTER_CHOICE, "Invalid privacy policy");
+        assert(eligibility_mode <= ELIGIBILITY_GATED, "Unsupported eligibility mode");
+        assert(vote_frequency <= VOTE_DAILY, "Unsupported vote frequency");
+        assert(metadata_hash != 0, "Metadata hash required");
+        assert(fee_mode <= FEE_POOL, "Invalid fee mode");
+        assert(fee_fallback <= FALLBACK_VOTER, "Invalid fee fallback");
+        assert(
+            (signing_pubkey_x != 0) | (signing_pubkey_y != 0),
+            "Signing key required",
+        );
+        if fee_mode == FEE_SPONSORED {
+            assert(crate::sponsored_on(self.storage.next_poll_id.read()), "Sponsored fees are not available");
+        }
+        assert(ends_at != (0 as u64), "End is required");
+        assert(ends_at > self.context.timestamp(), "End must be in the future");
+        let start_base = if starts_at == (0 as u64) {
+            self.context.timestamp()
+        } else {
+            starts_at
+        };
+        assert(ends_at > start_base, "End must be after start");
+        assert(ends_at - start_base <= MAX_WINDOW_SECONDS, "Window exceeds 90 days");
+
+        let creator = self.msg_sender();
+        assert(creator.eq(AztecAddress::zero()) == false, "Creator required");
+        let day = self.context.timestamp() / SECONDS_PER_DAY;
+        let claim_key = poseidon2_hash([creator.to_field(), day as Field, 7]);
+        assert(self.storage.identity_claims.at(claim_key).read() == false, "Already created today");
+
+        let stored_next = self.storage.next_poll_id.read();
+        let resolved_u64 = crate::id_counter(stored_next);
+        let resolved = PollId::new(resolved_u64 as Field);
+        assert(
+            self.storage.options_count.at(resolved).is_initialized() == false,
+            "Poll already exists",
+        );
+
+        self.storage.identity_claims.at(claim_key).write(true);
+        assert(MAX_OPEN_USER_POLLS == 3, "Open poll cap");
+        let owner = PollId::new(creator.to_field());
+        let s0 = self.storage.tally.at(owner).at(TAG_SLOT0).read();
+        let s1 = self.storage.tally.at(owner).at(TAG_SLOT1).read();
+        let s2 = self.storage.tally.at(owner).at(TAG_SLOT2).read();
+        let id0 = PollId::new(s0);
+        let id1 = PollId::new(s1);
+        let id2 = PollId::new(s2);
+        let s0_open = if s0 == 0 {
+            false
+        } else if self.storage.options_count.at(id0).is_initialized() == false {
+            false
+        } else {
+            self.internal.poll_is_closed(id0) == false
+        };
+        let s1_open = if s1 == 0 {
+            false
+        } else if self.storage.options_count.at(id1).is_initialized() == false {
+            false
+        } else {
+            self.internal.poll_is_closed(id1) == false
+        };
+        let s2_open = if s2 == 0 {
+            false
+        } else if self.storage.options_count.at(id2).is_initialized() == false {
+            false
+        } else {
+            self.internal.poll_is_closed(id2) == false
+        };
+        if s0_open == false {
+            self.storage.tally.at(owner).at(TAG_SLOT0).write(resolved.id);
+        } else if s1_open == false {
+            self.storage.tally.at(owner).at(TAG_SLOT1).write(resolved.id);
+        } else if s2_open == false {
+            self.storage.tally.at(owner).at(TAG_SLOT2).write(resolved.id);
+        } else {
+            assert(false, "Too many open polls");
+        }
+
+        self.storage.options_count.at(resolved).initialize(options_count);
+        self.storage.privacy_policy.at(resolved).initialize(privacy_policy);
+        self.storage.eligibility_mode.at(resolved).initialize(eligibility_mode);
+        self.storage.metadata_hash.at(resolved).initialize(metadata_hash);
+        self.storage.starts_at.at(resolved).initialize(starts_at);
+        self.storage.ends_at.at(resolved).initialize(ends_at);
+        let mut flags: u8 = 0;
+        if sealed {
+            flags = flags + FLAG_SEALED;
+        }
+        if vote_frequency == VOTE_DAILY {
+            flags = flags + FLAG_DAILY;
+        }
+        self.storage.sealed.at(resolved).initialize(flags);
+        self.storage.vote_ended.at(resolved).write(false);
+        self.storage.cancelled.at(resolved).write(false);
+        self.storage.total_votes.at(resolved).write(0);
+        self.storage.active_at_block.at(resolved).initialize(self.context.block_number());
+        self.storage.tally.at(resolved).at(TAG_CREATOR).write(creator.to_field());
+        self.storage.tally.at(resolved).at(TAG_FEE).write((fee_mode + fee_fallback * 16) as Field);
+        self.storage.tally.at(resolved).at(TAG_PUBX).write(signing_pubkey_x);
+        self.storage.tally.at(resolved).at(TAG_PUBY).write(signing_pubkey_y);
+        self.storage.next_poll_id.write(crate::with_sponsored(resolved_u64 + 1, crate::sponsored_on(stored_next)));
+        resolved_u64 as Field
+    }
+
+    /// Credits the public pool count and the juice accounting. Does not pay the create transaction.
+    #[external("public")]
+    fn fund_pool(poll_id: PollId, count: u64, juice: u64) {
+        self.internal.assert_poll_exists(poll_id);
+        assert(self.internal.poll_is_closed(poll_id) == false, "Vote has ended");
+        assert(self.storage.tally.at(poll_id).at(TAG_CREATOR).read() == self.msg_sender().to_field(), "Only creator");
+        assert(((self.storage.tally.at(poll_id).at(TAG_FEE).read() as u64) as u8) % 16 == FEE_POOL, "Poll has no pool");
+        assert(count > (0 as u64), "Pool count required");
+        assert(juice > (0 as u64), "Pool juice required");
+        let (remaining, juice_now, refunded) = crate::unpack_pool(self.storage.tally.at(poll_id).at(TAG_POOL).read());
+        let next_count = remaining + count;
+        let next_juice = juice_now + juice;
+        self.storage.tally.at(poll_id).at(TAG_POOL).write(crate::pack_pool(next_count, next_juice, refunded));
+    }
+
+    /// 0 = pool can pay this cap. 1 = voter fallback. 2 = stop. Does not spend the pool.
+    #[external("public")]
+    #[view]
+    fn quote_pool(poll_id: PollId, fee_cap: u64) -> u8 {
+        assert(((self.storage.tally.at(poll_id).at(TAG_FEE).read() as u64) as u8) % 16 == FEE_POOL, "Poll has no pool");
+        assert(fee_cap > (0 as u64), "Fee cap required");
+        let (remaining, juice, _) = crate::unpack_pool(self.storage.tally.at(poll_id).at(TAG_POOL).read());
+        if (remaining > (0 as u64)) & (juice >= fee_cap) {
+            0
+        } else if ((self.storage.tally.at(poll_id).at(TAG_FEE).read() as u64) as u8) / 16 == FALLBACK_VOTER {
+            1
+        } else {
+            2
+        }
+    }
+
+    /// Spends one pool ballot at `fee_cap` when the quote is 0. Only the configured payer.
+    /// Returns the same codes as `quote_pool`. A miss does not decrement.
+    #[external("public")]
+    fn commit_pool_ballot(poll_id: PollId, fee_cap: u64) -> u8 {
+        let payer = AztecAddress::from_field(
+            self.storage.tally.at(PollId::new(0)).at(TAG_PAYER).read(),
+        );
+        assert(payer.eq(AztecAddress::zero()) == false, "Pool payer is not set");
+        assert(self.msg_sender().eq(payer), "Only pool payer");
+        assert(((self.storage.tally.at(poll_id).at(TAG_FEE).read() as u64) as u8) % 16 == FEE_POOL, "Poll has no pool");
+        assert(fee_cap > (0 as u64), "Fee cap required");
+        let (remaining, juice, _) = crate::unpack_pool(self.storage.tally.at(poll_id).at(TAG_POOL).read());
+        let path = if (remaining > (0 as u64)) & (juice >= fee_cap) {
+            0
+        } else if ((self.storage.tally.at(poll_id).at(TAG_FEE).read() as u64) as u8) / 16 == FALLBACK_VOTER {
+            1
+        } else {
+            2
+        };
+        if path == (0 as u8) {
+            let next_count = remaining - 1;
+            let next_juice = juice - fee_cap;
+            self.storage.tally.at(poll_id).at(TAG_POOL).write(crate::pack_pool(next_count, next_juice, 0));
+        }
+        path
+    }
+
+    #[external("public")]
+    fn set_pool_payer(payer: AztecAddress) {
+        self.internal.assert_admin();
+        assert(payer.eq(AztecAddress::zero()) == false, "Pool payer required");
+        self.storage.tally.at(PollId::new(0)).at(TAG_PAYER).write(payer.to_field());
+    }
+
+    #[external("public")]
+    fn set_allow_sponsored(allowed: bool) {
+        self.internal.assert_admin();
+        let stored = self.storage.next_poll_id.read();
+        self.storage.next_poll_id.write(crate::with_sponsored(crate::id_counter(stored), allowed));
+    }
+
+    /// Public mark for an account that publishes polls. Not a voter identity.
+    #[external("public")]
+    fn set_authoritative(account: AztecAddress, enabled: bool) {
+        self.internal.assert_admin();
+        assert(account.eq(AztecAddress::zero()) == false, "Account required");
+        self.storage.identity_claims.at(poseidon2_hash([account.to_field(), 1, 8])).write(enabled);
+    }
+
+    #[external("public")]
+    #[view]
+    fn is_authoritative(account: AztecAddress) -> bool {
+        self.storage.identity_claims.at(poseidon2_hash([account.to_field(), 1, 8])).read()
+    }
+
+    #[external("public")]
+    #[view]
+    fn get_creator(poll_id: PollId) -> AztecAddress {
+        self.internal.assert_poll_exists(poll_id);
+        AztecAddress::from_field(self.storage.tally.at(poll_id).at(TAG_CREATOR).read())
+    }
+
+    #[external("public")]
+    #[view]
+    fn get_fee_mode(poll_id: PollId) -> u8 {
+        ((self.storage.tally.at(poll_id).at(TAG_FEE).read() as u64) as u8) % 16
+    }
+
+    #[external("public")]
+    #[view]
+    fn get_pool_remaining(poll_id: PollId) -> u64 {
+        let (remaining, _, _) = crate::unpack_pool(self.storage.tally.at(poll_id).at(TAG_POOL).read());
+        remaining
+    }
+
+    #[external("public")]
+    #[view]
+    fn get_pool_juice(poll_id: PollId) -> u64 {
+        let (_, juice, _) = crate::unpack_pool(self.storage.tally.at(poll_id).at(TAG_POOL).read());
+        juice
+    }
+
+    #[external("public")]
+    #[view]
+    fn get_pool_refunded(poll_id: PollId) -> u64 {
+        let (_, _, refunded) = crate::unpack_pool(self.storage.tally.at(poll_id).at(TAG_POOL).read());
+        refunded
+    }
+
+    #[external("public")]
+    #[view]
+    fn get_signing_pubkey_x(poll_id: PollId) -> Field {
+        self.storage.tally.at(poll_id).at(TAG_PUBX).read()
+    }
+
 }

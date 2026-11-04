@@ -435,11 +435,16 @@ export function useWalletConnect() {
     [cleanup],
   );
 
-  const adoptSession = useCallback((wallet, address) => {
+  const adoptSession = useCallback((wallet, address, signingKey = null) => {
     disconnectUnsubRef.current?.();
     disconnectUnsubRef.current = null;
     panelProviderRef.current = null;
-    setPhase({ kind: "connected", wallet, address: String(address) });
+    setPhase({
+      kind: "connected",
+      wallet,
+      address: String(address),
+      ...(signingKey ? { signingKey } : {}),
+    });
   }, []);
 
   return {

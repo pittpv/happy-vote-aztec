@@ -546,6 +546,67 @@ body::before {
   margin-top: 0.85rem;
 }
 
+.catalog-lane {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 1.5rem;
+}
+
+.catalog-lane-title {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.catalog-more {
+  justify-self: start;
+}
+
+.create-layout {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.create-options {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.create-option-actions,
+.trust-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.trust-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 0;
+}
+
+.trust-list code {
+  word-break: break-all;
+}
+
+.vote-hidden-note {
+  margin: 0.4rem 0 0;
+}
+
+.elig-badge.is-authority {
+  background: #1d4ed8;
+  color: #eff6ff;
+}
+
+@media (min-width: 900px) {
+  .create-layout {
+    grid-template-columns: minmax(0, 1.2fr) minmax(16rem, 0.8fr);
+    align-items: start;
+  }
+}
+
 .faq-list {
   display: grid;
   gap: 0.65rem;
