@@ -13,7 +13,7 @@ The header menu (desktop and mobile) has Home, All polls, Create, FAQ, and walle
 
 ## Create a poll
 
-Open **Create** (`/create`) and connect a browser session. The form publishes one single-choice poll with 2–32 options. **Yes / No** and **Scale 1–5** fill the labels. Choose privacy (voter choice, private only, or open only), eligibility (any account or ZKPassport personhood), whether the tally stays sealed until close, and whether each account votes once or once per UTC day. Set an end time. The window is at most 90 days. One account can create one poll per UTC day and keep at most three polls open. Homepage placement is chosen by HappyVote. Create publishes that poll on the current Testnet contract.
+Open **Create** (`/create`) and connect a browser session. The form and preview stay hidden until that session is connected. The form publishes one single-choice poll with 2–32 options. **Yes / No** and **Scale 1–5** fill the labels. Choose privacy (voter choice, private only, or open only), eligibility (any account or ZKPassport personhood), whether the tally stays sealed until close, and whether each account votes once or once per UTC day. Set an end time. The window is at most 90 days. One account can create one poll per UTC day and keep at most three polls open. Homepage placement is chosen by HappyVote. Create publishes that poll on the current Testnet contract.
 
 Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data Safety, Cookies, GDPR).
 

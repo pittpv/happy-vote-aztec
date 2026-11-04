@@ -45,6 +45,8 @@ export function CreatePollPage({ walletConnect }) {
   const mainnet = place === "mainnet";
   const connected = walletConnect.phase.kind === "connected";
   const signingKey = connected ? walletConnect.phase.signingKey : null;
+  const sessionReady = Boolean(signingKey);
+  const connectDialogOpen = !["idle", "connected", "disconnected"].includes(walletConnect.phase.kind);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [topics, setTopics] = useState("community");
@@ -258,12 +260,12 @@ export function CreatePollPage({ walletConnect }) {
         <p className="vote-kicker">Create</p>
         <h1 className="catalog-hero-title">Publish a poll</h1>
         <p className="lede">
-          A private ballot hides your address. The tally is public unless you seal it until the poll
-          ends. You are responsible for the question. HappyVote can hide the card and stop voting. The
-          chain row stays.
+          Connect a browser session, then publish the poll. A private ballot hides your address. The
+          tally is public unless you seal it until the poll ends.
         </p>
       </header>
 
+      {sessionReady ? (
       <div className="create-layout">
         <form
           className="create-form"
@@ -392,11 +394,6 @@ export function CreatePollPage({ walletConnect }) {
             </p>
           ) : null}
           {status ? <p className="status">{status}</p> : null}
-          {connected ? null : (
-            <button type="button" className="btn btn-primary" onClick={() => walletConnect.start()}>
-              Connect browser session
-            </button>
-          )}
           <button type="submit" className="btn btn-primary" disabled={busy}>
             {busy ? "Publishing…" : "Publish poll"}
           </button>
@@ -406,6 +403,28 @@ export function CreatePollPage({ walletConnect }) {
           <PollCard poll={preview} now={Date.now()} closed={false} preview />
         </div>
       </div>
+      ) : (
+        <div className="vote-cta">
+          <p className="hint">
+            The listing is signed in this tab. That key is not sent to the server. An external wallet
+            cannot publish a poll.
+          </p>
+          {connected && !signingKey ? (
+            <p className="status" data-tone="error">
+              This connection cannot sign a new poll. Connect a browser session.
+            </p>
+          ) : null}
+          {connectDialogOpen ? (
+            <p className="status">Finish connecting in the dialog.</p>
+          ) : (
+            <div className="vote-cta-actions">
+              <button type="button" className="btn btn-primary" onClick={() => walletConnect.start()}>
+                Connect browser session
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </section>
       <SiteFooter disclaimer="HappyVote is a technology layer on Aztec Network. It is not an official electoral authority." />
     </main>
