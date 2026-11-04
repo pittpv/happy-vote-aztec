@@ -233,7 +233,17 @@ export async function verifyAccountPoll(raw) {
     description: text.description || undefined,
     topics: text.topics,
     countries: Array.isArray(poll.countries) ? poll.countries : [],
-    options: text.labels.map((label) => ({ label })),
+    options: text.labels.map((label, index) => {
+      const rawOption = Array.isArray(poll.options) ? poll.options[index] : null;
+      const rawLabel =
+        rawOption && typeof rawOption === "object"
+          ? String(rawOption.label || "").trim()
+          : String(rawOption || "").trim();
+      const note =
+        rawOption && typeof rawOption === "object" ? String(rawOption.description || "").trim() : "";
+      if (note && rawLabel === label && note.length <= 160) return { label, description: note };
+      return { label };
+    }),
     template: text.labels.length === 2 ? "binary" : "single_choice",
     requiresZkPassport: eligibility > 0,
     eligibilityMode: eligibility,

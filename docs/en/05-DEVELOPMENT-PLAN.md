@@ -194,14 +194,14 @@ A public create page, linked from the header when this iteration ships:
 - Once per poll, or once per UTC day.
 - Fee mode. Testnet defaults to the Sponsored FPC. Mainnet defaults to the voter’s Fee Juice. A poll pool is optional. The page shows the mode and the fallback before publish.
 - Connect, prove, then the catalog signature.
-- The preview uses the same card as All polls.
+- The form blocks are details, options, voting type, schedule, eligibility, and ballot fee. Homepage placement and ZKPassport policy rules are not on this form.
 - Copy says that private hides the address, and that the tally is public unless the poll is sealed.
 
 This flow is not the operator screen.
 
 ### Templates
 
-Binary (2 options) and single choice (3–32), which the contract already supports. A yes/no preset or a 1–5 scale is a preset of those two, not a new tally circuit.
+Binary (2 options) and single choice (3–32), which the contract already supports. The form starts with two options and can add up to 32. That is the same tally, not a new circuit.
 
 ### Terms
 

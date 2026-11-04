@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   AztecAddress,
   Fr,
+  PRIVACY,
   asFieldBigInt,
   getSponsoredPaymentMethod,
   pollIdFromRaw,
@@ -25,7 +26,6 @@ import { FEE_FALLBACK, FEE_MODE } from "../lib/feeMode.js";
 import { VOTE_FREQUENCY } from "../lib/voteFrequency.js";
 import { explainError } from "../lib/userMessages.js";
 import { navigate, pollPath } from "../lib/routing.js";
-import { PollCard } from "./PollCard.jsx";
 import { SiteFooter } from "./SiteFooter.jsx";
 import { SiteHeader } from "./SiteHeader.jsx";
 import { usePageSeo } from "../hooks/usePageSeo.js";
@@ -34,6 +34,32 @@ import { SITE_NAME } from "../lib/site.js";
 
 const FEE_CODE = { sponsored: 0, voter: 1, pool: 2 };
 const FALLBACK_CODE = { stop: 0, voter: 1 };
+const PRIVACY_OPTIONS = [
+  { value: PRIVACY.VOTER_CHOICE, label: "Voter choice" },
+  { value: PRIVACY.PRIVATE_ONLY, label: "Private only" },
+  { value: PRIVACY.PUBLIC_ONLY, label: "Open only" },
+];
+const VOTE_FREQUENCY_OPTIONS = [
+  { value: VOTE_FREQUENCY.ONCE, label: "Once per poll" },
+  { value: VOTE_FREQUENCY.DAILY, label: "Once every 24 hours" },
+];
+
+function privacyHint(policy) {
+  if (policy === PRIVACY.PRIVATE_ONLY) {
+    return "Private only: voters cannot publish their address. The chosen option still updates the live tally unless the poll is sealed.";
+  }
+  if (policy === PRIVACY.PUBLIC_ONLY) {
+    return "Open only: address and choice are published on-chain. Voters cannot hide who they are.";
+  }
+  return "Voter choice: each voter picks private or open on the ballot page.";
+}
+
+function voteFrequencyHint(frequency) {
+  if (frequency === VOTE_FREQUENCY.DAILY) {
+    return "UTC calendar day: one private or open ballot per account from 00:00 to 24:00 UTC. Each day adds to the tally; yesterday’s choice is not subtracted.";
+  }
+  return "One ballot per Aztec account for the life of this poll. Switching private/open does not add a second vote.";
+}
 
 function fieldBigInt(value) {
   const text = typeof value?.toString === "function" ? value.toString() : String(value);
@@ -49,12 +75,15 @@ export function CreatePollPage({ walletConnect }) {
   const connectDialogOpen = !["idle", "connected", "disconnected"].includes(walletConnect.phase.kind);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [topics, setTopics] = useState("community");
-  const [options, setOptions] = useState(["Yes", "No"]);
-  const [privacy, setPrivacy] = useState(2);
-  const [eligibility, setEligibility] = useState(0);
+  const [topics, setTopics] = useState("");
+  const [optionRows, setOptionRows] = useState([
+    { label: "Yes", description: "" },
+    { label: "No", description: "" },
+  ]);
+  const [privacy, setPrivacy] = useState(PRIVACY.VOTER_CHOICE);
+  const [important, setImportant] = useState(false);
   const [sealed, setSealed] = useState(false);
-  const [daily, setDaily] = useState(false);
+  const [voteFrequency, setVoteFrequency] = useState(VOTE_FREQUENCY.ONCE);
   const [feeMode, setFeeMode] = useState(mainnet ? FEE_MODE.VOTER : FEE_MODE.SPONSORED);
   const [feeFallback, setFeeFallback] = useState(FEE_FALLBACK.STOP);
   const [startsAt, setStartsAt] = useState("");
@@ -63,29 +92,8 @@ export function CreatePollPage({ walletConnect }) {
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
 
-  const preview = useMemo(
-    () => ({
-      id: "new",
-      title: title.trim() || "Poll title",
-      description: description.trim(),
-      topics: topics
-        .split(",")
-        .map((topic) => topic.trim().toLowerCase())
-        .filter(Boolean),
-      options: options.map((label) => ({ label: label || "Option" })),
-      requiresZkPassport: eligibility > 0,
-      eligibilityMode: eligibility,
-      sealed,
-      voteFrequency: daily ? 1 : 0,
-      startsAt: startsAt ? datetimeLocalToIso(startsAt) : null,
-      endsAt: endsAt ? datetimeLocalToIso(endsAt) : null,
-      publisher: "account",
-    }),
-    [title, description, topics, options, eligibility, sealed, daily, startsAt, endsAt],
-  );
-
-  function setOption(index, value) {
-    setOptions((rows) => rows.map((row, i) => (i === index ? value : row)));
+  function setOptionRow(index, patch) {
+    setOptionRows((rows) => rows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   }
 
   async function publish() {
@@ -96,9 +104,12 @@ export function CreatePollPage({ walletConnect }) {
       text = assertListingText({
         title,
         description,
-        options,
+        options: optionRows,
         topics: topics.split(","),
       });
+      if (optionRows.some((row) => row.description.trim().length > 160)) {
+        throw new Error("Each option description must be 160 characters or fewer.");
+      }
     } catch (err) {
       setError(err.message);
       return;
@@ -167,12 +178,12 @@ export function CreatePollPage({ walletConnect }) {
         .create_user_poll(
           text.labels.length,
           privacy,
-          eligibility,
+          important ? 1 : 0,
           new Fr(BigInt(contentHash)),
           sealed,
           isoToUnixSeconds(startIso),
           isoToUnixSeconds(endIso),
-          daily ? VOTE_FREQUENCY.DAILY : VOTE_FREQUENCY.ONCE,
+          voteFrequency,
           FEE_CODE[feeMode],
           FALLBACK_CODE[feeFallback],
           new Fr(fieldBigInt(point.x)),
@@ -212,13 +223,17 @@ export function CreatePollPage({ walletConnect }) {
           id: pollId,
           title: text.title,
           description: text.description,
-          options: text.labels,
+          options: optionRows.map((row) => {
+            const label = row.label.trim();
+            const note = row.description.trim();
+            return note ? { label, description: note } : { label };
+          }),
           topics: text.topics,
           creator,
           privacyPolicy: privacy,
-          eligibilityMode: eligibility,
+          eligibilityMode: important ? 1 : 0,
           sealed,
-          voteFrequency: daily ? 1 : 0,
+          voteFrequency,
           startsAt: startIso,
           endsAt: endIso,
         },
@@ -267,168 +282,255 @@ export function CreatePollPage({ walletConnect }) {
         </header>
 
         {sessionReady ? (
-          <div className="create-layout">
-            <form
-              className="create-form"
-              onSubmit={(event) => {
-                event.preventDefault();
-                void publish();
-              }}
-            >
-              <fieldset className="create-section">
-                <legend>Question</legend>
-                <label className="filter-field">
-                  Title
-                  <input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={140} required />
-                </label>
-                <label className="filter-field">
-                  Description
-                  <textarea
-                    value={description}
-                    onChange={(event) => setDescription(event.target.value)}
-                    maxLength={280}
-                    rows={3}
-                  />
-                </label>
-                <div className="create-options">
-                  {options.map((label, index) => (
-                    <label key={index} className="filter-field">
-                      Option {index + 1}
-                      <input
-                        value={label}
-                        onChange={(event) => setOption(index, event.target.value)}
-                        maxLength={80}
-                        required
-                      />
-                    </label>
-                  ))}
-                  <div className="create-option-actions">
-                    <button type="button" className="btn btn-ghost" onClick={() => setOptions(["Yes", "No"])}>
-                      Yes / No
-                    </button>
-                    <button type="button" className="btn btn-ghost" onClick={() => setOptions(["1", "2", "3", "4", "5"])}>
-                      Scale 1–5
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      disabled={options.length >= 32}
-                      onClick={() => setOptions((rows) => [...rows, ""])}
-                    >
-                      Add option
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      disabled={options.length <= 2}
-                      onClick={() => setOptions((rows) => rows.slice(0, -1))}
-                    >
-                      Remove option
-                    </button>
-                  </div>
-                </div>
-                <label className="filter-field">
-                  Topics
-                  <input
-                    value={topics}
-                    onChange={(event) => setTopics(event.target.value)}
-                    placeholder="comma-separated, up to 8"
-                  />
-                </label>
-              </fieldset>
+          <form
+            className="admin-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void publish();
+            }}
+          >
+            <h2>Create poll</h2>
+            <p className="meta">
+              On-chain: option count, ballot privacy, vote frequency, eligibility, sealed flag, end
+              time, and metadata hash. Labels stay in the shared catalog.
+            </p>
 
-              <fieldset className="create-section">
-                <legend>Rules</legend>
-                <div className="create-pair">
-                  <label className="filter-field">
-                    Privacy
-                    <select value={privacy} onChange={(event) => setPrivacy(Number(event.target.value))}>
-                      <option value={2}>Voter chooses private or open</option>
-                      <option value={0}>Private only</option>
-                      <option value={1}>Open only</option>
-                    </select>
-                  </label>
-                  <label className="filter-field">
-                    Eligibility
-                    <select value={eligibility} onChange={(event) => setEligibility(Number(event.target.value))}>
-                      <option value={0}>Open to any account</option>
-                      <option value={1}>ZKPassport personhood</option>
-                    </select>
-                  </label>
-                </div>
-                <div className="create-checks">
-                  <label className="create-check">
-                    <input type="checkbox" checked={sealed} onChange={(event) => setSealed(event.target.checked)} />
-                    <span>Sealed tally until close</span>
-                  </label>
-                  <label className="create-check">
-                    <input type="checkbox" checked={daily} onChange={(event) => setDaily(event.target.checked)} />
-                    <span>One ballot per account per UTC day</span>
-                  </label>
-                </div>
-              </fieldset>
+            <fieldset className="zk-req">
+              <legend>Details</legend>
+              <label>
+                Title
+                <input
+                  type="text"
+                  value={title}
+                  disabled={busy}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder="Should we adopt proposal X?"
+                  maxLength={140}
+                  required
+                />
+              </label>
+              <label>
+                Description
+                <input
+                  type="text"
+                  value={description}
+                  disabled={busy}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="Optional short context"
+                  maxLength={280}
+                />
+              </label>
+              <label>
+                Topics (comma-separated)
+                <input
+                  type="text"
+                  value={topics}
+                  disabled={busy}
+                  onChange={(event) => setTopics(event.target.value)}
+                  placeholder="governance, elections, demo"
+                />
+              </label>
+            </fieldset>
 
-              <fieldset className="create-section">
-                <legend>Schedule</legend>
-                <div className="create-pair">
-                  <label className="filter-field">
-                    Start
-                    <input type="datetime-local" value={startsAt} onChange={(event) => setStartsAt(event.target.value)} />
-                  </label>
-                  <label className="filter-field">
-                    End
+            <fieldset className="option-editor">
+              <legend>Options</legend>
+              <p className="meta">Label is required. Description is optional and shown under the choice.</p>
+              {optionRows.map((row, index) => (
+                <div className="option-editor-row" key={`opt-${index}`}>
+                  <label>
+                    Label
                     <input
-                      type="datetime-local"
-                      value={endsAt}
-                      onChange={(event) => setEndsAt(event.target.value)}
+                      type="text"
+                      value={row.label}
+                      disabled={busy}
+                      onChange={(event) => setOptionRow(index, { label: event.target.value })}
+                      placeholder={`Option ${index + 1}`}
+                      maxLength={80}
                       required
                     />
                   </label>
-                </div>
-              </fieldset>
-
-              <fieldset className="create-section">
-                <legend>Ballot fee</legend>
-                <div className="create-pair">
-                  <label className="filter-field">
-                    Network fee for ballots
-                    <select value={feeMode} onChange={(event) => setFeeMode(event.target.value)}>
-                      {mainnet ? null : <option value={FEE_MODE.SPONSORED}>Sponsored FPC</option>}
-                      <option value={FEE_MODE.VOTER}>Voter pays Fee Juice</option>
-                      <option value={FEE_MODE.POOL}>Poll pool</option>
-                    </select>
+                  <label>
+                    Description
+                    <input
+                      type="text"
+                      value={row.description}
+                      disabled={busy}
+                      onChange={(event) => setOptionRow(index, { description: event.target.value })}
+                      placeholder="Optional short explanation"
+                      maxLength={160}
+                    />
                   </label>
-                  <label className="filter-field">
-                    If that fee cannot be paid
-                    <select value={feeFallback} onChange={(event) => setFeeFallback(event.target.value)}>
-                      <option value={FEE_FALLBACK.STOP}>Keep Vote closed</option>
-                      <option value={FEE_FALLBACK.VOTER}>Ask the voter to pay Fee Juice</option>
-                    </select>
-                  </label>
+                  <button
+                    type="button"
+                    className="btn btn-ghost option-editor-remove"
+                    disabled={busy || optionRows.length <= 2}
+                    onClick={() => setOptionRows(optionRows.filter((_, i) => i !== index))}
+                  >
+                    Remove
+                  </button>
                 </div>
-                <p className="meta">
-                  {mainnet
-                    ? "On Mainnet the default is the voter’s Fee Juice. Creating the poll also pays Fee Juice."
-                    : "On Testnet the first poll you create in a UTC day can use the Sponsored FPC. A second create that day is rejected. The ballot fee mode above is separate and stays fixed."}{" "}
-                  Homepage placement is chosen by HappyVote, not by this form.
-                </p>
-              </fieldset>
-
-              {error ? (
-                <p className="status" data-tone="error">
-                  {error}
-                </p>
-              ) : null}
-              {status ? <p className="status">{status}</p> : null}
-              <button type="submit" className="btn btn-primary" disabled={busy}>
-                {busy ? "Publishing…" : "Publish poll"}
+              ))}
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={busy || optionRows.length >= 32}
+                onClick={() => setOptionRows([...optionRows, { label: "", description: "" }])}
+              >
+                Add option
               </button>
-            </form>
-            <div className="create-preview">
-              <h2 className="section-title">Preview</h2>
-              <PollCard poll={preview} now={Date.now()} closed={false} preview />
-            </div>
-          </div>
+            </fieldset>
+
+            <fieldset className="zk-req">
+              <legend>Voting type</legend>
+              <p className="meta">
+                Poll-level ballot policy. This is stored on-chain and cannot be changed after create.
+              </p>
+              <div className="privacy-row" role="radiogroup" aria-label="Ballot privacy policy">
+                {PRIVACY_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className="chip"
+                    role="radio"
+                    aria-checked={privacy === option.value}
+                    aria-pressed={privacy === option.value}
+                    disabled={busy}
+                    onClick={() => setPrivacy(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <p className="meta">{privacyHint(privacy)}</p>
+              <p className="meta">
+                How often one Aztec account (and one ZKPassport identity, if required) may ballot.
+                Private and open votes share this limit. Cannot be changed after create.
+              </p>
+              <div className="privacy-row" role="radiogroup" aria-label="Vote frequency">
+                {VOTE_FREQUENCY_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    className="chip"
+                    role="radio"
+                    aria-checked={voteFrequency === option.value}
+                    aria-pressed={voteFrequency === option.value}
+                    disabled={busy}
+                    onClick={() => setVoteFrequency(option.value)}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+              <p className="meta">{voteFrequencyHint(voteFrequency)}</p>
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={sealed}
+                  disabled={busy}
+                  onChange={(event) => setSealed(event.target.checked)}
+                />
+                Sealed tallies — hide results until the poll ends
+              </label>
+            </fieldset>
+
+            <fieldset className="zk-req">
+              <legend>Schedule</legend>
+              <p className="meta">
+                End is required and must be within 90 days. Start can stay empty. You can publish
+                before the start — connect and vote unlock automatically, then lock at the end.
+              </p>
+              <div className="schedule-grid">
+                <label>
+                  Starts at
+                  <input
+                    type="datetime-local"
+                    value={startsAt}
+                    disabled={busy}
+                    onChange={(event) => setStartsAt(event.target.value)}
+                  />
+                </label>
+                <label>
+                  Ends at
+                  <input
+                    type="datetime-local"
+                    value={endsAt}
+                    disabled={busy}
+                    onChange={(event) => setEndsAt(event.target.value)}
+                    required
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={busy || (!startsAt && !endsAt)}
+                onClick={() => {
+                  setStartsAt("");
+                  setEndsAt("");
+                }}
+              >
+                Clear dates
+              </button>
+            </fieldset>
+
+            <fieldset className="zk-req">
+              <legend>Voter eligibility</legend>
+              <label className="check-row">
+                <input
+                  type="checkbox"
+                  checked={important}
+                  disabled={busy}
+                  onChange={(event) => setImportant(event.target.checked)}
+                />
+                Important poll — require ZKPassport
+              </label>
+              <p className="meta">
+                {important
+                  ? "Voters prove personhood. Age, nationality, and document rules are not set on this form."
+                  : "Any Aztec account can ballot. Turn this on to require ZKPassport personhood."}
+              </p>
+            </fieldset>
+
+            <fieldset className="zk-req">
+              <legend>Ballot fee</legend>
+              <label>
+                Network fee for ballots
+                <select value={feeMode} disabled={busy} onChange={(event) => setFeeMode(event.target.value)}>
+                  {mainnet ? null : <option value={FEE_MODE.SPONSORED}>Sponsored FPC</option>}
+                  <option value={FEE_MODE.VOTER}>Voter pays Fee Juice</option>
+                  <option value={FEE_MODE.POOL}>Poll pool</option>
+                </select>
+              </label>
+              <label>
+                If that fee cannot be paid
+                <select
+                  value={feeFallback}
+                  disabled={busy}
+                  onChange={(event) => setFeeFallback(event.target.value)}
+                >
+                  <option value={FEE_FALLBACK.STOP}>Keep Vote closed</option>
+                  <option value={FEE_FALLBACK.VOTER}>Ask the voter to pay Fee Juice</option>
+                </select>
+              </label>
+              <p className="meta">
+                {mainnet
+                  ? "On Mainnet the default is the voter’s Fee Juice. Creating the poll also pays Fee Juice."
+                  : "On Testnet the first poll you create in a UTC day can use the Sponsored FPC. A second create that day is rejected. The ballot fee mode above is separate and stays fixed."}{" "}
+                Homepage placement is chosen by HappyVote, not by this form.
+              </p>
+            </fieldset>
+
+            {error ? (
+              <p className="status" data-tone="error">
+                {error}
+              </p>
+            ) : null}
+            {status ? <p className="status">{status}</p> : null}
+            <button type="submit" className="btn btn-primary" disabled={busy}>
+              {busy ? "Creating poll…" : "Create poll on-chain"}
+            </button>
+          </form>
         ) : (
           <div className="create-gate">
             {connected && !signingKey ? (
