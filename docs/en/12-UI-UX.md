@@ -98,6 +98,10 @@ Footer links on catalog, vote, and legal pages:
 
 Effective date: **15 August 2026**. Contact: **legal@happyvote.xyz**. See [13-LEGAL.md](./13-LEGAL.md).
 
+## FAQ (`/faq`)
+
+Three groups, highest-priority question first inside each: **For voters**, **For creators**, **General**. Voters cover privacy, public or sealed tallies, how to vote, the once-per-account or UTC-day limit, the ballot fee the poll chose, wallets, ZKPassport, and sealed counts. Creators cover publish, the create flow, the rules on the form, All polls placement, the daily and open-poll caps, **Your polls** and early end, rules that stay fixed, create and ballot fees, and a poll that is on-chain before its title is listed. General covers what the site is, that it is not an election authority, the network, Authoritative versus User polls, and earlier networks. The page is an `FAQPage`. Jumps at the top go to each group.
+
 ## SEO
 
 Per-route `document.title`, meta description, canonical, Open Graph, Twitter card, and JSON-LD. Crawlers receive that head from `/api/document` before the app hydrates. Each poll page is unique: its own title, description, `og:*`, `twitter:*`, image URL (`/api/og?path=/p/:id`), and a `Question` with one suggested `Answer` per option. Home is `Organization` / `WebSite` / `WebApplication`. FAQ is an `FAQPage`. `robots.txt` allows indexing of public pages. `sitemap.xml` lists home, **All polls** `/polls`, **Create** `/create`, **FAQ** `/faq`, poll pages `/p/1`–`/p/5`, and legal URLs.

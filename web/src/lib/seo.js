@@ -8,7 +8,7 @@ export const CREATE_PAGE_DESCRIPTION =
   "Publish a poll on HappyVote. A private ballot hides your address. The tally is public unless the poll is sealed.";
 
 export const FAQ_PAGE_DESCRIPTION =
-  "Answers about private ballots, public tallies, ZKPassport, wallets, fees, and sealed polls on HappyVote on Aztec.";
+  "Answers for voters and poll creators: private ballots, public tallies, wallets, fees, and how to publish or end a poll.";
 
 const TWITTER_SITE = "@happyvoteaztec";
 const OG_IMAGE_WIDTH = "1200";

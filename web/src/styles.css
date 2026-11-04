@@ -699,6 +699,49 @@ body::before {
   color: #eff6ff;
 }
 
+.faq-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+}
+
+.faq-toc a {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--mist);
+  font-size: 0.78rem;
+  padding: 0.4rem 0.7rem;
+  text-decoration: none;
+}
+
+.faq-toc a:hover {
+  color: var(--foam);
+}
+
+.faq-group {
+  display: grid;
+  gap: 1rem;
+  margin-top: 0.35rem;
+  padding-top: 1.35rem;
+  border-top: 1px solid var(--line);
+  scroll-margin-top: 1rem;
+}
+
+.faq-group + .faq-group {
+  margin-top: 1.5rem;
+}
+
+.faq-group-head {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.faq-group-head .section-title,
+.faq-group-head .section-lede {
+  margin: 0;
+}
+
 .faq-list {
   display: grid;
   gap: 0.65rem;
