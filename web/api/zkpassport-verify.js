@@ -147,7 +147,7 @@ async function bindQueryToPoll(pollId, originalQuery) {
     error.cause = cause;
     throw error;
   }
-  const poll = (catalog.polls || []).find((item) => String(item.id) === id);
+  const poll = catalog.polls?.[id];
   if (!poll) {
     const error = new Error("Poll is not in the catalog");
     error.status = 404;
