@@ -1,7 +1,13 @@
 /**
  * Verify a user-created poll against the chain before it is listed.
  * Aztec libraries load only on this path. A failed import rejects the listing.
+ *
+ * Those libraries start Aztec's pino logger. In Node it opens a worker transport.
+ * The default target is pino-pretty, which this function cannot resolve
+ * ("unable to determine transport target for pino-pretty"). JSON logs use pino's
+ * own file transport instead. Set this before the first Aztec import.
  */
+if (!process.env.LOG_JSON) process.env.LOG_JSON = "1";
 import {
   assertListingText,
   canonicalContent,

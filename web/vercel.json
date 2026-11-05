@@ -32,7 +32,7 @@
     "api/polls.js": {
       "memory": 1024,
       "maxDuration": 30,
-      "includeFiles": "{api/poll-catalog.js,api/poll-slots.js,data/precomputed-slots.json,data/polls-catalog.json}"
+      "includeFiles": "{api/poll-catalog.js,api/poll-slots.js,data/precomputed-slots.json,data/polls-catalog.json,node_modules/pino/**,node_modules/thread-stream/**,node_modules/sonic-boom/**}"
     },
     "api/client-error.js": {
       "memory": 512,

@@ -98,6 +98,16 @@ Never put a freshly constructed `AztecAddress` in a React `useEffect` dependency
 
 Without the overlay, everyone still sees the seed catalog. Overlay polls appear after `GET /api/polls?id=` succeeds.
 
+## Listing verifier on Vercel, and a later full server
+
+`POST /api/polls` checks a user listing by importing Aztec libraries in `web/api/verify-account-poll.js`. Those libraries start Aztec's Node logger, which opens a worker transport. The default target is the string `pino-pretty`.
+
+Vercel copies into the function only files a static trace can see. That string is not a static import, so `pino-pretty` is missing and publish fails with `unable to determine transport target for "pino-pretty"`. Public-author and private-author listings share this check. The private-author secret and the ballot stay off this request.
+
+On this host the verifier sets Aztec's `LOG_JSON` to `1` when it is unset, before the first Aztec import. The logger then writes JSON to stderr through `pino/file`. `api/polls.js` in `vercel.json` also ships `pino`, `thread-stream`, and `sonic-boom` so the file transport and its worker are in the bundle. The logger's redaction and level stay as Aztec ships them. Ballot privacy and the stored listing are unchanged.
+
+`pino-pretty` is a production dependency of `@aztec-labs/foundation`. A full Node process started from a complete `node_modules` resolves it, and this error does not appear. A move off the traced function can drop the `LOG_JSON` default and those three extra `includeFiles`. The process still needs the installed dependency tree. Leave Node detection as Aztec ships it: `detect-node` is read once for the process and selects the Node build of the proving stack.
+
 ## ZKPassport verify
 
 `POST /api/zkpassport-verify` — server re-verify with `@zkpassport/sdk` (memory 2048 MB, 60s). Domain `aztec.happyvote.xyz`.
