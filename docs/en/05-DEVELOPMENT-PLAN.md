@@ -79,7 +79,7 @@ HappyVote at https://aztec.happyvote.xyz still casts ballots on **Testnet**. Put
 
 ## Iteration 2 — user-created polls
 
-**Status: Iteration 2 is on the published Testnet contract (2026-11-04).** `aztec test` passed 63 tests. This site lists polls that are still inside their catalog window, plus polls that stay on the homepage, in one response. Ended polls that are not on the homepage load in pages of 24. Chain open/ended reads skip a poll whose catalog end time has already passed. Create writes `create_user_poll` on the current contract. Existing `create_poll` and `cast_vote_*` calls stay as they are. Ballots from the previous Testnet 6.0.0 contract are the Earlier networks snapshot. Polls `/p/1` through `/p/4` on the new address start empty.
+**Status: Iteration 2 is on the published Testnet contract (2026-11-04).** `aztec test` passed 63 tests. On 2026-11-05, publishing a poll uses the same single sponsored `send()` as a ballot. Wallet registration omits source maps and debug symbols, and the transaction scope includes `public_dispatch`. This site lists polls that are still inside their catalog window, plus polls that stay on the homepage, in one response. Ended polls that are not on the homepage load in pages of 24. Chain open/ended reads skip a poll whose catalog end time has already passed. Create writes `create_user_poll` on the current contract. Existing `create_poll` and `cast_vote_*` calls stay as they are. Ballots from the previous Testnet 6.0.0 contract are the Earlier networks snapshot. Polls `/p/1` through `/p/4` on the new address start empty.
 
 ### Outcome
 

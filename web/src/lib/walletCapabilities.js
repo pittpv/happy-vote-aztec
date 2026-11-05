@@ -62,6 +62,7 @@ export function happyVoteCapabilities() {
         { contract: happyVote, function: "get_vote_frequency" },
         { contract: happyVote, function: "get_current_vote_period" },
         { contract: happyVote, function: "create_user_poll" },
+        { contract: happyVote, function: "public_dispatch" },
         { contract: happyVote, function: "fund_pool" },
         { contract: happyVote, function: "quote_pool" },
         { contract: happyVote, function: "commit_pool_ballot" },

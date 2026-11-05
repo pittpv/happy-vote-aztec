@@ -29,7 +29,7 @@ A minimal voting portal for **any topic**: binary sentiment (Happy/Sad), multi-o
 1. **Programmable privacy** — a ballot can hide the voter while the tally stays public (or sealed until close).
 2. **Voter choice** — private (default) or open, when the poll policy allows it.
 3. **ZKPassport** — personhood / age / nationality without sending passport data to HappyVote.
-4. **Two creation paths** — HappyVote publishes the featured polls. A connected account publishes a single-choice poll at `/create` with the same Connect dialog as voting. The author can be a public address or private. Private creation goes through the deployed `HiddenAuthorBook`. On Testnet the Sponsored FPC pays a private-author create and an early end. On Mainnet that payer is the AuthorFeeSponsor contract in this source. AuthorFeeSponsor is not deployed, so a Mainnet site keeps Private off until that address is configured. **Your polls** lists that address and the private polls in that wallet, and can end a poll early.
+4. **Two creation paths** — HappyVote publishes the featured polls. A connected account publishes a single-choice poll at `/create` with the same Connect dialog as voting. The author can be a public address or private. Private creation goes through the deployed `HiddenAuthorBook`. On Testnet the Sponsored FPC pays a private-author create and an early end. On Mainnet that payer is the AuthorFeeSponsor contract in this source. AuthorFeeSponsor is not deployed, so a Mainnet site keeps Private off until that address is configured. **Your polls** lists that address and the private polls in that wallet, and can end a poll early. Publishing is one sponsored `send()`, the same shape as a ballot. After a permission change, disconnect and connect again.
 
 ## Principles
 

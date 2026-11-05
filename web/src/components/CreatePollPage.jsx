@@ -13,6 +13,7 @@ import {
   registerHappyVote,
   registerHiddenAuthorBook,
   registerStandardContracts,
+  submitProvenBallot,
 } from "../lib/aztecClient.js";
 import {
   clearCatalogDraft,
@@ -286,11 +287,15 @@ export function CreatePollPage({ walletConnect }) {
       } else {
         createCall = contract.methods.create_user_poll(...createArgs);
       }
-      await createCall.simulate({ from });
-      await createCall.send({
+      const feeOpts = hideAuthor ? hiddenFee : txOptions;
+      await submitProvenBallot(createCall, {
         from,
-        ...(hideAuthor ? hiddenFee : txOptions),
-        wait: { timeout: 600 },
+        txOptions: feeOpts,
+        onStep: ({ button }) => setStatus(button),
+        waiting: {
+          button: "Publishing the poll…",
+          text: "The poll is on the network. Waiting until it is in a proposed block.",
+        },
       });
       let pollId;
       if (hideAuthor) {

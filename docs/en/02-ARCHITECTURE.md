@@ -159,7 +159,7 @@ Vite + React. Routes:
 | `/p/:id` | Vote |
 | `/legal/:slug` | Terms, Privacy, Data Safety, Cookies, GDPR |
 
-Guest and connected tallies both use same-origin `/api/poll-state` (public Testnet RPC rate-limits browsers). A connected wallet does not re-simulate each view, and contract registration runs once per address for the tab. `send()` runs the single pre-prove simulation (gas and authwits); the app does not call `simulate()` again before that. The receipt wait stops when the ballot is in a proposed L2 block. Vote pages that are not in the client seed fetch `GET /api/polls?id=` first and wait for real option labels before reading tallies. ZKPassport Dashboard country tags load in the background so a share link is not blocked on that request.
+Guest and connected tallies both use same-origin `/api/poll-state` (public Testnet RPC rate-limits browsers). A connected wallet does not re-simulate each view, and contract registration runs once per address for the tab. `send()` runs the single pre-prove simulation (gas and authwits) for a ballot and for publishing a poll. The app does not call `simulate()` on a separate fee-less transaction first. The receipt wait stops when that transaction is in a proposed L2 block. Vote pages that are not in the client seed fetch `GET /api/polls?id=` first and wait for real option labels before reading tallies. ZKPassport Dashboard country tags load in the background so a share link is not blocked on that request.
 
 ### 3.2 APIs
 
@@ -239,12 +239,16 @@ After the encrypted channel opens, HappyVote and the wallet each show the same e
 
 `/create` uses the same Connect dialog as a ballot. The form chooses the author mode. **Public address** calls `create_user_poll`, which records `msg_sender`. **Private** calls `HiddenAuthorBook.create_user_poll_private`. That contract keeps the account in a private note (at most three open polls) and emits a daily nullifier that does not publish the address. It then enqueues `init_hidden_user_poll` on HappyVote. HappyVote stores creator address 0 and a Poseidon2 commitment in tally tag 205. Only the book address, set once by the admin, may call `init_hidden_user_poll` and `finish_hidden_poll`. The note lives in `HiddenAuthorBook` because another private field on HappyVote exceeds the Noir type-complexity cap. The transaction is paid through a sponsor contract, so the author's wallet is not the published fee payer. On Testnet that sponsor is the canonical Sponsored FPC. On Mainnet it is `AuthorFeeSponsor`. `HiddenAuthorBook` is deployed on this Testnet. `AuthorFeeSponsor` is in this source and is not deployed, so a Mainnet site keeps Private off. **Your polls** reads `GET /api/polls?creator=` for public-author listings and the private note for private-author polls. A public author sends `end_poll`. A private author sends `end_hidden_poll` on the book with the note secret. The same sponsor contract pays that transaction. The catalog signature is a one-time key committed in that create transaction. The browser keeps it in `sessionStorage` until the listing is published or dismissed. The private-author secret is not stored there. Account keys are not stored. Reconnecting an installed wallet restores the same author address and the same private note. A browser session does not.
 
+A public-author create is one `send()`: `create_user_poll` and, on Testnet, `sponsor_unconditionally`. The page does not simulate that call without the fee payment and then send a second payload. After the wallet confirms, the page waits until the transaction is in a proposed L2 block. Wallets that execute a public function under `public_dispatch` also check that name against `transaction.scope`. The grant lists `public_dispatch` next to `create_user_poll`. Reconnect so the wallet can approve the new permission. The artifact given to `registerContract` omits the source map and debug symbols. Proving does not need them, and the full file is large enough that some wallets fail after confirmation and return only a generic error. Browser session proves in the page and does not take that registration path.
+
 ### 4.2 Wallet capabilities
 
 Some wallet-sdk wallets check **every call** in `sendTx` against the dapp `transaction.scope`. A Testnet ballot is two private calls:
 
 1. `cast_vote_private` or `cast_vote_open` on HappyVote
 2. `sponsor_unconditionally` on the public Testnet Sponsored FPC (fee payment)
+
+A public-author create has the same shape: `create_user_poll`, executed as `public_dispatch`, and `sponsor_unconditionally`. Both names are in the scope.
 
 Registering the FPC under `type: "contracts"` only allows `registerContract`. The fee-payment function must also be listed in `simulation.transactions.scope` and `transaction.scope`. The grant is `web/src/lib/walletCapabilities.js`. After that grant changes, the user must reconnect so the wallet can approve the new permission.
 

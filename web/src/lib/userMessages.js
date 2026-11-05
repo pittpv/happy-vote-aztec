@@ -23,15 +23,35 @@ export function softenTechnicalText(text, max = 220) {
   return `${cleaned.slice(0, max).trim()}…`;
 }
 
+function walletMessage(raw) {
+  const text = String(raw || "").trim();
+  if (!text.startsWith("{") && !(text.startsWith('"') && text.endsWith('"'))) return text;
+  try {
+    const parsed = JSON.parse(text);
+    if (typeof parsed === "string") return parsed;
+    if (parsed && typeof parsed.message === "string") return parsed.message;
+  } catch {
+    return text;
+  }
+  return text;
+}
+
 /**
  * @param {unknown} error
  * @param {"vote" | "connect" | "generic"} [context]
  * @returns {{ title: string, text: string, code?: string }}
  */
 export function explainError(error, context = "generic") {
-  const msg = error?.message || String(error || "");
+  const msg = walletMessage(error?.message || String(error || ""));
   const stack = error?.stack || "";
-  const blob = blobOf(error);
+  const blob = `${blobOf(error)} ${msg}`;
+
+  if (msg === "The wallet could not process the request.") {
+    return {
+      title: "The wallet rejected this action",
+      text: "Disconnect the wallet, reconnect, and approve the request again. Browser session can publish the poll if the extension keeps rejecting it.",
+    };
+  }
 
   if (/invalid_union|no matching discriminator/i.test(blob)) {
     return {

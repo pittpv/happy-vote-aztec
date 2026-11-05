@@ -282,7 +282,7 @@ export const voteInclusionWait = {
  * Submit a proven ballot, then wait until it is in a proposed L2 block.
  * `onStep` runs after the proof is submitted, before the inclusion wait.
  */
-export async function submitProvenBallot(method, { from, txOptions, onStep }) {
+export async function submitProvenBallot(method, { from, txOptions, onStep, waiting }) {
   if (!method?.send) throw new Error("Ballot method is required");
   if (!from) throw new Error("Account address is required");
   if (!txOptions) throw new Error("Sponsored fee options are required");
@@ -295,13 +295,15 @@ export async function submitProvenBallot(method, { from, txOptions, onStep }) {
   });
   const txHash = sent?.txHash ?? sent?.hash ?? sent;
   if (txHash == null || txHash === "") {
-    throw new Error("Vote send did not return a transaction hash");
+    throw new Error("The wallet did not return a transaction hash");
   }
 
-  onStep({
-    button: "Waiting for block…",
-    text: "The ballot is on the network. Waiting until it is in a proposed L2 block.",
-  });
+  onStep(
+    waiting ?? {
+      button: "Waiting for block…",
+      text: "The ballot is on the network. Waiting until it is in a proposed L2 block.",
+    },
+  );
   const receipt = await waitForTx(createHappyVoteNode(getNodeUrl()), txHash, voteInclusionWait);
   return { receipt, txHash };
 }
@@ -412,7 +414,7 @@ async function authorFeeSponsorPayment(wallet) {
     "../contracts/author_fee_sponsor-AuthorFeeSponsor.json",
     { with: { type: "json" } },
   );
-  await wallet.registerContract(instance, loadContractArtifact(sponsorJson));
+  await wallet.registerContract(instance, artifactForWallet(loadContractArtifact(sponsorJson)));
   return new SponsoredFeePaymentMethod(address);
 }
 
@@ -558,8 +560,21 @@ export async function registerHiddenAuthorBook(wallet) {
     { with: { type: "json" } },
   );
   const artifact = loadContractArtifact(hiddenAuthorBookJson);
-  await wallet.registerContract(instance, artifact);
+  await wallet.registerContract(instance, artifactForWallet(artifact));
   return Contract.at(address, artifact, wallet);
+}
+
+/**
+ * Source maps and debug symbols are not needed to prove. HappyVote's file map
+ * alone is over a megabyte; some wallets reject that payload after the user
+ * confirms, and then report only a generic failure.
+ */
+function artifactForWallet(artifact) {
+  return {
+    ...artifact,
+    fileMap: {},
+    functions: artifact.functions.map((fn) => ({ ...fn, debugSymbols: "" })),
+  };
 }
 
 export async function registerHappyVote(wallet) {
@@ -572,7 +587,7 @@ export async function registerHappyVote(wallet) {
   if (!instance) {
     throw new Error(`Contract not found on node: ${address}`);
   }
-  await wallet.registerContract(instance, HappyVoteContract.artifact);
+  await wallet.registerContract(instance, artifactForWallet(HappyVoteContract.artifact));
   return HappyVoteContract.at(address, wallet);
 }
 
