@@ -406,6 +406,8 @@ export function CreatePollPage({ walletConnect }) {
           )}
         </header>
 
+        {connected ? (
+        <>
         <div className="admin-tabs" role="tablist" aria-label="Create sections">
           <button
             type="button"
@@ -442,7 +444,6 @@ export function CreatePollPage({ walletConnect }) {
           hidden={tab !== "create"}
           className="admin-panel"
         >
-        {connected ? (
           <form
             className="admin-form"
             onSubmit={(event) => {
@@ -716,9 +717,6 @@ export function CreatePollPage({ walletConnect }) {
               {busy ? "Creating poll…" : "Create poll on-chain"}
             </button>
           </form>
-        ) : (
-          <p className="meta">Connect an Aztec wallet to write a poll.</p>
-        )}
         </div>
         <div
           id="create-panel-yours"
@@ -729,6 +727,8 @@ export function CreatePollPage({ walletConnect }) {
         >
           <MyPollsPanel walletConnect={walletConnect} active={tab === "yours"} />
         </div>
+        </>
+        ) : null}
       </section>
       <SiteFooter disclaimer="HappyVote is a technology layer on Aztec Network. It is not an official electoral authority." />
     </main>
