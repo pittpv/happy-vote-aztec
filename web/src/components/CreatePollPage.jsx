@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AztecAddress,
   Fr,
@@ -23,6 +23,7 @@ import {
   writeCatalogDraft,
 } from "../lib/catalogDraft.js";
 import { MyPollsPanel } from "./MyPollsPanel.jsx";
+import { WorkingLabel } from "./WorkingLabel.jsx";
 import {
   assertListingText,
   canonicalContent,
@@ -81,6 +82,61 @@ function parseCreateTab(hash = typeof window === "undefined" ? "" : window.locat
   return String(hash || "").replace(/^#/, "") === "yours" ? "yours" : "create";
 }
 
+function closeNativeDatePicker(input) {
+  if (!(input instanceof HTMLInputElement)) return;
+  const saved = input.value;
+  input.type = "text";
+  input.blur();
+  input.type = "datetime-local";
+  if (input.value !== saved) {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, saved);
+  }
+}
+
+/**
+ * Chromium leaves the datetime popup open after a day click, and blur() does
+ * nothing while that popup is open. The click then falls through onto the
+ * input and opens the popup again, so a second click outside is required.
+ * Switching the type dismisses the popup. The fall-through click is ignored.
+ */
+function ScheduleDateField({ label, value, onChange, disabled, required = false }) {
+  const suppressUntil = useRef(0);
+
+  function closeCalendar(input) {
+    suppressUntil.current = performance.now() + 400;
+    closeNativeDatePicker(input);
+  }
+
+  return (
+    <label
+      onMouseDown={(event) => {
+        if (performance.now() < suppressUntil.current) event.preventDefault();
+      }}
+    >
+      {label}
+      <input
+        type="datetime-local"
+        value={value}
+        disabled={disabled}
+        required={required}
+        onClick={(event) => {
+          if (performance.now() < suppressUntil.current) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }}
+        onChange={(event) => {
+          const next = event.target.value;
+          const prevDay = String(value || "").slice(0, 10);
+          const nextDay = String(next || "").slice(0, 10);
+          onChange(next);
+          if (nextDay && nextDay !== prevDay) closeCalendar(event.currentTarget);
+        }}
+      />
+    </label>
+  );
+}
+
 export function CreatePollPage({ walletConnect }) {
   const place = networkPlace();
   const mainnet = place === "mainnet";
@@ -107,6 +163,19 @@ export function CreatePollPage({ walletConnect }) {
     }
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  useEffect(() => {
+    function onPointerDown(event) {
+      const active = document.activeElement;
+      if (!(active instanceof HTMLInputElement) || active.type !== "datetime-local") return;
+      if (event.target === active) return;
+      const label = active.closest("label");
+      if (label instanceof HTMLElement && label.contains(event.target)) return;
+      closeNativeDatePicker(active);
+    }
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
   }, []);
 
   function selectTab(id) {
@@ -646,25 +715,19 @@ export function CreatePollPage({ walletConnect }) {
                 before the start — connect and vote unlock automatically, then lock at the end.
               </p>
               <div className="schedule-grid">
-                <label>
-                  Starts at
-                  <input
-                    type="datetime-local"
-                    value={startsAt}
-                    disabled={busy}
-                    onChange={(event) => setStartsAt(event.target.value)}
-                  />
-                </label>
-                <label>
-                  Ends at
-                  <input
-                    type="datetime-local"
-                    value={endsAt}
-                    disabled={busy}
-                    onChange={(event) => setEndsAt(event.target.value)}
-                    required
-                  />
-                </label>
+                <ScheduleDateField
+                  label="Starts at"
+                  value={startsAt}
+                  disabled={busy}
+                  onChange={setStartsAt}
+                />
+                <ScheduleDateField
+                  label="Ends at"
+                  value={endsAt}
+                  disabled={busy}
+                  onChange={setEndsAt}
+                  required
+                />
               </div>
               <button
                 type="button"
@@ -712,15 +775,23 @@ export function CreatePollPage({ walletConnect }) {
               </p>
             </fieldset>
 
+            <button
+              type="submit"
+              className={busy ? "btn btn-primary is-working" : "btn btn-primary"}
+              disabled={busy}
+              aria-busy={busy || undefined}
+            >
+              {busy ? (
+                <WorkingLabel text={status || "Creating poll…"} />
+              ) : (
+                "Create poll on-chain"
+              )}
+            </button>
             {error ? (
-              <p className="status" data-tone="error">
+              <p className="status" data-tone="error" aria-live="polite">
                 {error}
               </p>
             ) : null}
-            {status ? <p className="status">{status}</p> : null}
-            <button type="submit" className="btn btn-primary" disabled={busy}>
-              {busy ? "Creating poll…" : "Create poll on-chain"}
-            </button>
           </form>
         </div>
         <div

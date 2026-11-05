@@ -41,6 +41,7 @@ import { AdminHomePolls } from "./components/AdminHomePolls.jsx";
 import { AdminPolicyIdForm } from "./components/AdminPolicyIdForm.jsx";
 import { AdminTrust } from "./components/AdminTrust.jsx";
 import { CreatePollPage } from "./components/CreatePollPage.jsx";
+import { WorkingLabel } from "./components/WorkingLabel.jsx";
 import { ballotFeeCopy, FEE_MODE, feeFallbackOf, hasExplicitFeeMode } from "./lib/feeMode.js";
 import { AdminPanel, AdminTabs, parseAdminTab } from "./components/AdminTabs.jsx";
 import { trackPageview } from "./lib/siteStats.js";
@@ -478,21 +479,6 @@ function AdminRoute({ walletConnect }) {
         disclaimer="HappyVote is a technology layer on Aztec Network. It is not an official electoral authority."
       />
     </main>
-  );
-}
-
-function WorkingLabel({ text }) {
-  const base = String(text ?? "").replace(/(?:\u2026|\.{1,3})\s*$/, "").trimEnd();
-  return (
-    <span className="working-label">
-      {base}
-      <span className="sr-only">…</span>
-      <span className="working-dots" aria-hidden="true">
-        <span>.</span>
-        <span>.</span>
-        <span>.</span>
-      </span>
-    </span>
   );
 }
 
