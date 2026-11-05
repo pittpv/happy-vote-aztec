@@ -67,7 +67,7 @@ export const FAQ_GROUPS = [
         id: "create",
         question: "Can I publish a poll?",
         answer:
-          "Yes. Create in the header opens a public page. Connect Aztec wallet uses the same dialog as voting. The connected address is the public author. A private ballot still hides a voter’s address, and the tally is public unless you seal it. Homepage placement is chosen by HappyVote.",
+          "Yes. Create in the header opens a public page. Connect Aztec wallet uses the same dialog as voting. Choose Public address to store the connected account as the author, or Private to leave the author off the poll. Private uses the deployed HiddenAuthorBook. On Testnet the Sponsored FPC pays the create and the early end. On Mainnet that payer is AuthorFeeSponsor, which is not deployed, so a Mainnet site keeps Private off. Paying from the author wallet would publish the address. A private ballot still hides a voter’s address, and the tally is public unless you seal it. Homepage placement is chosen by HappyVote.",
       },
       {
         id: "create-how",
@@ -91,13 +91,13 @@ export const FAQ_GROUPS = [
         id: "limits",
         question: "How many polls can I publish?",
         answer:
-          "One account can create one poll per UTC day. A second create that day is rejected. At most three of that account’s polls can still be open. Ending a poll frees one of those three slots. After the end time, voting is already closed, and the slot stays taken until you end the poll.",
+          "One account can create one public-author poll per UTC day, and one private-author poll per UTC day. A second create of the same kind that day is rejected. Each kind allows at most three polls that are still open. Ending a poll frees one of those three slots. After the end time, voting is already closed, and the slot stays taken until you end the poll.",
       },
       {
         id: "manage",
         question: "How do I manage a poll I created?",
         answer:
-          "Open Create, then Your polls, with the wallet that published it. The list is every poll whose public author is that address, including ones past their end time. Open goes to the poll page. End poll closes voting from this wallet. Confirm end sends that transaction. Keep open leaves it running.\n\nOnly that author can end it. Cancel stays with HappyVote. When the end time has passed, voting is already closed. End the poll to release its open slot and return leftover pool funds.",
+          "Open Create, then Your polls, with the wallet that published it. Public-author polls are every poll whose public author is that address, including ones past their end time. Private-author polls appear when this wallet still holds their secret. Open goes to the poll page. End poll closes voting from this wallet. Confirm end sends that transaction. Keep open leaves it running.\n\nA public author ends with that address. A private author ends with the secret in the wallet, and the sponsor contract pays that transaction. Cancel stays with HappyVote. When the end time has passed, voting is already closed. End the poll to release its open slot and return leftover pool funds.",
       },
       {
         id: "locked",

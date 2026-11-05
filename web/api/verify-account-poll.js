@@ -31,6 +31,7 @@ const SLOTS = {
 };
 
 const TAG_CREATOR = 200n;
+const TAG_AUTHOR = 205n;
 const TAG_FEE = 201n;
 const TAG_POOL = 202n;
 const TAG_PUBX = 203n;
@@ -158,7 +159,15 @@ export async function verifyAccountPoll(raw) {
   const nodeUrl = requiredEnv("VITE_AZTEC_NODE_URL");
   const pollId = String(poll.id || "").trim();
   if (!/^[1-9]\d*$/.test(pollId)) throw new Error("poll.id must be a positive integer string");
-  const creator = normalizeAddress(poll.creator);
+  const hiddenAuthor = raw.hiddenAuthor === true || poll.hiddenAuthor === true;
+  let creator = null;
+  if (hiddenAuthor) {
+    if (poll.creator) {
+      throw new Error("A private author listing cannot include an address");
+    }
+  } else {
+    creator = normalizeAddress(poll.creator);
+  }
   const publicKey = raw.signingPublicKey;
   if (!publicKey || publicKey.x == null || publicKey.y == null) {
     throw new Error("Signing public key is required");
@@ -196,11 +205,11 @@ export async function verifyAccountPoll(raw) {
     slots[name] = await mapSlot(hashApi, base, idKey);
   }
 
-  const [creatorSlot, feeSlot, poolSlot, xSlot, ySlot] = await Promise.all(
-    [TAG_CREATOR, TAG_FEE, TAG_POOL, TAG_PUBX, TAG_PUBY].map((tag) =>
+  const [creatorSlot, feeSlot, poolSlot, xSlot, ySlot, commitmentSlot] = await Promise.all([
+    ...[TAG_CREATOR, TAG_FEE, TAG_POOL, TAG_PUBX, TAG_PUBY, TAG_AUTHOR].map((tag) =>
       mapSlot(hashApi, BigInt(slots.tally), tag),
     ),
-  );
+  ]);
   const [
     chainHash,
     chainCreator,
@@ -211,6 +220,7 @@ export async function verifyAccountPoll(raw) {
     chainEnds,
     chainStarts,
     chainEligibility,
+    chainCommitment,
   ] = await Promise.all([
     rpcField(nodeUrl, contract, slots.metadata_hash),
     rpcField(nodeUrl, contract, creatorSlot),
@@ -221,13 +231,20 @@ export async function verifyAccountPoll(raw) {
     rpcField(nodeUrl, contract, slots.ends_at),
     rpcField(nodeUrl, contract, slots.starts_at),
     rpcField(nodeUrl, contract, slots.eligibility_mode),
+    rpcFieldOrZero(nodeUrl, contract, commitmentSlot),
   ]);
 
   if (chainHash !== BigInt(contentHash)) {
     throw new Error("metadata_hash does not match the title, description, and options");
   }
-  if (chainCreator !== BigInt(creator)) {
-    throw new Error("Creator does not match the account that published the poll");
+  if (hiddenAuthor) {
+    if (chainCreator !== 0n) throw new Error("This poll stores a public author");
+    if (chainCommitment === 0n) throw new Error("This poll has no private author commitment");
+  } else {
+    if (chainCreator !== BigInt(creator)) {
+      throw new Error("Creator does not match the account that published the poll");
+    }
+    if (chainCommitment !== 0n) throw new Error("This poll hides its author");
   }
   if (chainX !== x || chainY !== y) {
     throw new Error("Signing key does not match the key stored with the poll");
@@ -292,7 +309,7 @@ export async function verifyAccountPoll(raw) {
     metadataHash: contentHash,
     publishedAt: new Date().toISOString(),
     publisher: "account",
-    creator,
+    ...(hiddenAuthor ? { hiddenAuthor: true } : { creator }),
     feeMode: FEE_NAMES[Number(chainFee)],
     feeFallback: FALLBACK_NAMES[Number(chainFallback)],
     hidden: false,

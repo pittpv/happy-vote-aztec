@@ -775,6 +775,7 @@ function hydrateMeta(meta) {
     homeRank: Number.isFinite(Number(meta.homeRank)) ? Number(meta.homeRank) : Number(meta.id) || 0,
     publisher: meta.publisher === "account" ? "account" : "operator",
     creator: meta.creator ? String(meta.creator) : null,
+    hiddenAuthor: Boolean(meta.hiddenAuthor),
     creatorAuthoritative: Boolean(meta.creatorAuthoritative),
     feeMode: meta.feeMode || null,
     feeFallback: meta.feeFallback || null,

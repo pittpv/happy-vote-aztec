@@ -1,5 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import { AztecAddress, accountFeeOptions, pollIdFromRaw, registerHappyVote, registerStandardContracts } from "../lib/aztecClient.js";
+import {
+  AztecAddress,
+  Fr,
+  accountFeeOptions,
+  asFieldBigInt,
+  authorFeeSponsorAddress,
+  hiddenAuthorFeeOptions,
+  pollIdFromRaw,
+  readHiddenAuthorSlots,
+  registerHappyVote,
+  registerHiddenAuthorBook,
+  registerStandardContracts,
+} from "../lib/aztecClient.js";
 import {
   catalogDraftContentHash,
   clearCatalogDraft,
@@ -8,9 +20,15 @@ import {
 } from "../lib/catalogDraft.js";
 import { normalizeAddress } from "../lib/catalogMeta.js";
 import { networkPlace } from "../lib/networkLabel.js";
-import { fetchCreatorPolls, publishAccountPoll } from "../lib/polls.js";
+import { fetchCreatorPolls, publishAccountPoll, refreshPollMetaById } from "../lib/polls.js";
 import { navigate, pollPath } from "../lib/routing.js";
 import { explainError } from "../lib/userMessages.js";
+
+function chainBool(value) {
+  if (typeof value === "boolean") return value;
+  if (value && typeof value === "object" && "result" in value) return chainBool(value.result);
+  return asFieldBigInt(value) !== 0n;
+}
 
 function sameChainValue(left, right) {
   return BigInt(left) === BigInt(right);
@@ -23,7 +41,7 @@ function rowStatus(row) {
   return "Open";
 }
 
-function mergeRows(catalogPolls, openPolls) {
+function mergeRows(catalogPolls, openPolls, hiddenPolls = []) {
   const byId = new Map();
   for (const poll of catalogPolls) {
     const id = String(poll.id);
@@ -53,7 +71,68 @@ function mergeRows(catalogPolls, openPolls) {
       signingPubX: open.signingPubX ?? null,
     });
   }
+  for (const hidden of hiddenPolls) {
+    if (!hidden?.id) throw new Error("Hidden author poll is missing an id");
+    const id = String(hidden.id);
+    const existing = byId.get(id);
+    byId.set(id, {
+      ...(existing || {
+        id,
+        title: hidden.title || `Poll #${id}`,
+        endsAt: hidden.endsAt || null,
+        listed: Boolean(hidden.listed),
+        voteEnded: Boolean(hidden.voteEnded),
+        cancelled: Boolean(hidden.cancelled),
+        metadataHash: null,
+        signingPubX: null,
+      }),
+      hiddenAuthor: true,
+      authorSecret: hidden.authorSecret,
+    });
+  }
   return [...byId.values()].sort((a, b) => Number(b.id) - Number(a.id));
+}
+
+async function loadHiddenPolls(wallet, address) {
+  let slots;
+  try {
+    slots = await readHiddenAuthorSlots(wallet, address);
+  } catch (error) {
+    const text = String(error?.message || error || "");
+    if (/unknown function|no function|selector|get_hidden_author_note/i.test(text)) return [];
+    throw error;
+  }
+  const contract = await registerHappyVote(wallet);
+  const from = AztecAddress.fromStringUnsafe(address);
+  const rows = [];
+  for (const slot of slots) {
+    let title = `Poll #${slot.id}`;
+    let listed = false;
+    let endsAt = null;
+    const meta = await refreshPollMetaById(slot.id);
+    if (meta) {
+      title = meta.title || title;
+      listed = true;
+      endsAt = meta.endsAt || null;
+    }
+    const pollId = pollIdFromRaw(slot.id);
+    const [voteEnded, cancelled, chainEnds] = await Promise.all([
+      contract.methods.get_vote_ended(pollId).simulate({ from }),
+      contract.methods.get_cancelled(pollId).simulate({ from }),
+      contract.methods.get_ends_at(pollId).simulate({ from }),
+    ]);
+    const endsSeconds = asFieldBigInt(chainEnds);
+    rows.push({
+      id: slot.id,
+      title,
+      listed,
+      endsAt: endsAt || (endsSeconds > 0n ? new Date(Number(endsSeconds) * 1000).toISOString() : null),
+      voteEnded: chainBool(voteEnded),
+      cancelled: chainBool(cancelled),
+      authorSecret: slot.secret,
+    });
+  }
+  return rows;
 }
 
 export function MyPollsPanel({ walletConnect, active }) {
@@ -74,11 +153,16 @@ export function MyPollsPanel({ walletConnect, active }) {
     setError("");
     try {
       const data = await fetchCreatorPolls(address);
-      const next = mergeRows(data.polls, data.openPolls);
+      const wallet = walletConnect.phase.wallet;
+      const hiddenPolls = wallet ? await loadHiddenPolls(wallet, address) : [];
+      const next = mergeRows(data.polls, data.openPolls, hiddenPolls);
       let pendingId = "";
       let missingId = "";
       const draft = readCatalogDraft();
-      if (draft && normalizeAddress(draft.creator) === normalizeAddress(address)) {
+      const draftForThisWallet =
+        draft &&
+        (draft.hiddenAuthor || normalizeAddress(draft.creator) === normalizeAddress(address));
+      if (draftForThisWallet) {
         const draftId = draft.pollId ? String(draft.pollId) : "";
         const draftRow = draftId ? next.find((row) => row.id === draftId) : null;
         if (draftRow?.listed) {
@@ -112,7 +196,7 @@ export function MyPollsPanel({ walletConnect, active }) {
     } finally {
       setLoading(false);
     }
-  }, [address]);
+  }, [address, walletConnect.phase.wallet]);
 
   useEffect(() => {
     if (!active || !address) return;
@@ -137,8 +221,23 @@ export function MyPollsPanel({ walletConnect, active }) {
       }
       const from = AztecAddress.fromStringUnsafe(address);
       const pollId = pollIdFromRaw(row.id);
-      const txOptions = await accountFeeOptions(wallet, networkPlace() === "mainnet");
-      const call = contract.methods.end_poll(pollId);
+      const mainnet = networkPlace() === "mainnet";
+      let call;
+      let txOptions;
+      if (row.hiddenAuthor) {
+        if (mainnet && !authorFeeSponsorAddress()) {
+          throw new Error(
+            "Ending a private-author poll on Mainnet is paid by the AuthorFeeSponsor contract. This site has no sponsor address.",
+          );
+        }
+        if (!row.authorSecret) throw new Error("This wallet has no secret for that private-author poll.");
+        const book = await registerHiddenAuthorBook(wallet);
+        txOptions = await hiddenAuthorFeeOptions(wallet);
+        call = book.methods.end_hidden_poll(pollId.id, new Fr(BigInt(row.authorSecret)), 0, 0, 0);
+      } else {
+        txOptions = await accountFeeOptions(wallet, mainnet);
+        call = contract.methods.end_poll(pollId);
+      }
       await call.simulate({ from });
       await call.send({ from, ...txOptions, wait: { timeout: 600 } });
       setConfirmId("");
@@ -160,7 +259,10 @@ export function MyPollsPanel({ walletConnect, active }) {
     setStatus("Publishing the listing…");
     try {
       const draft = readCatalogDraft();
-      if (!draft || normalizeAddress(draft.creator) !== normalizeAddress(address)) {
+      const draftMatches =
+        draft &&
+        (draft.hiddenAuthor || normalizeAddress(draft.creator) === normalizeAddress(address));
+      if (!draftMatches) {
         throw new Error("The catalog signing key for this poll is not in this tab.");
       }
       const body = await signCatalogDraft(draft, row.id);
@@ -187,8 +289,8 @@ export function MyPollsPanel({ walletConnect, active }) {
     <div className="admin-form">
       <h2>Your polls</h2>
       <p className="meta">
-        Polls whose public author is this address. End closes voting from this wallet. A private
-        ballot still hides the voter.
+        Public-author polls for this address, plus private-author polls whose secret is in this
+        wallet. End closes voting from this wallet. A private ballot still hides the voter.
       </p>
       {loading ? <p className="status">Loading your polls…</p> : null}
       {!loading && rows.length === 0 && !error ? (

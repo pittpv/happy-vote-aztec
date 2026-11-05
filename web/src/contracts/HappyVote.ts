@@ -95,7 +95,7 @@ export class HappyVoteContract extends ContractBase {
   }
   
 
-  public static get storage(): ContractStorageLayout<'admin' | 'options_count' | 'privacy_policy' | 'eligibility_mode' | 'metadata_hash' | 'tally' | 'total_votes' | 'vote_ended' | 'active_at_block' | 'vote_claims' | 'open_ballots' | 'identity_claims' | 'sealed' | 'starts_at' | 'ends_at' | 'cancelled' | 'next_poll_id' | 'paused'> {
+  public static get storage(): ContractStorageLayout<'admin' | 'options_count' | 'privacy_policy' | 'eligibility_mode' | 'metadata_hash' | 'tally' | 'total_votes' | 'vote_ended' | 'active_at_block' | 'vote_claims' | 'open_ballots' | 'identity_claims' | 'sealed' | 'starts_at' | 'ends_at' | 'cancelled' | 'next_poll_id' | 'paused' | 'hidden_author_book'> {
       return {
         admin: {
       slot: new Fr(1n),
@@ -150,8 +150,11 @@ next_poll_id: {
     },
 paused: {
       slot: new Fr(18n),
+    },
+hidden_author_book: {
+      slot: new Fr(19n),
     }
-      } as ContractStorageLayout<'admin' | 'options_count' | 'privacy_policy' | 'eligibility_mode' | 'metadata_hash' | 'tally' | 'total_votes' | 'vote_ended' | 'active_at_block' | 'vote_claims' | 'open_ballots' | 'identity_claims' | 'sealed' | 'starts_at' | 'ends_at' | 'cancelled' | 'next_poll_id' | 'paused'>;
+      } as ContractStorageLayout<'admin' | 'options_count' | 'privacy_policy' | 'eligibility_mode' | 'metadata_hash' | 'tally' | 'total_votes' | 'vote_ended' | 'active_at_block' | 'vote_claims' | 'open_ballots' | 'identity_claims' | 'sealed' | 'starts_at' | 'ends_at' | 'cancelled' | 'next_poll_id' | 'paused' | 'hidden_author_book'>;
     }
     
 
@@ -181,6 +184,9 @@ paused: {
 
     /** end_poll(poll_id: struct) */
     end_poll: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** finish_hidden_poll(poll_id: struct, commitment: field, action: integer, count: integer, juice: integer) */
+    finish_hidden_poll: ((poll_id: { id: FieldLike }, commitment: FieldLike, action: (bigint | number), count: (bigint | number), juice: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** fund_pool(poll_id: struct, count: integer, juice: integer) */
     fund_pool: ((poll_id: { id: FieldLike }, count: (bigint | number), juice: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -257,6 +263,9 @@ paused: {
     /** has_identity_voted(poll_id: struct, identity_commitment: field) */
     has_identity_voted: ((poll_id: { id: FieldLike }, identity_commitment: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** init_hidden_user_poll(options_count: integer, privacy_policy: integer, eligibility_mode: integer, metadata_hash: field, sealed: boolean, starts_at: integer, ends_at: integer, vote_frequency: integer, fee_mode: integer, fee_fallback: integer, signing_pubkey_x: field, signing_pubkey_y: field, expected_id: field, claimed_day: field, commitment: field) */
+    init_hidden_user_poll: ((options_count: (bigint | number), privacy_policy: (bigint | number), eligibility_mode: (bigint | number), metadata_hash: FieldLike, sealed: boolean, starts_at: (bigint | number), ends_at: (bigint | number), vote_frequency: (bigint | number), fee_mode: (bigint | number), fee_fallback: (bigint | number), signing_pubkey_x: FieldLike, signing_pubkey_y: FieldLike, expected_id: FieldLike, claimed_day: FieldLike, commitment: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** is_authoritative(account: struct) */
     is_authoritative: ((account: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
@@ -277,6 +286,9 @@ paused: {
 
     /** set_authoritative(account: struct, enabled: boolean) */
     set_authoritative: ((account: AztecAddressLike, enabled: boolean) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** set_hidden_author_book(book: struct) */
+    set_hidden_author_book: ((book: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** set_paused(paused: boolean) */
     set_paused: ((paused: boolean) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;

@@ -1,6 +1,7 @@
 import { waitForTx } from "@aztec-labs/aztec.js/node";
 import { createHappyVoteNode } from "./nodeClient.js";
-import { NO_WAIT } from "@aztec-labs/aztec.js/contracts";
+import { loadContractArtifact } from "@aztec-labs/aztec.js/abi";
+import { Contract, NO_WAIT } from "@aztec-labs/aztec.js/contracts";
 import { EmbeddedWallet } from "@aztec-labs/wallets/embedded";
 import { Fr } from "@aztec-labs/aztec.js/fields";
 import { AztecAddress } from "@aztec-labs/aztec.js/addresses";
@@ -368,6 +369,119 @@ export async function accountFeeOptions(wallet, mainnet) {
 }
 
 /**
+ * Create and end for a hidden author. The Sponsored FPC is the fee payer.
+ * The author's account must not pay this transaction, or its address is published.
+ */
+/** Deployed HiddenAuthorBook. Empty until that contract is deployed and configured. */
+export function hiddenAuthorBookAddress() {
+  const raw = String(import.meta.env.VITE_HIDDEN_AUTHOR_BOOK_ADDRESS || "").trim();
+  if (!raw) return null;
+  return AztecAddress.fromStringUnsafe(raw);
+}
+
+/** Private author is available once this site has a HiddenAuthorBook address. */
+export function hiddenAuthorOnArtifact() {
+  return hiddenAuthorBookAddress() != null;
+}
+
+/** Deployed AuthorFeeSponsor. Empty until that contract is deployed and configured. */
+export function authorFeeSponsorAddress() {
+  const raw = String(import.meta.env.VITE_AUTHOR_FEE_SPONSOR_ADDRESS || "").trim();
+  if (!raw) return null;
+  return AztecAddress.fromStringUnsafe(raw);
+}
+
+/**
+ * Testnet can use the canonical Sponsored FPC. Mainnet needs AuthorFeeSponsor so the
+ * author's wallet is not the published fee payer.
+ */
+export function privateAuthorFeeReady(mainnet) {
+  if (authorFeeSponsorAddress()) return true;
+  return !mainnet;
+}
+
+async function authorFeeSponsorPayment(wallet) {
+  const address = authorFeeSponsorAddress();
+  if (!address) throw new Error("VITE_AUTHOR_FEE_SPONSOR_ADDRESS is not set");
+  const node = createHappyVoteNode(getNodeUrl());
+  const instance = await node.getContract(address);
+  if (!instance) {
+    throw new Error(`Contract not found on node: ${address}`);
+  }
+  const { default: sponsorJson } = await import(
+    "../contracts/author_fee_sponsor-AuthorFeeSponsor.json",
+    { with: { type: "json" } },
+  );
+  await wallet.registerContract(instance, loadContractArtifact(sponsorJson));
+  return new SponsoredFeePaymentMethod(address);
+}
+
+export async function hiddenAuthorFeeOptions(wallet) {
+  if (!wallet) throw new Error("Wallet is required");
+  if (authorFeeSponsorAddress()) {
+    return sponsoredTxOptions(await authorFeeSponsorPayment(wallet));
+  }
+  return sponsoredTxOptions(await getSponsoredPaymentMethod(wallet));
+}
+
+/** UTC day index from the latest L2 block, matching the contract's create-day check. */
+export async function readChainDay() {
+  const node = createHappyVoteNode(getNodeUrl());
+  const blockNumber = await node.getBlockNumber();
+  const block = await node.getBlock(blockNumber);
+  const timestamp = block?.header?.globalVariables?.timestamp;
+  if (timestamp == null) {
+    throw new Error(`Block ${blockNumber} is missing a timestamp`);
+  }
+  return asFieldBigInt(timestamp) / 86400n;
+}
+
+function noteResult(note) {
+  const source = note && typeof note === "object" && note.result && typeof note.result === "object" ? note.result : note;
+  if (Array.isArray(source) && source.length >= 6) {
+    return {
+      poll0: source[0],
+      poll1: source[1],
+      poll2: source[2],
+      secret0: source[3],
+      secret1: source[4],
+      secret2: source[5],
+    };
+  }
+  return source;
+}
+
+/**
+ * Open hidden-author polls stored in this account's private note.
+ * Returns an empty list when this artifact has no hidden-author entry.
+ * @returns {Promise<Array<{ id: string, secret: string }>>}
+ */
+export async function readHiddenAuthorSlots(wallet, address) {
+  if (!wallet) throw new Error("Wallet is required");
+  if (!address) throw new Error("Account address is required");
+  if (!hiddenAuthorBookAddress()) return [];
+  await registerStandardContracts(wallet);
+  const contract = await registerHiddenAuthorBook(wallet);
+  const from = AztecAddress.fromStringUnsafe(address);
+  const note = noteResult(await contract.methods.get_hidden_author_note(from).simulate({ from }));
+  const slots = [
+    ["poll0", "secret0"],
+    ["poll1", "secret1"],
+    ["poll2", "secret2"],
+  ];
+  const rows = [];
+  for (const [pollKey, secretKey] of slots) {
+    if (note?.[pollKey] == null || note?.[secretKey] == null) {
+      throw new Error("Hidden author note is missing a poll slot");
+    }
+    const id = asFieldBigInt(note[pollKey]);
+    if (id === 0n) continue;
+    rows.push({ id: id.toString(), secret: asFieldBigInt(note[secretKey]).toString() });
+  }
+  return rows;
+}
+
+/**
  * One registration per wallet address for the life of the page.
  * Opening another poll must not upload artifacts or re-simulate views.
  */
@@ -425,6 +539,29 @@ export function prepareVoteSession(wallet, from) {
  * A reconstructed dummy instance (wrong salt / constructor args) makes PXE
  * simulate against an unpublished address → "Contract … is not deployed".
  */
+/**
+ * Register HiddenAuthorBook from the node's published instance.
+ * The private note and the daily create limit live here, not on HappyVote.
+ */
+export async function registerHiddenAuthorBook(wallet) {
+  const address = hiddenAuthorBookAddress();
+  if (!address) {
+    throw new Error("VITE_HIDDEN_AUTHOR_BOOK_ADDRESS is not set");
+  }
+  const node = createHappyVoteNode(getNodeUrl());
+  const instance = await node.getContract(address);
+  if (!instance) {
+    throw new Error(`Contract not found on node: ${address}`);
+  }
+  const { default: hiddenAuthorBookJson } = await import(
+    "../contracts/hidden_author_book-HiddenAuthorBook.json",
+    { with: { type: "json" } },
+  );
+  const artifact = loadContractArtifact(hiddenAuthorBookJson);
+  await wallet.registerContract(instance, artifact);
+  return Contract.at(address, artifact, wallet);
+}
+
 export async function registerHappyVote(wallet) {
   const address = getContractAddress();
   if (!address) {

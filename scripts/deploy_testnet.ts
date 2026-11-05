@@ -14,9 +14,11 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadDotenv } from "dotenv";
-import { HappyVoteContract } from "../src/artifacts/HappyVote.js";
+import { HappyVoteContract } from "../src/artifacts/HappyVote.ts";
 import { Fr } from "@aztec-labs/aztec.js/fields";
 import { AztecAddress } from "@aztec-labs/aztec.js/addresses";
+import { loadContractArtifact } from "@aztec-labs/aztec.js/abi";
+import { Contract } from "@aztec-labs/aztec.js/contracts";
 import { createHappyVoteNode } from "../src/utils/aztec_node.js";
 import { TxHash, TxStatus } from "@aztec-labs/stdlib/tx";
 import { deriveStorageSlotInMap } from "@aztec-labs/stdlib/hash";
@@ -273,17 +275,45 @@ async function main() {
     .send({ from: admin.address, fee, wait: txWait });
   await waitUntilPollExists(contract.address.toString(), 4, 3n, logger);
 
+  if (typeof contract.methods.set_hidden_author_book !== "function") {
+    throw new Error("HappyVote artifact has no set_hidden_author_book. Codegen the contract that was tested.");
+  }
+  const bookArtifactPath = resolve(root, "../hidden_author_book/target/hidden_author_book-HiddenAuthorBook.json");
+  if (!existsSync(bookArtifactPath)) {
+    throw new Error(`HiddenAuthorBook artifact missing: ${bookArtifactPath}`);
+  }
+  const bookArtifact = loadContractArtifact(JSON.parse(readFileSync(bookArtifactPath, "utf8")));
+  logger.info("Deploying HiddenAuthorBook…");
+  const bookDeploy = Contract.deploy(wallet, bookArtifact, [contract.address]);
+  await bookDeploy.simulate({ from: admin.address });
+  const bookSent = await bookDeploy.send({ from: admin.address, fee, wait: deployWait });
+  const bookContract = bookSent.contract;
+  const bookTx = txHashToString(bookSent.receipt?.txHash) ?? txHashToString(bookSent.receipt);
+  logger.info(
+    `HiddenAuthorBook send returned ${bookContract.address} tx=${bookTx ?? "unknown"} — confirming on public RPC`,
+  );
+  await waitUntilPublished(bookContract.address.toString(), bookTx, logger);
+  logger.info("Pointing HappyVote at HiddenAuthorBook…");
+  await contract.methods.set_hidden_author_book(bookContract.address).send({
+    from: admin.address,
+    fee,
+    wait: txWait,
+  });
+
   const addressStr = contract.address.toString();
+  const bookAddressStr = bookContract.address.toString();
   upsertEnvFile(resolve(root, ".env"), {
     AZTEC_ENV: "testnet",
     NODE_URL: PUBLIC_RPC,
     SPONSORED_FPC_ADDRESS: sponsoredFPC.address.toString(),
     HAPPY_VOTE_CONTRACT_ADDRESS: addressStr,
+    HIDDEN_AUTHOR_BOOK_ADDRESS: bookAddressStr,
     POLL_ID: "1",
   });
   upsertEnvFile(resolve(root, "web/.env.local"), {
     VITE_AZTEC_NODE_URL: PUBLIC_RPC,
     VITE_HAPPY_VOTE_CONTRACT_ADDRESS: addressStr,
+    VITE_HIDDEN_AUTHOR_BOOK_ADDRESS: bookAddressStr,
     VITE_SPONSORED_FPC_ADDRESS: sponsoredFPC.address.toString(),
     VITE_DEFAULT_POLL_ID: "1",
   });
@@ -299,6 +329,7 @@ Deployed: ${new Date().toISOString()}
 | Item | Value |
 |------|-------|
 | HappyVote | [\`${addressStr}\`](https://testnet.aztecscan.xyz/address/${addressStr}) |
+| HiddenAuthorBook | [\`${bookAddressStr}\`](https://testnet.aztecscan.xyz/address/${bookAddressStr}) |
 | Sponsored FPC | \`${sponsoredFPC.address}\` |
 | Poll id | \`1\` Happy/Sad (daily) · \`2\` single-choice (3 opts) · \`3\` ZKPassport personhood · \`4\` sealed tallies |
 | Eligibility modes | \`0\` open · \`1\` ZKPassport personhood · \`2\` gated |
@@ -310,6 +341,7 @@ Testnet 6.0.0 is a new genesis. Transactions and the HappyVote address from Test
 \`\`\`
 VITE_AZTEC_NODE_URL=https://aztec-testnet.drpc.org
 VITE_HAPPY_VOTE_CONTRACT_ADDRESS=${addressStr}
+VITE_HIDDEN_AUTHOR_BOOK_ADDRESS=${bookAddressStr}
 VITE_DEFAULT_POLL_ID=1
 VITE_SPONSORED_FPC_ADDRESS=${sponsoredFPC.address}
 VITE_PROVER_ENABLED=true

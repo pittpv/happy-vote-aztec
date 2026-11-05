@@ -880,3 +880,48 @@ unconstrained fn test_fail_authoritative_non_admin() {
     let bob = env.create_light_account();
     env.call_public(alice, HappyVote::at(contract_address).set_authoritative(bob, true));
 }
+
+
+#[test(should_fail_with = "Only admin")]
+unconstrained fn test_fail_set_hidden_author_book_non_admin() {
+    let (mut env, contract_address, _) = utils::setup();
+    let alice = env.create_light_account();
+    let bob = env.create_light_account();
+    env.call_public(alice, HappyVote::at(contract_address).set_hidden_author_book(bob));
+}
+
+#[test(should_fail_with = "Book required")]
+unconstrained fn test_fail_set_hidden_author_book_zero() {
+    let (mut env, contract_address, admin) = utils::setup();
+    env.call_public(admin, HappyVote::at(contract_address).set_hidden_author_book(AztecAddress::zero()));
+}
+
+#[test(should_fail_with = "Only hidden author book")]
+unconstrained fn test_fail_hidden_init_from_account() {
+    let (mut env, contract_address, admin) = utils::setup();
+    let book = env.create_light_account();
+    let alice = env.create_light_account();
+    env.call_public(admin, HappyVote::at(contract_address).set_hidden_author_book(book));
+    let day = (env.last_block_timestamp() / 86400) as Field;
+    let start = env.last_block_timestamp();
+    env.call_public(
+        alice,
+        HappyVote::at(contract_address).init_hidden_user_poll(
+            2,
+            2,
+            0,
+            7,
+            false,
+            0,
+            start + 86400,
+            0,
+            0,
+            0,
+            3,
+            4,
+            1,
+            day,
+            9,
+        ),
+    );
+}

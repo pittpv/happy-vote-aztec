@@ -5,8 +5,13 @@ import {
   PRIVACY,
   accountFeeOptions,
   asFieldBigInt,
+  hiddenAuthorFeeOptions,
+  hiddenAuthorOnArtifact,
+  privateAuthorFeeReady,
   pollIdFromRaw,
+  readChainDay,
   registerHappyVote,
+  registerHiddenAuthorBook,
   registerStandardContracts,
 } from "../lib/aztecClient.js";
 import {
@@ -78,6 +83,7 @@ function parseCreateTab(hash = typeof window === "undefined" ? "" : window.locat
 export function CreatePollPage({ walletConnect }) {
   const place = networkPlace();
   const mainnet = place === "mainnet";
+  const privateAuthorReady = hiddenAuthorOnArtifact() && privateAuthorFeeReady(mainnet);
   const connected = walletConnect.phase.kind === "connected";
   const address = connected ? String(walletConnect.phase.address) : "";
   const sessionAccount = Boolean(connected && walletConnect.phase.signingKey);
@@ -110,6 +116,7 @@ export function CreatePollPage({ walletConnect }) {
   const [sealed, setSealed] = useState(false);
   const [voteFrequency, setVoteFrequency] = useState(VOTE_FREQUENCY.ONCE);
   const [feeMode, setFeeMode] = useState(mainnet ? FEE_MODE.VOTER : FEE_MODE.SPONSORED);
+  const [hideAuthor, setHideAuthor] = useState(false);
   const [feeFallback, setFeeFallback] = useState(FEE_FALLBACK.STOP);
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
@@ -165,15 +172,21 @@ export function CreatePollPage({ walletConnect }) {
       setError("Mainnet does not offer the Sponsored FPC for a new poll.");
       return;
     }
+    if (hideAuthor && !privateAuthorFeeReady(mainnet)) {
+      setError(
+        "A private author on Mainnet is paid by the AuthorFeeSponsor contract. This site has no sponsor address, and paying from this wallet would publish it.",
+      );
+      return;
+    }
     if (!connected || !walletConnect.phase.wallet || !address) {
       setError("Connect an Aztec wallet before publishing.");
       return;
     }
     const pending = readCatalogDraft();
-    if (
+    const pendingHere =
       pending?.pollId &&
-      normalizeAddress(pending.creator) === normalizeAddress(address)
-    ) {
+      (pending.hiddenAuthor || normalizeAddress(pending.creator) === normalizeAddress(address));
+    if (pendingHere) {
       setError(
         `Poll #${pending.pollId} is on-chain in this tab and still needs its listing. Open Your polls to publish it.`,
       );
@@ -191,6 +204,9 @@ export function CreatePollPage({ walletConnect }) {
         throw new Error(
           "This HappyVote artifact has no create_user_poll entry. Compile with aztec compile, run codegen, and deploy that contract before a new listing can be published.",
         );
+      }
+      if (hideAuthor && !hiddenAuthorOnArtifact()) {
+        throw new Error("Private author is not deployed for this site.");
       }
       const contentHash = await fieldFromUtf8(
         canonicalContent({
@@ -210,7 +226,7 @@ export function CreatePollPage({ walletConnect }) {
       const before = asFieldBigInt(
         await contract.methods.get_next_poll_id().simulate({ from }),
       );
-      const txOptions = await accountFeeOptions(wallet, mainnet);
+      const txOptions = hideAuthor ? null : await accountFeeOptions(wallet, mainnet);
       const pollBody = {
         id: "",
         title: text.title,
@@ -221,7 +237,6 @@ export function CreatePollPage({ walletConnect }) {
           return note ? { label, description: note } : { label };
         }),
         topics: text.topics,
-        creator,
         privacyPolicy: privacy,
         eligibilityMode,
         zkRequirements: zk,
@@ -230,15 +245,18 @@ export function CreatePollPage({ walletConnect }) {
         startsAt: startIso,
         endsAt: endIso,
       };
+      if (hideAuthor) pollBody.hiddenAuthor = true;
+      else pollBody.creator = creator;
       writeCatalogDraft({
-        creator,
+        hiddenAuthor: hideAuthor,
+        ...(hideAuthor ? {} : { creator }),
         signingKey: catalogKey.signingKey,
         publicKey: catalogKey.publicKey,
         poll: pollBody,
         pollId: null,
       });
       setStatus("Proving the poll…");
-      const createCall = contract.methods.create_user_poll(
+      const createArgs = [
         text.labels.length,
         privacy,
         eligibilityMode,
@@ -251,25 +269,60 @@ export function CreatePollPage({ walletConnect }) {
         FALLBACK_CODE[feeFallback],
         new Fr(BigInt(catalogKey.publicKey.x)),
         new Fr(BigInt(catalogKey.publicKey.y)),
-      );
-      await createCall.simulate({ from });
-      await createCall.send({ from, ...txOptions, wait: { timeout: 600 } });
-      const after = asFieldBigInt(await contract.methods.get_next_poll_id().simulate({ from }));
-      const owned = [];
-      for (let id = before; id < after; id += 1n) {
-        const onChain = await contract.methods.get_creator(pollIdFromRaw(id.toString())).simulate({ from });
-        const shown = String(onChain?.address ?? onChain);
-        const match = shown.match(/0x[0-9a-fA-F]{1,64}/);
-        if (match && normalizeAddress(match[0]) === normalizeAddress(creator)) owned.push(id);
-      }
-      if (owned.length !== 1) {
-        throw new Error(
-          "The new poll could not be tied to this account. The listing was not published.",
+      ];
+      let createCall;
+      let hiddenFee = null;
+      if (hideAuthor) {
+        const book = await registerHiddenAuthorBook(wallet);
+        const secret = Fr.random();
+        const day = await readChainDay();
+        hiddenFee = await hiddenAuthorFeeOptions(wallet);
+        createCall = book.methods.create_user_poll_private(
+          ...createArgs,
+          new Fr(before),
+          new Fr(day),
+          secret,
         );
+      } else {
+        createCall = contract.methods.create_user_poll(...createArgs);
       }
-      const pollId = owned[0].toString();
+      await createCall.simulate({ from });
+      await createCall.send({
+        from,
+        ...(hideAuthor ? hiddenFee : txOptions),
+        wait: { timeout: 600 },
+      });
+      let pollId;
+      if (hideAuthor) {
+        if (typeof contract.methods.get_tally !== "function") {
+          throw new Error("This artifact has no get_tally view. The listing was not published.");
+        }
+        const commitment = asFieldBigInt(
+          await contract.methods.get_tally(pollIdFromRaw(before.toString()), new Fr(205)).simulate({ from }),
+        );
+        if (commitment === 0n) {
+          throw new Error("The new poll has no private author commitment. The listing was not published.");
+        }
+        pollId = before.toString();
+      } else {
+        const after = asFieldBigInt(await contract.methods.get_next_poll_id().simulate({ from }));
+        const owned = [];
+        for (let id = before; id < after; id += 1n) {
+          const onChain = await contract.methods.get_creator(pollIdFromRaw(id.toString())).simulate({ from });
+          const shown = String(onChain?.address ?? onChain);
+          const match = shown.match(/0x[0-9a-fA-F]{1,64}/);
+          if (match && normalizeAddress(match[0]) === normalizeAddress(creator)) owned.push(id);
+        }
+        if (owned.length !== 1) {
+          throw new Error(
+            "The new poll could not be tied to this account. The listing was not published.",
+          );
+        }
+        pollId = owned[0].toString();
+      }
       writeCatalogDraft({
-        creator,
+        hiddenAuthor: hideAuthor,
+        ...(hideAuthor ? {} : { creator }),
         signingKey: catalogKey.signingKey,
         publicKey: catalogKey.publicKey,
         poll: pollBody,
@@ -324,15 +377,19 @@ export function CreatePollPage({ walletConnect }) {
           <h1 className="catalog-hero-title">Publish a poll</h1>
           <p className="lede">
             {connected
-              ? "A private ballot hides the voter’s address. The tally is public unless you seal it until the poll ends. The connected address is the public author."
+              ? hideAuthor
+                ? "A private author is not stored on the poll. Sponsored FPC pays the create transaction. A private ballot still hides the voter, and the tally is public unless you seal it."
+                : "A private ballot hides the voter’s address. The tally is public unless you seal it until the poll ends. The connected address is the public author."
               : "Connect an Aztec wallet, then write the question or open the polls that address already created."}
           </p>
           {connected ? (
             <p className="meta">
-              Public author <code>{address}</code>
-              {sessionAccount
-                ? ". A browser session starts a new address each Connect. An installed wallet keeps the same address after you reconnect."
-                : ". Reconnect this wallet to see these polls and end one early."}
+              {hideAuthor ? "Connected wallet" : "Public author"} <code>{address}</code>
+              {hideAuthor
+                ? ". This address is not written on a private-author poll. End that poll from this wallet: the secret stays in its private note."
+                : sessionAccount
+                  ? ". A browser session starts a new address each Connect. An installed wallet keeps the same address after you reconnect."
+                  : ". Reconnect this wallet to see these polls and end one early."}
             </p>
           ) : (
             <div className="create-gate">
@@ -374,7 +431,7 @@ export function CreatePollPage({ walletConnect }) {
             onClick={() => selectTab("yours")}
           >
             <span className="admin-tab-label">Your polls</span>
-            <span className="admin-tab-desc">End a poll from this address</span>
+            <span className="admin-tab-desc">End a poll from this wallet</span>
           </button>
         </div>
 
@@ -582,6 +639,41 @@ export function CreatePollPage({ walletConnect }) {
             <ZkRequirementsFields disabled={busy} onChange={onZkDraft} />
 
             <fieldset className="zk-req">
+              <legend>Author</legend>
+              <label>
+                <input
+                  type="radio"
+                  name="author-visibility"
+                  checked={!hideAuthor}
+                  disabled={busy}
+                  onChange={() => setHideAuthor(false)}
+                />{" "}
+                Public address
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="author-visibility"
+                  checked={hideAuthor}
+                  disabled={busy || !privateAuthorReady}
+                  onChange={() => {
+                    if (privateAuthorReady) setHideAuthor(true);
+                  }}
+                />{" "}
+                Private
+              </label>
+              <p className="meta">
+                {!hiddenAuthorOnArtifact()
+                  ? "Private author is not deployed for this site. Public address stores the connected account."
+                  : !privateAuthorFeeReady(mainnet)
+                    ? "Private author on Mainnet is paid by the AuthorFeeSponsor contract. This site has no sponsor address, and paying from this wallet would publish it."
+                    : hideAuthor
+                      ? "The poll stores a secret commitment instead of this address. The sponsor contract pays the create and the early end, so this wallet is not the published fee payer. The private limits are one create per UTC day and three open polls, separate from public-author polls."
+                      : "The connected address is stored on the poll and can end it."}
+              </p>
+            </fieldset>
+
+            <fieldset className="zk-req">
               <legend>Ballot fee</legend>
               <label>
                 Network fee for ballots
@@ -603,9 +695,11 @@ export function CreatePollPage({ walletConnect }) {
                 </select>
               </label>
               <p className="meta">
-                {mainnet
-                  ? "On Mainnet the default is the voter’s Fee Juice. Creating the poll also pays Fee Juice."
-                  : "On Testnet the first poll you create in a UTC day can use the Sponsored FPC. A second create that day is rejected. The ballot fee mode above is separate and stays fixed."}{" "}
+                {hideAuthor
+                  ? "The ballot fee above is what voters pay. Creating this poll is a separate transaction paid by the Sponsored FPC."
+                  : mainnet
+                    ? "On Mainnet the default is the voter’s Fee Juice. Creating the poll also pays Fee Juice."
+                    : "On Testnet the first poll you create in a UTC day can use the Sponsored FPC. A second create that day is rejected. The ballot fee mode above is separate and stays fixed."}{" "}
                 Homepage placement is chosen by HappyVote, not by this form.
               </p>
             </fieldset>

@@ -24,6 +24,8 @@
 
 mod test;
 
+use aztec::protocol::hash::poseidon2_hash;
+
 // Free helpers stay outside the contract. Extra #[internal] methods push
 // ContractSelfPrivate over the Noir type-complexity cap.
 fn sponsored_bit() -> u64 {
@@ -44,6 +46,11 @@ fn with_sponsored(counter: u64, allowed: bool) -> u64 {
     } else {
         counter
     }
+}
+
+/// Domain separator for a hidden author's capability. Distinct from the public daily claim (7) and the authoritative mark (8).
+pub fn author_commitment_of(secret: Field, poll_id: Field) -> Field {
+    poseidon2_hash([secret, poll_id, 9])
 }
 
 fn pack_pool(remaining: u64, juice: u64, refunded: u64) -> Field {
@@ -133,6 +140,9 @@ pub contract HappyVote {
     global TAG_SLOT1: Field = 211;
     global TAG_SLOT2: Field = 212;
     global TAG_PAYER: Field = 220;
+    /// 0 for a public author. Poseidon commitment when the author is hidden.
+    /// Stored in the existing tally map so the Storage type stays under the Noir complexity cap.
+    global TAG_AUTHOR: Field = 205;
 
     #[derive(Serialize, Deserialize)]
     pub struct PollId {
@@ -142,6 +152,10 @@ pub contract HappyVote {
     impl PollId {
         pub fn new(id: Field) -> Self {
             Self { id }
+        }
+
+        pub fn value(self) -> Field {
+            self.id
         }
     }
 
@@ -178,6 +192,8 @@ pub contract HappyVote {
         cancelled: Map<PollId, PublicMutable<bool, Context>, Context>,
         next_poll_id: PublicMutable<u64, Context>,
         paused: PublicMutable<bool, Context>,
+        /// The only contract allowed to create or finish a hidden-author poll. Set once by admin.
+        hidden_author_book: PublicImmutable<AztecAddress, Context>,
     }
 
     #[external("public")]
@@ -348,6 +364,7 @@ pub contract HappyVote {
         self.storage.tally.at(resolved).at(TAG_FEE).write((admin_fee + FALLBACK_STOP * 16) as Field);
         self.storage.tally.at(resolved).at(TAG_PUBX).write(0);
         self.storage.tally.at(resolved).at(TAG_PUBY).write(0);
+        self.storage.tally.at(resolved).at(TAG_AUTHOR).write(0);
 
         if resolved_u64 >= next {
             self.storage.next_poll_id.write(crate::with_sponsored(resolved_u64 + 1, crate::sponsored_on(stored_next)));
@@ -837,8 +854,131 @@ pub contract HappyVote {
         self.storage.tally.at(resolved).at(TAG_FEE).write((fee_mode + fee_fallback * 16) as Field);
         self.storage.tally.at(resolved).at(TAG_PUBX).write(signing_pubkey_x);
         self.storage.tally.at(resolved).at(TAG_PUBY).write(signing_pubkey_y);
+        self.storage.tally.at(resolved).at(TAG_AUTHOR).write(0);
         self.storage.next_poll_id.write(crate::with_sponsored(resolved_u64 + 1, crate::sponsored_on(stored_next)));
         resolved_u64 as Field
+    }
+
+    /// Admin sets the hidden-author book once. That contract holds the private note.
+    /// HappyVote cannot hold it: another private note pushes this contract over the Noir type-complexity cap.
+    #[external("public")]
+    fn set_hidden_author_book(book: AztecAddress) {
+        self.internal.assert_admin();
+        assert(book.eq(AztecAddress::zero()) == false, "Book required");
+        self.storage.hidden_author_book.initialize(book);
+    }
+
+    /// Called by the hidden-author book. The author's account is not an argument.
+    /// `expected_id` must be the current next poll id. `claimed_day` must be the block's UTC day.
+    #[external("public")]
+    fn init_hidden_user_poll(
+        options_count: u32,
+        privacy_policy: u8,
+        eligibility_mode: u8,
+        metadata_hash: Field,
+        sealed: bool,
+        starts_at: u64,
+        ends_at: u64,
+        vote_frequency: u8,
+        fee_mode: u8,
+        fee_fallback: u8,
+        signing_pubkey_x: Field,
+        signing_pubkey_y: Field,
+        expected_id: Field,
+        claimed_day: Field,
+        commitment: Field,
+    ) -> Field {
+        assert(self.msg_sender().eq(self.storage.hidden_author_book.read()), "Only hidden author book");
+        self.internal.assert_not_paused();
+        assert(options_count >= 2, "Need at least 2 options");
+        assert(options_count <= MAX_OPTIONS, "Too many options");
+        assert(privacy_policy <= PRIVACY_VOTER_CHOICE, "Invalid privacy policy");
+        assert(eligibility_mode <= ELIGIBILITY_GATED, "Unsupported eligibility mode");
+        assert(vote_frequency <= VOTE_DAILY, "Unsupported vote frequency");
+        assert(metadata_hash != 0, "Metadata hash required");
+        assert(fee_mode <= FEE_POOL, "Invalid fee mode");
+        assert(fee_fallback <= FALLBACK_VOTER, "Invalid fee fallback");
+        assert(
+            (signing_pubkey_x != 0) | (signing_pubkey_y != 0),
+            "Signing key required",
+        );
+        assert(commitment != 0, "Author commitment required");
+        if fee_mode == FEE_SPONSORED {
+            assert(crate::sponsored_on(self.storage.next_poll_id.read()), "Sponsored fees are not available");
+        }
+        assert(ends_at != (0 as u64), "End is required");
+        assert(ends_at > self.context.timestamp(), "End must be in the future");
+        let start_base = if starts_at == (0 as u64) {
+            self.context.timestamp()
+        } else {
+            starts_at
+        };
+        assert(ends_at > start_base, "End must be after start");
+        assert(ends_at - start_base <= MAX_WINDOW_SECONDS, "Window exceeds 90 days");
+        let day = self.context.timestamp() / SECONDS_PER_DAY;
+        assert(claimed_day == (day as Field), "Wrong create day");
+
+        let stored_next = self.storage.next_poll_id.read();
+        let resolved_u64 = crate::id_counter(stored_next);
+        assert(expected_id == (resolved_u64 as Field), "Poll id changed");
+        let resolved = PollId::new(resolved_u64 as Field);
+        assert(
+            self.storage.options_count.at(resolved).is_initialized() == false,
+            "Poll already exists",
+        );
+
+        self.storage.options_count.at(resolved).initialize(options_count);
+        self.storage.privacy_policy.at(resolved).initialize(privacy_policy);
+        self.storage.eligibility_mode.at(resolved).initialize(eligibility_mode);
+        self.storage.metadata_hash.at(resolved).initialize(metadata_hash);
+        self.storage.starts_at.at(resolved).initialize(starts_at);
+        self.storage.ends_at.at(resolved).initialize(ends_at);
+        let mut flags: u8 = 0;
+        if sealed {
+            flags = flags + FLAG_SEALED;
+        }
+        if vote_frequency == VOTE_DAILY {
+            flags = flags + FLAG_DAILY;
+        }
+        self.storage.sealed.at(resolved).initialize(flags);
+        self.storage.vote_ended.at(resolved).write(false);
+        self.storage.cancelled.at(resolved).write(false);
+        self.storage.total_votes.at(resolved).write(0);
+        self.storage.active_at_block.at(resolved).initialize(self.context.block_number());
+        self.storage.tally.at(resolved).at(TAG_CREATOR).write(0);
+        self.storage.tally.at(resolved).at(TAG_FEE).write((fee_mode + fee_fallback * 16) as Field);
+        self.storage.tally.at(resolved).at(TAG_PUBX).write(signing_pubkey_x);
+        self.storage.tally.at(resolved).at(TAG_PUBY).write(signing_pubkey_y);
+        self.storage.tally.at(resolved).at(TAG_AUTHOR).write(commitment);
+        self.storage.next_poll_id.write(crate::with_sponsored(resolved_u64 + 1, crate::sponsored_on(stored_next)));
+        resolved_u64 as Field
+    }
+
+    /// Called by the hidden-author book after it proves the secret and updates the note.
+    /// action 0 closes the poll. action 1 credits the poll pool.
+    #[external("public")]
+    fn finish_hidden_poll(poll_id: PollId, commitment: Field, action: u8, count: u64, juice: u64) {
+        assert(self.msg_sender().eq(self.storage.hidden_author_book.read()), "Only hidden author book");
+        self.internal.assert_poll_exists(poll_id);
+        let stored = self.storage.tally.at(poll_id).at(TAG_AUTHOR).read();
+        assert(stored != 0, "Poll has a public author");
+        assert(stored == commitment, "Only creator");
+        if action == 0 {
+            self.storage.vote_ended.at(poll_id).write(true);
+            let (_, pool_juice, _) = crate::unpack_pool(self.storage.tally.at(poll_id).at(TAG_POOL).read());
+            if pool_juice != (0 as u64) {
+                self.storage.tally.at(poll_id).at(TAG_POOL).write(crate::pack_pool(0, 0, pool_juice));
+            }
+        } else if action == 1 {
+            assert(self.internal.poll_is_closed(poll_id) == false, "Vote has ended");
+            assert(((self.storage.tally.at(poll_id).at(TAG_FEE).read() as u64) as u8) % 16 == FEE_POOL, "Poll has no pool");
+            assert(count > (0 as u64), "Pool count required");
+            assert(juice > (0 as u64), "Pool juice required");
+            let (remaining, juice_now, refunded) = crate::unpack_pool(self.storage.tally.at(poll_id).at(TAG_POOL).read());
+            self.storage.tally.at(poll_id).at(TAG_POOL).write(crate::pack_pool(remaining + count, juice_now + juice, refunded));
+        } else {
+            assert(false, "Unknown hidden author action");
+        }
     }
 
     /// Credits the public pool count and the juice accounting. Does not pay the create transaction.

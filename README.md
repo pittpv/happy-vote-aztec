@@ -12,6 +12,8 @@ Cast a **private or open** ballot. Tallies are public (or sealed until the poll 
 | Path | Contents |
 |------|----------|
 | `src/main.nr` | `HappyVote` Aztec.nr contract (multi-poll) |
+| `hidden_author_book/` | Private-author note contract |
+| `author_fee_sponsor/` | Mainnet fee payer for a private author. Not deployed |
 | `src/test/` | Noir tests |
 | `scripts/` | Contract deploy helpers |
 | `web/` | Vite + React UI and Vercel serverless APIs |
@@ -23,12 +25,13 @@ Compile and test with the **`aztec` CLI** (not `nargo` or `bb` directly). Offici
 
 ## Testnet
 
-Contract: [`0x08cc6d5b022900717c01af9b2800a83177aeab263cfd920416b33b56f6bc5881`](https://testnet.aztecscan.xyz/address/0x08cc6d5b022900717c01af9b2800a83177aeab263cfd920416b33b56f6bc5881)  
+HappyVote: [`0x2ee5a78e59b3f79d175d32f777ad1fbc221fffa868f7feddc707809770da00f1`](https://testnet.aztecscan.xyz/address/0x2ee5a78e59b3f79d175d32f777ad1fbc221fffa868f7feddc707809770da00f1)  
+HiddenAuthorBook: [`0x2f5b5795a7f052fbde514dc1b5bd20aacd802729cc803c4bb3c3fd5ea46558de`](https://testnet.aztecscan.xyz/address/0x2f5b5795a7f052fbde514dc1b5bd20aacd802729cc803c4bb3c3fd5ea46558de)  
 RPC: `https://aztec-testnet.drpc.org`  
 Sponsored FPC: `0x2d8fff82a3b0c15d0a89169e7d8d043e079ab94d52031f1de1e4972ebad169d3`  
 Details: [docs/en/10-TESTNET-ADDRESSES.md](./docs/en/10-TESTNET-ADDRESSES.md)
 
-Testnet 6.0.0 is a new genesis relative to 5.1.0. The Testnet 5.1.0 contract is not on this network. Ballots from the previous Testnet 6.0.0 contract stay on the site under **Earlier networks**. Those rows do not open `/p/:id`.
+A public author is stored on the poll. A private author is a Poseidon2 commitment. The book holds the secret, and the Sponsored FPC pays that create and early end. `AuthorFeeSponsor` is the Mainnet payer and is not deployed. Ballots from the previous Testnet 6.0.0 contract [`0x08cc6d5b022900717c01af9b2800a83177aeab263cfd920416b33b56f6bc5881`](https://testnet.aztecscan.xyz/address/0x08cc6d5b022900717c01af9b2800a83177aeab263cfd920416b33b56f6bc5881) stay under **Earlier networks**. Those rows do not open `/p/:id`.
 
 ## Architecture (short)
 

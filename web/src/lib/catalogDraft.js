@@ -75,7 +75,13 @@ export async function signCatalogDraft(draft, pollId) {
   const { GrumpkinScalar } = await import("@aztec-labs/foundation/curves/grumpkin");
   const signingKey = GrumpkinScalar.fromString(String(draft.signingKey));
   const id = String(pollId);
-  const poll = { ...draft.poll, id, creator: draft.creator };
+  const poll = { ...draft.poll, id };
+  if (draft.hiddenAuthor || poll.hiddenAuthor) {
+    delete poll.creator;
+    poll.hiddenAuthor = true;
+  } else {
+    poll.creator = draft.creator;
+  }
   const signedListing = await fieldFromUtf8(
     canonicalListing({
       contract,

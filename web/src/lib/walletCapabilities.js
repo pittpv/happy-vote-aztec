@@ -2,7 +2,12 @@ import { ProtocolContractAddress } from "@aztec-labs/protocol-contracts";
 import { STANDARD_AUTH_REGISTRY_ADDRESS } from "@aztec-labs/standard-contracts/auth-registry/constants";
 import { STANDARD_HANDSHAKE_REGISTRY_ADDRESS } from "@aztec-labs/standard-contracts/handshake-registry/constants";
 import { STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS } from "@aztec-labs/standard-contracts/multi-call-entrypoint/constants";
-import { getContractAddress, getSponsoredFpcAddress } from "./aztecClient.js";
+import {
+  authorFeeSponsorAddress,
+  getContractAddress,
+  getSponsoredFpcAddress,
+  hiddenAuthorBookAddress,
+} from "./aztecClient.js";
 
 /**
  * Capability grant requested from a connected wallet.
@@ -25,6 +30,10 @@ export function happyVoteCapabilities() {
     STANDARD_MULTI_CALL_ENTRYPOINT_ADDRESS,
   ];
   if (happyVote) contracts.push(happyVote);
+  const book = hiddenAuthorBookAddress();
+  const authorSponsor = authorFeeSponsorAddress();
+  if (book) contracts.push(book.toString());
+  if (authorSponsor) contracts.push(authorSponsor.toString());
 
   const feeTxScope = [
     { contract: sponsoredFpc, function: "sponsor_unconditionally" },
@@ -69,7 +78,21 @@ export function happyVoteCapabilities() {
       ]
     : [];
 
-  const txScope = [...happyVoteTxScope, ...feeTxScope];
+  const hiddenScope = book && happyVote
+    ? [
+        { contract: book.toString(), function: "create_user_poll_private" },
+        { contract: book.toString(), function: "end_hidden_poll" },
+        { contract: book.toString(), function: "get_hidden_author_note" },
+        { contract: happyVote, function: "init_hidden_user_poll" },
+        { contract: happyVote, function: "finish_hidden_poll" },
+        { contract: happyVote, function: "set_hidden_author_book" },
+      ]
+    : [];
+  const authorSponsorScope = authorSponsor
+    ? [{ contract: authorSponsor.toString(), function: "sponsor_unconditionally" }]
+    : [];
+
+  const txScope = [...happyVoteTxScope, ...hiddenScope, ...feeTxScope, ...authorSponsorScope];
 
   return {
     version: "1.0",

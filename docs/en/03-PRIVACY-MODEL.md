@@ -82,7 +82,7 @@ Default ZKPassport scope: **per poll** (`poll:{id}`).
 | Per platform | `happyvote-aztec` | Rare |
 | Per election family | `election:…` | One vote in a group |
 
-The poll author is the Aztec address that sent `create_user_poll`. That address is public. A private ballot still hides the voter. ZKPassport is not bound to the author. The catalog signing key is not an account key.
+The form offers two author modes. **Public address** stores the account that sent `create_user_poll`. **Private** stores a Poseidon2 commitment (tally tag 205) instead of the address. The secret stays in a note on `HiddenAuthorBook`, which is the only contract allowed to create or finish that poll. End and pool funding prove the secret in a private call on the book. The published caller on HappyVote is the book, not the account. On that path a sponsor contract is the fee payer, so the account is not published as the payer of the create or end transaction. Testnet uses the canonical Sponsored FPC. Mainnet uses `AuthorFeeSponsor` from this source. `HiddenAuthorBook` is deployed on this Testnet. `AuthorFeeSponsor` is not deployed. The sponsor's admin can pause new sponsorships. The pause check does not take the author's address. Fee Juice is bridged to the sponsor and cannot be transferred to the author. A private ballot still hides the voter. ZKPassport is not bound to the author. The catalog signing key is not an account key. A private-author listing omits the account address.
 
 ## 6. What we do not promise
 
@@ -97,7 +97,7 @@ Site visit totals are a separate first-party counter (no cookies, IP not stored,
 - **Private:** address hidden; the chosen option still updates the public tally (unless sealed).
 - **Open:** address and choice are public.
 - **ZKPassport:** HappyVote does not receive passport document data.
-- **Author:** the creator’s Aztec address is public. A private ballot still hides the voter.
+- **Author:** public-address mode stores the creator’s Aztec address. Private mode stores a commitment and leaves the address off the poll. A private ballot still hides the voter.
 
 ## 8. Privacy checklist
 
