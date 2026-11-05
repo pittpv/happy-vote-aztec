@@ -67,7 +67,13 @@ export const FAQ_GROUPS = [
         id: "create",
         question: "Can I publish a poll?",
         answer:
-          "Yes. Create in the header opens a public page. Connect Aztec wallet uses the same dialog as voting. Choose Public address to store the connected account as the author, or Private to leave the author off the poll. Private uses the deployed HiddenAuthorBook. On Testnet the Sponsored FPC pays the create and the early end. On Mainnet that payer is AuthorFeeSponsor, which is not deployed, so a Mainnet site keeps Private off. Paying from the author wallet would publish the address. A private ballot still hides a voter’s address, and the tally is public unless you seal it. Homepage placement is chosen by HappyVote.",
+          "Yes. Create in the header opens a public page. Connect Aztec wallet uses the same dialog as voting. Author is the first choice on the form. A private ballot still hides a voter’s address, and the tally is public unless you seal it. Homepage placement is chosen by HappyVote.",
+      },
+      {
+        id: "author-visibility",
+        question: "Can I hide the author, or publish the poll under my address?",
+        answer:
+          "Both. Public address stores the connected account on the poll. That account is the public author and can end the poll. Private leaves the address off the poll and stores a commitment instead. On Testnet the Sponsored FPC pays that create and an early end, so the wallet is not the published fee payer. On Mainnet Private stays off until a sponsor contract is deployed, because paying from the author wallet would publish the address. Your polls still lists a private poll from the wallet that holds its secret. Hiding the author does not hide the question or the tally.",
       },
       {
         id: "create-how",

@@ -486,6 +486,19 @@ body::before {
   margin: 0;
 }
 
+.create-author-line {
+  margin: 0;
+  max-width: 62ch;
+  color: var(--mist);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.create-author-line code {
+  color: var(--foam);
+  word-break: break-all;
+}
+
 .home-session {
   display: flex;
   flex-wrap: wrap;
@@ -2968,8 +2981,16 @@ body::before {
 }
 
 .check-row input {
-  width: auto;
+  width: 1rem;
+  height: 1rem;
   margin: 0;
+  padding: 0;
+  flex: 0 0 auto;
+}
+
+.author-choice {
+  display: grid;
+  gap: 0.35rem;
 }
 
 .nat-block {

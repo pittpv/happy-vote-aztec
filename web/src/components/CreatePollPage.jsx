@@ -383,13 +383,13 @@ export function CreatePollPage({ walletConnect }) {
               : "Connect an Aztec wallet, then write the question or open the polls that address already created."}
           </p>
           {connected ? (
-            <p className="meta">
-              {hideAuthor ? "Connected wallet" : "Public author"} <code>{address}</code>
+            <p className="create-author-line">
+              {hideAuthor ? "Connected wallet" : "Public author"} <code>{address}</code>.{" "}
               {hideAuthor
-                ? ". This address is not written on a private-author poll. End that poll from this wallet: the secret stays in its private note."
+                ? "This address is not written on a private-author poll. End that poll from this wallet: the secret stays in its private note."
                 : sessionAccount
-                  ? ". A browser session starts a new address each Connect. An installed wallet keeps the same address after you reconnect."
-                  : ". Reconnect this wallet to see these polls and end one early."}
+                  ? "A browser session starts a new address each Connect. An installed wallet keeps the same address after you reconnect."
+                  : "Reconnect this wallet to see these polls and end one early."}
             </p>
           ) : (
             <div className="create-gate">
@@ -456,6 +456,43 @@ export function CreatePollPage({ walletConnect }) {
               time, and metadata hash. The question is signed into the catalog from this tab. The
               account key stays in the wallet.
             </p>
+
+            <fieldset className="zk-req">
+              <legend>Author</legend>
+              <div className="author-choice" role="radiogroup" aria-label="Author visibility">
+                <label className="check-row">
+                  <input
+                    type="radio"
+                    name="author-visibility"
+                    checked={!hideAuthor}
+                    disabled={busy}
+                    onChange={() => setHideAuthor(false)}
+                  />
+                  Public address
+                </label>
+                <label className="check-row">
+                  <input
+                    type="radio"
+                    name="author-visibility"
+                    checked={hideAuthor}
+                    disabled={busy || !privateAuthorReady}
+                    onChange={() => {
+                      if (privateAuthorReady) setHideAuthor(true);
+                    }}
+                  />
+                  Private
+                </label>
+              </div>
+              <p className="meta">
+                {!hiddenAuthorOnArtifact()
+                  ? "Private author is not deployed for this site. Public address stores the connected account."
+                  : !privateAuthorFeeReady(mainnet)
+                    ? "Private author on Mainnet is paid by the AuthorFeeSponsor contract. This site has no sponsor address, and paying from this wallet would publish it."
+                    : hideAuthor
+                      ? "The poll stores a secret commitment instead of this address. The sponsor contract pays the create and the early end, so this wallet is not the published fee payer. The private limits are one create per UTC day and three open polls, separate from public-author polls."
+                      : "The connected address is stored on the poll and can end it."}
+              </p>
+            </fieldset>
 
             <fieldset className="zk-req">
               <legend>Details</legend>
@@ -637,41 +674,6 @@ export function CreatePollPage({ walletConnect }) {
             </fieldset>
 
             <ZkRequirementsFields disabled={busy} onChange={onZkDraft} />
-
-            <fieldset className="zk-req">
-              <legend>Author</legend>
-              <label>
-                <input
-                  type="radio"
-                  name="author-visibility"
-                  checked={!hideAuthor}
-                  disabled={busy}
-                  onChange={() => setHideAuthor(false)}
-                />{" "}
-                Public address
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="author-visibility"
-                  checked={hideAuthor}
-                  disabled={busy || !privateAuthorReady}
-                  onChange={() => {
-                    if (privateAuthorReady) setHideAuthor(true);
-                  }}
-                />{" "}
-                Private
-              </label>
-              <p className="meta">
-                {!hiddenAuthorOnArtifact()
-                  ? "Private author is not deployed for this site. Public address stores the connected account."
-                  : !privateAuthorFeeReady(mainnet)
-                    ? "Private author on Mainnet is paid by the AuthorFeeSponsor contract. This site has no sponsor address, and paying from this wallet would publish it."
-                    : hideAuthor
-                      ? "The poll stores a secret commitment instead of this address. The sponsor contract pays the create and the early end, so this wallet is not the published fee payer. The private limits are one create per UTC day and three open polls, separate from public-author polls."
-                      : "The connected address is stored on the poll and can end it."}
-              </p>
-            </fieldset>
 
             <fieldset className="zk-req">
               <legend>Ballot fee</legend>

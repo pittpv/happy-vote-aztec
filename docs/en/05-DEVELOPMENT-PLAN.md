@@ -194,7 +194,7 @@ A public create page, linked from the header when this iteration ships:
 - Once per poll, or once per UTC day.
 - Fee mode. Testnet defaults to the Sponsored FPC. Mainnet defaults to the voter’s Fee Juice. A poll pool is optional. The page shows the mode and the fallback before publish.
 - Connect, prove, then the catalog signature.
-- The form blocks are details, options, voting type, schedule, eligibility, and ballot fee. Homepage placement and a Dashboard policy id are not on this form. Age, birthdate, nationality, document, sanctions, and facematch are signed with the listing.
+- The form blocks are author, details, options, voting type, schedule, eligibility, and ballot fee. Homepage placement and a Dashboard policy id are not on this form. Age, birthdate, nationality, document, sanctions, and facematch are signed with the listing.
 - Copy says that private hides the address, and that the tally is public unless the poll is sealed.
 
 This flow is not the operator screen.
