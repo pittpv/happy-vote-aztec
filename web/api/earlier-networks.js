@@ -115,67 +115,80 @@ export async function loadEarlierNetworks() {
   }
 
   const loaded = [];
+  const failures = [];
   for (const network of networks) {
-    if (!network.rpcUrl || !network.contractAddress || !network.name) {
-      throw new Error(`Earlier network ${network.id || "?"} is incomplete`);
+    try {
+      loaded.push(await loadEarlierNetwork(network));
+    } catch (error) {
+      console.error(`earlier-networks ${network.id || "?"} failed`, error);
+      failures.push(network.id || "?");
     }
-    const plans = readPlan(network);
-    const calls = [];
-    for (const plan of plans) {
-      for (const field of plan.fields) {
-        calls.push({
-          method: "node_getPublicStorageAt",
-          params: ["latest", plan.contract, padHex32(field.slot)],
-        });
-      }
-    }
-    const values = await rpcBatch(network.rpcUrl, calls);
-    let cursor = 0;
-    const polls = plans.map((plan) => {
-      const slice = values.slice(cursor, cursor + plan.fields.length);
-      cursor += plan.fields.length;
-      if (slice.length !== plan.fields.length) {
-        throw new Error(`Short storage read for poll ${plan.poll.id}`);
-      }
-      const numbers = slice.map(fieldToNumber);
-      const optionCount = plan.poll.options.length;
-      const tallies = numbers.slice(0, optionCount);
-      const total = numbers[optionCount];
-      const sealedFlags = numbers[optionCount + 1];
-      const voteEnded = numbers[optionCount + 2] !== 0;
-      const endsAt = numbers[optionCount + 3];
-      const cancelled = numbers[optionCount + 4] !== 0;
-      const sealed = (sealedFlags & 1) !== 0;
-      const nowSec = Math.floor(Date.now() / 1000);
-      const closed = voteEnded || cancelled || (endsAt !== 0 && nowSec >= endsAt);
-      const resultsHidden = sealed && !closed;
-      const poll = {
-        id: String(plan.poll.id),
-        title: plan.poll.title,
-        total: resultsHidden ? null : total,
-        resultsHidden,
-        options: plan.poll.options.map((label, index) => {
-          const option = { label };
-          if (!resultsHidden) option.votes = tallies[index];
-          return option;
-        }),
-      };
-      if (!resultsHidden) {
-        const sum = tallies.reduce((acc, count) => acc + count, 0);
-        if (sum !== total) {
-          throw new Error(`Poll ${plan.poll.id} tally sum ${sum} does not match total ${total}`);
-        }
-      }
-      return poll;
-    });
-    loaded.push({
-      id: network.id,
-      name: network.name,
-      contractAddress: network.contractAddress,
-      polls,
-    });
+  }
+  if (loaded.length === 0) {
+    throw new Error(`No earlier network could be read (${failures.join(", ")})`);
   }
   return { networks: loaded };
+}
+
+async function loadEarlierNetwork(network) {
+  if (!network.rpcUrl || !network.contractAddress || !network.name) {
+    throw new Error(`Earlier network ${network.id || "?"} is incomplete`);
+  }
+  const plans = readPlan(network);
+  const calls = [];
+  for (const plan of plans) {
+    for (const field of plan.fields) {
+      calls.push({
+        method: "node_getPublicStorageAt",
+        params: ["latest", plan.contract, padHex32(field.slot)],
+      });
+    }
+  }
+  const values = await rpcBatch(network.rpcUrl, calls);
+  let cursor = 0;
+  const polls = plans.map((plan) => {
+    const slice = values.slice(cursor, cursor + plan.fields.length);
+    cursor += plan.fields.length;
+    if (slice.length !== plan.fields.length) {
+      throw new Error(`Short storage read for poll ${plan.poll.id}`);
+    }
+    const numbers = slice.map(fieldToNumber);
+    const optionCount = plan.poll.options.length;
+    const tallies = numbers.slice(0, optionCount);
+    const total = numbers[optionCount];
+    const sealedFlags = numbers[optionCount + 1];
+    const voteEnded = numbers[optionCount + 2] !== 0;
+    const endsAt = numbers[optionCount + 3];
+    const cancelled = numbers[optionCount + 4] !== 0;
+    const sealed = (sealedFlags & 1) !== 0;
+    const nowSec = Math.floor(Date.now() / 1000);
+    const closed = voteEnded || cancelled || (endsAt !== 0 && nowSec >= endsAt);
+    const resultsHidden = sealed && !closed;
+    const poll = {
+      id: String(plan.poll.id),
+      title: plan.poll.title,
+      total: resultsHidden ? null : total,
+      resultsHidden,
+      options: plan.poll.options.map((label, index) => {
+        const option = { label };
+        if (!resultsHidden) option.votes = tallies[index];
+        return option;
+      }),
+    };
+    if (!resultsHidden) {
+      const sum = tallies.reduce((acc, count) => acc + count, 0);
+      if (sum !== total) {
+        throw new Error(`Poll ${plan.poll.id} tally sum ${sum} does not match total ${total}`);
+      }
+    }
+    return poll;
+  });
+  return {
+    id: network.id,
+    name: network.name,
+    contractAddress: network.contractAddress,
+    polls,
+  };
 }
 
 function usableSnapshot(raw) {
