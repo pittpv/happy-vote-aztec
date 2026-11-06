@@ -83,7 +83,8 @@ Never put a freshly constructed `AztecAddress` in a React `useEffect` dependency
 |------|-------|
 | List | `GET /api/polls` — polls still inside their catalog window, plus homepage polls. Ended polls that are not on the homepage: `GET /api/polls?ended=1&lane=authoritative\|users&offset=&limit=` (default 24, maximum 48) |
 | One | `GET /api/polls?id=3` (vote pages fetch this first so overlay-only polls such as `/p/5` do not flash seed placeholders) |
-| By author | `GET /api/polls?creator=` — listings for that address on the current contract, including polls past `endsAt`, plus the three open on-chain slots. Hidden titles are omitted. |
+| By author | `GET /api/polls?creator=` — listings for that address on the current contract, including polls past `endsAt`, plus the three open on-chain slots. Hidden titles are omitted. Your polls shows this response before it checks the wallet’s private-author note. |
+| Closure | `GET /api/polls?closure=1,2` — public ended, cancelled, and end time for 1–12 ids. Your polls calls this after the wallet has read a private-author note. The author secret is not in the request. |
 | Publish | Authenticated `POST /api/polls` (operator-only; poll body, `homepage` flags, or `policyId` on an existing ZKPassport poll) |
 | Seed | `web/data/polls-catalog.json` |
 | Overlay | Host file overlay. A missing file leaves the seed catalog. |

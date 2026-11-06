@@ -119,7 +119,7 @@ Noir 1.x keeps the language stable for the major version. A break waits for a la
 
 ### Catalog
 
-The chain does not store titles. After the create transaction is included, the creator publishes labels to the catalog with a signature from a one-time key committed in that transaction. The server checks that signature and checks that `metadata_hash` matches the canonical JSON of the title, description, and option labels. A missing signature or a mismatched hash is not listed. `GET /api/polls?creator=` returns that account’s listed polls, including ones past `endsAt`, and the three on-chain open-poll slots. `/create` uses the same connect dialog as voting. **Your polls** reads that response and can send `end_poll` from the creator address.
+The chain does not store titles. After the create transaction is included, the creator publishes labels to the catalog with a signature from a one-time key committed in that transaction. The server checks that signature and checks that `metadata_hash` matches the canonical JSON of the title, description, and option labels. A missing signature or a mismatched hash is not listed. `GET /api/polls?creator=` returns that account’s listed polls, including ones past `endsAt`, and the three on-chain open-poll slots. `/create` uses the same connect dialog as voting. **Your polls** shows that response first, then adds private-author polls from the wallet note. Their public flags come from `GET /api/polls?closure=`. The author secret is not in that request. The page can send `end_poll` from the creator address.
 
 The creator cannot set homepage flags. A new poll is listed on All polls only. HappyVote chooses homepage placement afterwards.
 

@@ -103,7 +103,7 @@ export const FAQ_GROUPS = [
         id: "manage",
         question: "How do I manage a poll I created?",
         answer:
-          "Open Create, then Your polls, with the wallet that published it. Public-author polls are every poll whose public author is that address, including ones past their end time. Private-author polls appear when this wallet still holds their secret. Open goes to the poll page. End poll closes voting from this wallet. Confirm end sends that transaction. Keep open leaves it running.\n\nA public author ends with that address. A private author ends with the secret in the wallet, and the sponsor contract pays that transaction. Cancel stays with HappyVote. When the end time has passed, voting is already closed. End the poll to release its open slot and return leftover pool funds.",
+          "Open Create, then Your polls, with the wallet that published it. Public-author polls are every poll whose public author is that address, including ones past their end time, and that list appears as soon as the catalog responds. Private-author polls are added when this wallet still holds their secret. That secret stays in the wallet. Open goes to the poll page. End poll closes voting from this wallet. Confirm end sends that transaction. Keep open leaves it running.\n\nA public author ends with that address. A private author ends with the secret in the wallet, and the sponsor contract pays that transaction. Cancel stays with HappyVote. When the end time has passed, voting is already closed. End the poll to release its open slot and return leftover pool funds.",
       },
       {
         id: "locked",
@@ -152,7 +152,7 @@ export const FAQ_GROUPS = [
         id: "groups",
         question: "What is the difference between Authoritative polls and User polls?",
         answer:
-          "All polls lists Authoritative polls first: polls published by HappyVote, then polls from accounts HappyVote has marked authoritative. User polls are the rest. Each of those sections has Active. Ended is one shared section after both. The homepage is a shorter curated list, not the full catalog.",
+          "All polls lists Authoritative polls first: polls published by HappyVote, then polls from accounts HappyVote has marked authoritative. User polls are the rest. Each heading counts the polls that are still open. Ended is one shared section after both. The homepage is a shorter curated list, not the full catalog.",
       },
       {
         id: "earlier",
