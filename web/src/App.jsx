@@ -1141,11 +1141,18 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
     }
   }
 
+  const votingClosed = closedOnChain || schedule.phase === POLL_PHASE.CLOSED;
+  const sealedPoll = onChainSealed || Boolean(pollMeta.sealed);
+  const noSealedBallotsYet =
+    sealedBallots != null &&
+    sealedCounted != null &&
+    Number(sealedBallots) === 0 &&
+    Number(sealedCounted) === 0;
   const sealPending =
     sealedBallots == null || sealedCounted == null
-      ? !closedOnChain && schedule.phase !== POLL_PHASE.CLOSED
-      : Number(sealedBallots) !== Number(sealedCounted);
-  const resultsHidden = (onChainSealed || Boolean(pollMeta.sealed)) && sealPending;
+      ? !votingClosed
+      : Number(sealedBallots) !== Number(sealedCounted) || (noSealedBallotsYet && !votingClosed);
+  const resultsHidden = sealedPoll && sealPending;
   const recipientHere =
     accountAddress &&
     tallyRecipient &&
@@ -1537,9 +1544,9 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
           {resultsHidden ? (
             <div className="vote-results-note">
               <p>
-                {sealedBallots == null
-                  ? "Per-option counts stay hidden until the tally recipient publishes them."
-                  : `${sealedBallots} sealed ${Number(sealedBallots) === 1 ? "ballot" : "ballots"} accepted. Per-option counts stay hidden until the tally recipient publishes them.`}
+                {Number(sealedBallots) > 0
+                  ? `${sealedBallots} sealed ${Number(sealedBallots) === 1 ? "ballot" : "ballots"} accepted. Per-option counts stay hidden until the tally recipient publishes them.`
+                  : "This poll is sealed. Results will be available after voting ends."}
               </p>
               {recipientHere && !votingOpen ? (
                 <button type="button" className="chip" disabled={busy} onClick={publishSealed}>

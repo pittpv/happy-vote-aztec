@@ -21,7 +21,7 @@ Footer: author links (X, LinkedIn, GitHub) and legal pages (Terms, Privacy, Data
 
 - Browse featured polls on home, or the full catalog at `/polls` (**Active** and **Ended**), then open any poll
 - See **start/end times** and a live countdown when a poll is scheduled
-- View **Live results** (public tallies; hidden while a poll is sealed and still open — option buttons show labels only, no zeros)
+- View **Live results** (public tallies; while a sealed poll is still open, option buttons show labels only. Before the first ballot, Live results say the poll is sealed and that results will be available after voting ends)
 - If the contract is paused or a poll is cancelled, the ballot stays locked; the question remains readable
 - Share a deep link: `/p/1` (Happy/Sad), `/p/2` (single-choice), `/p/3` (ZKPassport demo), `/p/4` (sealed tallies). Ballots from the previous Testnet contract, including its fifth poll, are listed under **Earlier networks** and do not open `/p/:id`.
 - Read the contract on [Aztecscan](https://testnet.aztecscan.xyz)
