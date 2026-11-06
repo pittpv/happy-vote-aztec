@@ -6,33 +6,25 @@
 |------|-------|
 | Domain | `aztec.happyvote.xyz` |
 | App | `web/` (Vite React) |
-| Host | Vercel |
-
+| Host | HappyVote site for this domain |
 | Aztec network (prod) | Stable **6.0.0** on Testnet and Mainnet. This site votes on Testnet. |
 
-In the HappyVote monorepo the Vite app is `aztec/web` and Vercel Root Directory is `aztec/web`. In the standalone public repo the Root Directory is `web`.
+In the public repository the app directory is `web/`.
 
 ## DNS
 
-CNAME `aztec` → Vercel target, HTTPS on. Register the same domain in [ZKPassport Dashboard](https://dashboard.zkpassport.id).
+`aztec.happyvote.xyz` is served over HTTPS. Register the same domain in [ZKPassport Dashboard](https://dashboard.zkpassport.id).
 
-## Vercel
+## Production
 
-**Production URL:** https://aztec.happyvote.xyz
+**URL:** https://aztec.happyvote.xyz
 
-```bash
-# from the directory that matches the Vercel Root Directory parent
-vercel deploy --prod --yes
-```
-
-Build (inside `web/`): `npm install` then `npm run build` → `dist`.
-
-### Env (Production)
+Public build settings:
 
 ```
 VITE_AZTEC_NODE_URL=https://aztec-testnet.drpc.org
-VITE_HAPPY_VOTE_CONTRACT_ADDRESS=0x2ee5a78e59b3f79d175d32f777ad1fbc221fffa868f7feddc707809770da00f1
-VITE_HIDDEN_AUTHOR_BOOK_ADDRESS=0x2f5b5795a7f052fbde514dc1b5bd20aacd802729cc803c4bb3c3fd5ea46558de
+VITE_HAPPY_VOTE_CONTRACT_ADDRESS=0x12b946b72a45a75719bd4af4f1697d99e02acf45d79876b8cbce1df115783fb0
+VITE_HIDDEN_AUTHOR_BOOK_ADDRESS=0x14142f160aad70469e2702ad9d52d8c9cee5f9724ed58983329ce9c7e10c4bb8
 VITE_SPONSORED_FPC_ADDRESS=0x2d8fff82a3b0c15d0a89169e7d8d043e079ab94d52031f1de1e4972ebad169d3
 VITE_DEFAULT_POLL_ID=1
 VITE_PROVER_ENABLED=true
@@ -42,9 +34,11 @@ VITE_ZKPASSPORT_DOMAIN=aztec.happyvote.xyz
 VITE_ZKPASSPORT_DEFAULT_POLICY=vote-identity-verification
 ```
 
-`VITE_*` vars are also read by serverless poll APIs. Live contract: [10-TESTNET-ADDRESSES.md](./10-TESTNET-ADDRESSES.md). Catalog overlay uses host secrets that are not committed.
+Those `VITE_*` values are also read by the site API. Live contract: [10-TESTNET-ADDRESSES.md](./10-TESTNET-ADDRESSES.md). The catalog overlay is a file on the host and is not part of the git tree.
 
-### `vercel.json`
+### Response headers
+
+The site sends the headers listed in `web/vercel.json`:
 
 | Setting | Purpose |
 |---------|---------|
@@ -88,25 +82,19 @@ Never put a freshly constructed `AztecAddress` in a React `useEffect` dependency
 | Item | Value |
 |------|-------|
 | List | `GET /api/polls` — polls still inside their catalog window, plus homepage polls. Ended polls that are not on the homepage: `GET /api/polls?ended=1&lane=authoritative\|users&offset=&limit=` (default 24, maximum 48) |
-| One | `GET /api/polls?id=3` (vote pages fetch this first so Blob-only polls such as `/p/5` do not flash seed placeholders) |
+| One | `GET /api/polls?id=3` (vote pages fetch this first so overlay-only polls such as `/p/5` do not flash seed placeholders) |
 | By author | `GET /api/polls?creator=` — listings for that address on the current contract, including polls past `endsAt`, plus the three open on-chain slots. Hidden titles are omitted. |
 | Publish | Authenticated `POST /api/polls` (operator-only; poll body, `homepage` flags, or `policyId` on an existing ZKPassport poll) |
 | Seed | `web/data/polls-catalog.json` |
-| Overlay | Optional object storage overlay on the host |
+| Overlay | Host file overlay. A missing file leaves the seed catalog. |
 | Home | Catalog fields `showOnHome` and `homeRank` select cards on `/`. The creator of a poll cannot set those flags. `/polls` keeps **Authoritative polls** and **User polls**, each with **Active**, then one shared **Ended** section. Ended polls that are not on the homepage load 24 at a time per `lane`. Country filter also uses public Dashboard policy `nationality` / `issuing_country` when `policyId` is set. Replacing catalog `policyId` on an existing poll does not rewrite on-chain `metadata_hash`. |
 | Cache | Overlay hits may be cached ~30s. A seed-only miss (overlay unread) is cached only briefly. Unknown-id `404` is not stored on the CDN. |
 
 Without the overlay, everyone still sees the seed catalog. Overlay polls appear after `GET /api/polls?id=` succeeds.
 
-## Listing verifier on Vercel, and a later full server
+## Listing check
 
-`POST /api/polls` checks a user listing by importing Aztec libraries in `web/api/verify-account-poll.js`. Those libraries start Aztec's Node logger, which opens a worker transport. The default target is the string `pino-pretty`.
-
-Vercel copies into the function only files a static trace can see. That string is not a static import, so `pino-pretty` is missing and publish fails with `unable to determine transport target for "pino-pretty"`. Public-author and private-author listings share this check. The private-author secret and the ballot stay off this request.
-
-On this host the verifier sets Aztec's `LOG_JSON` to `1` when it is unset, before the first Aztec import. The logger then writes JSON to stderr through `pino/file`. `api/polls.js` in `vercel.json` also ships `pino`, `thread-stream`, and `sonic-boom` so the file transport and its worker are in the bundle. The logger's redaction and level stay as Aztec ships them. Ballot privacy and the stored listing are unchanged.
-
-`pino-pretty` is a production dependency of `@aztec-labs/foundation`. A full Node process started from a complete `node_modules` resolves it, and this error does not appear. A move off the traced function can drop the `LOG_JSON` default and those three extra `includeFiles`. The process still needs the installed dependency tree. Leave Node detection as Aztec ships it: `detect-node` is read once for the process and selects the Node build of the proving stack.
+`POST /api/polls` checks a user listing in the site process (`web/api/verify-account-poll.js`). That process has the installed dependency tree, including `pino-pretty`. A public-author listing and a private-author listing share this check. The private-author secret and the ballot stay off this request.
 
 ## ZKPassport verify
 
@@ -114,7 +102,7 @@ On this host the verifier sets Aztec's `LOG_JSON` to `1` when it is unset, befor
 
 ## Client errors
 
-`POST /api/client-error` — JSON `{ message, stack?, pollId? }` → Vercel logs.
+`POST /api/client-error` — JSON `{ message, stack?, pollId? }` → host logs.
 
 ## SEO and static files
 
@@ -129,13 +117,12 @@ On this host the verifier sets Aztec's `LOG_JSON` to `1` when it is unset, befor
 
 ## Analytics
 
-No third-party analytics counter. A first-party cookieless endpoint `POST /api/site-stats` records daily aggregates only (pageviews, approximate uniques, country, coarse section, device class, browser family, referrer host). IP is used ephemerally and not stored. Poll IDs are not recorded. Operator-only `GET /api/site-stats` returns those aggregates. Privacy Policy and Cookie Policy describe this counter, hosting logs, localStorage, and third-party wallets / ZKPassport.
+No third-party analytics counter. A first-party cookieless endpoint `POST /api/site-stats` records daily aggregates only (pageviews, approximate uniques, country, coarse section, device class, browser family, referrer host). The host reads the request IP only to derive a country code and a same-day uniqueness hash, then discards it. The country lookup stays on this host and is not sent to a geo service. Counts below 3 visits are grouped. Poll IDs are not recorded. Operator-only `GET /api/site-stats` returns those aggregates. Privacy Policy and Cookie Policy describe this counter, hosting logs, localStorage, and third-party wallets / ZKPassport.
 
 ## Status
 
-- [x] DNS CNAME → `aztec.happyvote.xyz`
-- [x] Vercel production
-- [x] Testnet contract in env
+- [x] `aztec.happyvote.xyz` served over HTTPS
+- [x] Testnet contract in the public build settings
 - [x] CSP includes CRS CDN, ZKPassport, and the Demo Wallet iframe (`frame-src`)
 - [x] Guest public tallies without wallet
 - [x] Legal pages, sitemap, robots, JSON-LD

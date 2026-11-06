@@ -28,7 +28,7 @@ The platform is **not** limited to Happy/Sad.
 | `approval` | Approve / Reject | Later |
 | `ranked` | Ranking | After MVP |
 
-Off-chain metadata (catalog + optional Vercel Blob): `title`, `description`, `locale`, `options[]` (label + optional description), `category`, `tags[]`, `cover`, `legal_notice`, optional `startsAt` / `endsAt`, `showOnHome` / `homeRank` (which polls appear on `/`), ZKPassport requirement JSON.
+Off-chain metadata (catalog file on the site host): `title`, `description`, `locale`, `options[]` (label + optional description), `category`, `tags[]`, `cover`, `legal_notice`, optional `startsAt` / `endsAt`, `showOnHome` / `homeRank` (which polls appear on `/`), ZKPassport requirement JSON.
 
 On-chain integrity: `metadata_hash` (SHA-256 of canonical JSON, reduced to a Field).
 

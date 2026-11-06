@@ -1,6 +1,6 @@
 # 02 — Architecture
 
-Live implementation is a **single** `HappyVote` contract (multi-poll maps), not a separate factory + poll instance. Off-chain catalog and guest reads sit on Vercel.
+Live implementation is a **single** `HappyVote` contract (multi-poll maps), not a separate factory + poll instance. Off-chain catalog and guest reads sit on the site host.
 
 ## 1. High-level
 
@@ -13,14 +13,14 @@ flowchart TB
     ZKP["@zkpassport/sdk + @zkpassport/ui"]
   end
 
-  subgraph Edge["Vercel — aztec/web"]
+  subgraph Edge["Site API"]
     PollState["GET /api/poll-state"]
     PollsAPI["GET/POST /api/polls"]
     ZkAPI["POST /api/zkpassport-verify"]
     ErrAPI["POST /api/client-error"]
     StatsAPI["POST /api/site-stats"]
-    Blob[(Vercel Blob catalog)]
-    StatsBlob[(private visit aggregates)]
+    Blob[(Host catalog file)]
+    StatsBlob[(Host visit aggregates)]
     Seed[data/polls-catalog.json]
   end
 
@@ -166,14 +166,14 @@ Guest and connected tallies both use same-origin `/api/poll-state` (public Testn
 | Endpoint | Role |
 |----------|------|
 | `GET /api/poll-state?pollId=&optionsCount=` | Batch `node_getPublicStorageAt`, ~15s cache. `fresh=1` skips that cache (`Cache-Control: no-store`) after a ballot and on Refresh. Poseidon map slots from catalog metadata (any poll id) |
-| `GET /api/polls` | Seed JSON + optional Blob overlay (`showOnHome` / `homeRank` for `/`). Only polls created on the current contract are returned. The list is polls still inside their catalog window, plus polls that stay on the homepage. Ended polls that are not on the homepage are `GET /api/polls?ended=1&lane=authoritative\|users` (`offset`, `limit` default 24, maximum 48). `GET /api/polls?id=` hydrates one poll, including an ended poll (`/p/:id`). The `/polls` country filter also uses Dashboard policy countries when `policyId` is set. |
+| `GET /api/polls` | Seed JSON + optional host-file overlay (`showOnHome` / `homeRank` for `/`). Only polls created on the current contract are returned. The list is polls still inside their catalog window, plus polls that stay on the homepage. Ended polls that are not on the homepage are `GET /api/polls?ended=1&lane=authoritative\|users` (`offset`, `limit` default 24, maximum 48). `GET /api/polls?id=` hydrates one poll, including an ended poll (`/p/:id`). The `/polls` country filter also uses Dashboard policy countries when `policyId` is set. |
 | `POST /api/polls` | Authenticated catalog publish (operator-only): new poll body, `homepage` flags, or `policyId` on an existing ZKPassport poll |
 | `POST /api/zkpassport-verify` | Server re-verify `@zkpassport/sdk` |
-| `POST /api/client-error` | Boot / vote errors → Vercel logs |
-| `POST /api/site-stats` | Cookieless pageview ingest; daily aggregates only (no IP, no poll id) |
+| `POST /api/client-error` | Boot / vote errors → host logs |
+| `POST /api/site-stats` | Cookieless pageview ingest. Country is derived on the host from the request IP; the IP is discarded and is not sent to a geo service. No poll id |
 | `GET /api/site-stats` | Operator-only aggregated visit stats |
 
-### 3.3 Catalog schema (seed / Blob)
+### 3.3 Catalog schema (seed / host file)
 
 ```json
 {
@@ -272,7 +272,7 @@ happy-vote-aztec/
 ├── src/test/                  # Noir tests (48)
 ├── scripts/                   # deploy, smoke, create_poll
 ├── config/                    # local-network + testnet
-├── web/                       # Vite app + Vercel api/
+├── web/                       # Vite app and site API
 └── docs/                      # en/ + ru/
 ```
 

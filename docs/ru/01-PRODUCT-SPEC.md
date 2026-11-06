@@ -28,7 +28,7 @@
 | `approval` | Approve / Reject | Позже |
 | `ranked` | Ранжирование | После MVP |
 
-Off-chain метаданные (каталог + опционально Vercel Blob): `title`, `description`, `locale`, `options[]`, `category`, `tags[]`, `cover`, `legal_notice`, опциональные `startsAt` / `endsAt`, `showOnHome` / `homeRank` (какие опросы на `/`), JSON требований ZKPassport.
+Off-chain метаданные (файл каталога на хосте сайта): `title`, `description`, `locale`, `options[]`, `category`, `tags[]`, `cover`, `legal_notice`, опциональные `startsAt` / `endsAt`, `showOnHome` / `homeRank` (какие опросы на `/`), JSON требований ZKPassport.
 
 On-chain целостность: `metadata_hash` (SHA-256 канонического JSON → Field).
 

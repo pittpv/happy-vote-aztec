@@ -1,6 +1,6 @@
 # 02 — Архитектура
 
-Реализация — **один** контракт `HappyVote` (multi-poll maps), не отдельная factory. Off-chain каталог и гостевые чтения — на Vercel.
+Реализация — **один** контракт `HappyVote` (multi-poll maps), не отдельная factory. Off-chain каталог и гостевые чтения — на хосте сайта.
 
 ## 1. Высокий уровень
 
@@ -13,14 +13,14 @@ flowchart TB
     ZKP["@zkpassport/sdk + @zkpassport/ui"]
   end
 
-  subgraph Edge["Vercel — web/"]
+  subgraph Edge["API сайта"]
     PollState["GET /api/poll-state"]
     PollsAPI["GET/POST /api/polls"]
     ZkAPI["POST /api/zkpassport-verify"]
     ErrAPI["POST /api/client-error"]
     StatsAPI["POST /api/site-stats"]
-    Blob[(Vercel Blob catalog)]
-    StatsBlob[(private visit aggregates)]
+    Blob[(Файл каталога на хосте)]
+    StatsBlob[(Агрегаты визитов на хосте)]
     Seed[data/polls-catalog.json]
   end
 
@@ -163,11 +163,11 @@ Vite + React. Маршруты:
 | Endpoint | Роль |
 |----------|------|
 | `GET /api/poll-state` | Batch `node_getPublicStorageAt`, кэш ~15с. `fresh=1` обходит кэш (`Cache-Control: no-store`) после бюллетеня и по Refresh. Poseidon-слоты из метаданных каталога. Id, которого нет на текущем контракте, отвечает 404. |
-| `GET /api/polls` | Seed JSON + опциональный Blob (`showOnHome` / `homeRank` для `/`). В списке только опросы текущего контракта, у которых окно в каталоге ещё не кончилось, плюс опросы, которые остаются на главной. Завершённые вне главной — `GET /api/polls?ended=1` с `lane` `authoritative` или `users` (`offset`, `limit` по умолчанию 24, максимум 48). `GET /api/polls?id=` гидратирует один опрос, включая завершённый (`/p/:id`). Фильтр стран на `/polls` также берёт страны из Dashboard policy, если задан `policyId`. |
+| `GET /api/polls` | Seed JSON + опциональный файл каталога на хосте (`showOnHome` / `homeRank` для `/`). В списке только опросы текущего контракта, у которых окно в каталоге ещё не кончилось, плюс опросы, которые остаются на главной. Завершённые вне главной — `GET /api/polls?ended=1` с `lane` `authoritative` или `users` (`offset`, `limit` по умолчанию 24, максимум 48). `GET /api/polls?id=` гидратирует один опрос, включая завершённый (`/p/:id`). Фильтр стран на `/polls` также берёт страны из Dashboard policy, если задан `policyId`. |
 | `POST /api/polls` | Публикация метаданных каталога (только оператор): тело опроса, флаги `homepage` или `policyId` у существующего ZKPassport-опроса |
 | `POST /api/zkpassport-verify` | Server re-verify |
-| `POST /api/client-error` | Ошибки в логи Vercel |
-| `POST /api/site-stats` | Cookieless ingest просмотров; только дневные агрегаты |
+| `POST /api/client-error` | Ошибки загрузки и голосования в логи хоста |
+| `POST /api/site-stats` | Cookieless ingest просмотров. Страна считается на хосте из IP запроса; IP отбрасывается и во внешний геосервис не уходит. Без poll ID |
 | `GET /api/site-stats` | Агрегаты посещений (только оператор) |
 
 ### 3.3 Схема каталога

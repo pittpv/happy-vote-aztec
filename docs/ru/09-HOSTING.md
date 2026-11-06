@@ -4,20 +4,20 @@
 |------|-------|
 | Домен | `aztec.happyvote.xyz` |
 | Приложение | `web/` (Vite React) |
-| Хост | Vercel |
+| Хост | Сайт HappyVote для этого домена |
 | Сеть | Стабильный **6.0.0** на Testnet и Mainnet. Этот сайт голосует в Testnet. |
 
-В монорепозитории Root Directory Vercel = `aztec/web`. В публичном репозитории = `web`.
+В публичном репозитории приложение лежит в `web/`.
 
-CNAME `aztec` → Vercel, HTTPS. Тот же домен в ZKPassport Dashboard.
+`aztec.happyvote.xyz` отдаётся по HTTPS. Тот же домен зарегистрирован в ZKPassport Dashboard.
 
-## Env (Production)
+## Публичные настройки сборки
 
-См. английскую версию: актуальный `VITE_HAPPY_VOTE_CONTRACT_ADDRESS` в [10-TESTNET-ADDRESSES.md](./10-TESTNET-ADDRESSES.md). Секреты каталога не коммитить.
+Актуальный `VITE_HAPPY_VOTE_CONTRACT_ADDRESS` — в [10-TESTNET-ADDRESSES.md](./10-TESTNET-ADDRESSES.md). Список публичных `VITE_*` — в английской версии. Оверлей каталога — файл на хосте, в git его нет.
 
-## `vercel.json`
+## Заголовки ответа
 
-COOP/COEP для WASM proving. CSP: RPC, CRS CDN, ZKPassport. Connect показывает Browser session и расширения wallet-sdk после того, как пользователь одобрит HappyVote во всплывающем окне кошелька; каждое расширение появляется под своим именем. Demo Wallet Labs он не открывает: публичная сборка на Aztec 5.0.1, рукопожатие 6.0.0 не завершается, и бюллетень HappyVote он доказать не может. `frame-src` и `child-src` по-прежнему перечисляют `https://demo-wallet.aztec-labs.com`. SPA rewrite не глотает `/api/*`, `robots.txt`, `sitemap.xml`. `/`, `/polls`, `/faq`, `/p/:id` и `/legal/:slug` отдают `/api/document` с уникальным head. Остальные пути приложения — `/index.html`.
+Сайт отправляет заголовки из `web/vercel.json`. COOP/COEP для WASM proving. CSP: RPC, CRS CDN, ZKPassport. Connect показывает Browser session и расширения wallet-sdk после того, как пользователь одобрит HappyVote во всплывающем окне кошелька; каждое расширение появляется под своим именем. Demo Wallet Labs он не открывает: публичная сборка на Aztec 5.0.1, рукопожатие 6.0.0 не завершается, и бюллетень HappyVote он доказать не может. `frame-src` и `child-src` по-прежнему перечисляют `https://demo-wallet.aztec-labs.com`. `/`, `/polls`, `/faq`, `/p/:id` и `/legal/:slug` отдают `/api/document` с уникальным head. Остальные пути приложения — `/index.html`. `/api/*`, `robots.txt` и `sitemap.xml` этот rewrite не перехватывает.
 
 ## API
 
@@ -27,21 +27,15 @@ COOP/COEP для WASM proving. CSP: RPC, CRS CDN, ZKPassport. Connect показ
 | `GET/POST /api/polls` | Каталог (seed + overlay). `GET /api/polls` — опросы, у которых окно ещё не кончилось, плюс опросы главной. Завершённые вне главной: `GET /api/polls?ended=1` с `lane` `authoritative` или `users`, `offset` и `limit` (по умолчанию 24, максимум 48). `GET /api/polls?id=` для `/p/:id`, включая завершённый опрос. `GET /api/polls?creator=` — листинги этого адреса на текущем контракте, включая опросы с прошедшим `endsAt`, плюс три открытых on-chain слота. Скрытые названия не отдаются. `showOnHome` / `homeRank` для главной; создатель эти флаги не ставит. `/polls` — **Authoritative polls** и **User polls**, в каждой **Active**, затем одна общая секция **Ended**. Фильтр стран также читает Dashboard policy, если задан `policyId`. Смена каталожного `policyId` у существующего опроса не переписывает on-chain `metadata_hash`. Промах overlay кешируется коротко; `404` по id на CDN не кладётся. |
 | `POST /api/zkpassport-verify` | Server re-verify |
 | `POST /api/client-error` | Логи ошибок |
-| `POST /api/site-stats` | Обезличенные дневные агрегаты посещений (без cookies, без IP) |
+| `POST /api/site-stats` | Обезличенные дневные агрегаты посещений. Страна считается на хосте из IP запроса, затем IP отбрасывается и во внешний геосервис не уходит. Счёт меньше 3 визитов склеивается. Без cookies и без poll ID |
 | `GET /api/site-stats` | Те же агрегаты, только оператор |
 
 Не класть новый `AztecAddress` в зависимости `useEffect`.
 
-## Проверка карточки на Vercel и будущий полный сервер
+## Проверка карточки
 
-`POST /api/polls` сверяет пользовательскую карточку с цепью и для этого импортирует библиотеки Aztec в `web/api/verify-account-poll.js`. Они поднимают Node-логгер Aztec, а тот открывает worker-транспорт. Цель по умолчанию — строка `pino-pretty`.
-
-Vercel кладёт в функцию только файлы, которые видит статический разбор импортов. Эта строка таким импортом не является, пакета в функции нет, и публикация падает с `unable to determine transport target for "pino-pretty"`. Открытый и скрытый автор идут через одну и ту же проверку. Секрет скрытого автора и бюллетень в этот запрос не входят.
-
-На этом хосте проверка перед первым импортом Aztec ставит `LOG_JSON=1`, если переменная ещё не задана. Логгер пишет JSON в stderr через `pino/file`. В `vercel.json` у `api/polls.js` вместе с функцией едут `pino`, `thread-stream` и `sonic-boom`, чтобы файловый транспорт и его worker были в бандле. Редактирование и уровень лога остаются такими, как их задаёт Aztec. Приватность бюллетеня и то, что сохраняет карточка, не меняются.
-
-`pino-pretty` — production-зависимость `@aztec-labs/foundation`. Полный процесс Node, запущенный из целого `node_modules`, этот пакет находит, и ошибки нет. При переезде с трассируемой функции значение `LOG_JSON` по умолчанию и эти три лишних `includeFiles` можно убрать. Процессу по-прежнему нужно установленное дерево зависимостей. Определение Node оставляют как у Aztec: `detect-node` читается один раз на процесс и выбирает Node-сборку стека доказательств.
+`POST /api/polls` сверяет пользовательскую карточку с цепью в процессе сайта (`web/api/verify-account-poll.js`). У процесса есть установленное дерево зависимостей, включая `pino-pretty`. Открытый и скрытый автор идут через одну и ту же проверку. Секрет скрытого автора и бюллетень в этот запрос не входят.
 
 ## SEO и аналитика
 
-`index.html`, `seo.js` и `/api/document`: title, description, canonical, Open Graph, Twitter и JSON-LD. У каждого опроса свой `Question` и свой URL картинки `/api/og`. `robots.txt`, `sitemap.xml` (включая `/faq` и `/p/1`–`/p/5`). Стороннего счётчика нет. Есть first-party cookieless агрегат `POST /api/site-stats` (страна, раздел сайта, просмотры). Чтение агрегатов — только у оператора.
+`index.html`, `seo.js` и `/api/document`: title, description, canonical, Open Graph, Twitter и JSON-LD. У каждого опроса свой `Question` и свой URL картинки `/api/og`. `robots.txt`, `sitemap.xml` (включая `/faq` и `/p/1`–`/p/5`). Стороннего счётчика нет. Есть first-party cookieless агрегат `POST /api/site-stats` (страна, раздел сайта, просмотры). Страна считается на хосте из IP запроса; IP не хранится и во внешний геосервис не уходит. Чтение агрегатов — только у оператора.

@@ -53,7 +53,7 @@ SDK + QR gate + server re-verify + on-chain `identity_commitment`. Domain `aztec
 | # | Task | Status |
 |---|------|--------|
 | 5.1 | Sealed tally | Done — on-chain `sealed` + UI hide until `end_poll` |
-| 5.2 | Metadata + catalog | Done — `GET/POST /api/polls` (seed + Vercel Blob) |
+| 5.2 | Metadata + catalog | Done — `GET/POST /api/polls` (seed + host catalog file) |
 | 5.3 | Legal pages | Done — Terms, Privacy, Data Safety, Cookies, GDPR |
 | 5.4 | Security review | Done — option_id truncation; XSS/boot; ZKPassport mock gated to DEV |
 | 5.5 | Client error ingest | Done — `POST /api/client-error` |

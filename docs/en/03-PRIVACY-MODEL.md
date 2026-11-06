@@ -90,7 +90,7 @@ The form offers two author modes. **Public address** stores the account that sen
 2. Fee-metadata privacy beyond Sponsored FPC patterns.
 3. Official election-commission status.
 
-Site visit totals are a separate first-party counter (no cookies, IP not stored, no poll IDs). They are not linked to ballots.
+Site visit totals are a separate first-party counter (no cookies, no stored IP, no poll IDs). The host derives a country code from the request IP and then discards the IP. The lookup stays on the host. These totals are not linked to ballots.
 
 ## 7. Required UI copy
 

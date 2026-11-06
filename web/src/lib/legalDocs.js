@@ -76,7 +76,7 @@ export const LEGAL_DOCUMENTS = {
       {
         heading: "6. Third-party services",
         paragraphs: [
-          "The Service depends on Aztec nodes / RPC providers, explorers, fee faucets, wallet software, ZKPassport, CDNs, and hosting (for example Vercel). Their terms and availability apply in addition to these Terms.",
+          "The Service depends on Aztec nodes / RPC providers, explorers, fee faucets, wallet software, ZKPassport, CDNs, and the site host. Their terms and availability apply in addition to these Terms.",
         ],
       },
       {
