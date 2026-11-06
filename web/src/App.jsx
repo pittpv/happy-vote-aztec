@@ -3,6 +3,7 @@ import {
   PRIVACY,
   readPublicPollState,
   prepareVoteSession,
+  registerSealedTallyBook,
   peekVoteSession,
   clearVoteSession,
   registerHappyVote,
@@ -54,7 +55,12 @@ import { useNow } from "./hooks/useNow.js";
 import { LegalPage } from "./components/LegalPage.jsx";
 import { SiteFooter } from "./components/SiteFooter.jsx";
 import { PollScheduleBanner } from "./components/PollScheduleBanner.jsx";
-import { identityCommitmentFromUid, loadZkSession, saveZkSession } from "./lib/zkIdentity.js";
+import {
+  attestationBytes,
+  loadZkSession,
+  saveZkSession,
+  zeroAttestationBytes,
+} from "./lib/zkIdentity.js";
 import { ELIGIBILITY_MODE } from "./lib/zkRequirements.js";
 import {
   POLL_PHASE,
@@ -521,6 +527,9 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
   const [policy, setPolicy] = useState(PRIVACY.VOTER_CHOICE);
   const [voteEnded, setVoteEnded] = useState(false);
   const [onChainSealed, setOnChainSealed] = useState(Boolean(pollMeta.sealed));
+  const [sealedBallots, setSealedBallots] = useState(null);
+  const [sealedCounted, setSealedCounted] = useState(null);
+  const [tallyRecipient, setTallyRecipient] = useState("");
   const [chainStartsAt, setChainStartsAt] = useState(null);
   const [chainEndsAt, setChainEndsAt] = useState(null);
   const [cancelled, setCancelled] = useState(false);
@@ -827,6 +836,10 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
     if (result.policy === PRIVACY.PRIVATE_ONLY) setPrivacyMode("private");
     if (result.policy === PRIVACY.PUBLIC_ONLY) setPrivacyMode("open");
     if (result.sealed != null) setOnChainSealed(Boolean(result.sealed));
+    if (result.sealed) setPrivacyMode("private");
+    if (result.sealedBallots != null) setSealedBallots(Number(result.sealedBallots));
+    if (result.sealedCounted != null) setSealedCounted(Number(result.sealedCounted));
+    if (result.tallyRecipient) setTallyRecipient(String(result.tallyRecipient));
     if (result.voteEnded != null) setVoteEnded(Boolean(result.voteEnded));
     if (result.cancelled != null) setCancelled(Boolean(result.cancelled));
     if (result.paused != null) setPaused(Boolean(result.paused));
@@ -863,6 +876,43 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
       if (s && s !== "[object Object]") return s;
     }
     return null;
+  }
+
+  async function publishSealed() {
+    const wallet = walletConnect.phase.wallet;
+    if (!wallet || !accountAddress || !recipientHere) return;
+    setBusy(true);
+    setVoteActivity("Publishing sealed results…");
+    setStatus({
+      text: "Publishing one page of sealed ballots. Repeat until every accepted ballot is included.",
+      tone: "neutral",
+    });
+    try {
+      const book = await registerSealedTallyBook(wallet);
+      const txOpts = paymentMethod
+        ? await sponsoredTxOptions(paymentMethod)
+        : await senderFeeTxOptions();
+      await submitProvenBallot(book.methods.reveal(pollId.id), {
+        from: accountAddress,
+        txOptions: txOpts,
+        onStep: ({ button, text }) => {
+          setVoteActivity(button);
+          setStatus({ text, tone: "neutral" });
+        },
+      });
+      await reloadPublic({ fresh: true });
+      setStatus({
+        title: "Sealed page published",
+        text: "If ballots remain, publish the next page.",
+        tone: "ok",
+      });
+    } catch (error) {
+      console.error(error);
+      setStatus({ tone: "error", ...explainError(error, "vote") });
+    } finally {
+      setBusy(false);
+      setVoteActivity("");
+    }
   }
 
   async function vote() {
@@ -915,15 +965,16 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
             ? ELIGIBILITY_MODE.PERSONHOOD
             : ELIGIBILITY_MODE.OPEN;
       let identityCommitment = new Fr(0);
+      let attestation = null;
       if (eligibility !== ELIGIBILITY_MODE.OPEN) {
         if (!zkId) {
           throw new Error("ZKPassport uniqueIdentifier required for this poll");
         }
-        showStep(
-          "Checking identity…",
-          "Turning the ZKPassport identifier into the on-chain commitment.",
-        );
-        identityCommitment = await identityCommitmentFromUid(zkId, Fr);
+        attestation = loadZkSession(routePollId)?.attestation ?? null;
+        if (!attestation) {
+          throw new Error("Identity check expired. Scan again, then vote within 15 minutes.");
+        }
+        identityCommitment = new Fr(BigInt(attestation.identity));
       }
 
       const payWithSender =
@@ -938,21 +989,76 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
           ? "Reading the fee cap. This ballot pays with your Fee Juice."
           : "Reading the sponsored fee cap so the proof still pays under the current base fee.",
       );
-      const period = new Fr(dailyVote ? utcDayIndex() : 0);
-      const supportsPeriod = typeof contract.methods.get_vote_frequency === "function";
-      const method =
-        privacyMode === "private"
-          ? supportsPeriod
-            ? contract.methods.cast_vote_private(
+      const period = new Fr(
+        attestation ? BigInt(attestation.period) : dailyVote ? utcDayIndex() : 0,
+      );
+      const sealedBallot = onChainSealed || Boolean(pollMeta.sealed);
+      const sigR = attestation ? attestationBytes(attestation.r) : zeroAttestationBytes();
+      const sigS = attestation ? attestationBytes(attestation.s) : zeroAttestationBytes();
+      const expiry = attestation ? attestation.expiry : 0;
+      const xHi = attestation ? BigInt(attestation.xHi) : 0n;
+      const xLo = attestation ? BigInt(attestation.xLo) : 0n;
+      const yHi = attestation ? BigInt(attestation.yHi) : 0n;
+      const yLo = attestation ? BigInt(attestation.yLo) : 0n;
+      let method;
+      if (sealedBallot) {
+        const wallet = walletConnect.phase.wallet;
+        if (!wallet) throw new Error("Connect a wallet before voting");
+        if (!tallyRecipient || /^0x0+$/i.test(tallyRecipient)) {
+          throw new Error("This sealed poll has no tally recipient yet");
+        }
+        const book = await registerSealedTallyBook(wallet);
+        method = book.methods.cast(
+          pollId.id,
+          new Fr(selected),
+          identityCommitment,
+          period,
+          expiry,
+          xHi,
+          xLo,
+          yHi,
+          yLo,
+          sigR,
+          sigS,
+          eligibility,
+          optionLabels.length,
+          AztecAddress.fromStringUnsafe(tallyRecipient),
+        );
+      } else if (attestation) {
+        method =
+          privacyMode === "private"
+            ? contract.methods.cast_vote_private_attested(
                 pollId,
                 new Fr(selected),
                 identityCommitment,
                 period,
+                expiry,
+                xHi,
+                xLo,
+                yHi,
+                yLo,
+                sigR,
+                sigS,
               )
-            : contract.methods.cast_vote_private(pollId, new Fr(selected), identityCommitment)
-          : supportsPeriod
-            ? contract.methods.cast_vote_open(pollId, new Fr(selected), identityCommitment, period)
-            : contract.methods.cast_vote_open(pollId, new Fr(selected), identityCommitment);
+            : contract.methods.cast_vote_open_attested(
+                pollId,
+                new Fr(selected),
+                identityCommitment,
+                period,
+                expiry,
+                xHi,
+                xLo,
+                yHi,
+                yLo,
+                sigR,
+                sigS,
+              );
+      } else {
+        method =
+          privacyMode === "private"
+            ? contract.methods.cast_vote_private(pollId, new Fr(selected), identityCommitment, period)
+            : contract.methods.cast_vote_open(pollId, new Fr(selected), identityCommitment, period);
+      }
 
       const txOpts = payWithSender
         ? await senderFeeTxOptions()
@@ -973,16 +1079,15 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
       if (txHash) setLastTxHash(txHash);
       markVoted(routePollId, { frequency: voteFrequency });
       setReceiptNonce((n) => n + 1);
-      const hideCounts =
-        (onChainSealed || pollMeta.sealed) &&
-        !closedOnChain &&
-        schedule.phase !== POLL_PHASE.CLOSED;
+      const hideCounts = sealedBallot;
       const optimisticTallies = hideCounts
         ? null
         : tallies.map((count, index) => (index === selected ? count + 1 : count));
       if (optimisticTallies) {
         setTallies(optimisticTallies);
         setTotal(total + 1);
+      } else if (sealedBallot) {
+        setSealedBallots((count) => (count == null ? 1 : Number(count) + 1));
       }
       try {
         showStep("Updating results…", "Reading the public tally.");
@@ -1036,10 +1141,16 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
     }
   }
 
-  const resultsHidden =
-    (onChainSealed || pollMeta.sealed) &&
-    !closedOnChain &&
-    schedule.phase !== POLL_PHASE.CLOSED;
+  const sealPending =
+    sealedBallots == null || sealedCounted == null
+      ? !closedOnChain && schedule.phase !== POLL_PHASE.CLOSED
+      : Number(sealedBallots) !== Number(sealedCounted);
+  const resultsHidden = (onChainSealed || Boolean(pollMeta.sealed)) && sealPending;
+  const recipientHere =
+    accountAddress &&
+    tallyRecipient &&
+    String(accountAddress).replace(/^0x/i, "").toLowerCase().padStart(64, "0") ===
+      tallyRecipient.replace(/^0x/i, "").toLowerCase().padStart(64, "0");
   const maxTally = Math.max(1, ...tallies);
   const voteStep = !identityOk ? 1 : !accountAddress ? 2 : 3;
   const pollFooter = (
@@ -1182,7 +1293,7 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                     requirements={pollMeta.zkRequirements}
                     verifiedId={zkId}
                     serverVerified={zkServerVerified}
-                    onVerified={({ uniqueIdentifier, serverVerified, mock }) => {
+                    onVerified={({ uniqueIdentifier, serverVerified, mock, attestation }) => {
                       setZkId(uniqueIdentifier);
                       setZkServerVerified(Boolean(serverVerified));
                       saveZkSession(routePollId, {
@@ -1190,6 +1301,7 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                         serverVerified,
                         mock,
                         requirements: pollMeta.zkRequirements,
+                        attestation,
                       });
                       setStatus({
                         text: serverVerified
@@ -1240,7 +1352,11 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
             })}
           </div>
 
-          {policy === PRIVACY.VOTER_CHOICE ? (
+          {onChainSealed || pollMeta.sealed ? (
+            <p className="hint">
+              This ballot stays private. The option is written to a note for the tally recipient, not to the public tally.
+            </p>
+          ) : policy === PRIVACY.VOTER_CHOICE ? (
             <fieldset className="privacy">
               <legend>Ballot privacy</legend>
               <div className="privacy-row">
@@ -1419,11 +1535,18 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
             </p>
           ) : null}
           {resultsHidden ? (
-            <p className="vote-results-note">
-              {votingOpen
-                ? "Tallies are sealed until the poll ends. Votes are still counted on-chain."
-                : "Voting has ended. Sealed tallies stay hidden until results are published."}
-            </p>
+            <div className="vote-results-note">
+              <p>
+                {sealedBallots == null
+                  ? "Per-option counts stay hidden until the tally recipient publishes them."
+                  : `${sealedBallots} sealed ${Number(sealedBallots) === 1 ? "ballot" : "ballots"} accepted. Per-option counts stay hidden until the tally recipient publishes them.`}
+              </p>
+              {recipientHere && !votingOpen ? (
+                <button type="button" className="chip" disabled={busy} onClick={publishSealed}>
+                  {voteActivity || "Publish sealed results"}
+                </button>
+              ) : null}
+            </div>
           ) : (
             <>
               <p className="vote-results-total">

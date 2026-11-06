@@ -375,6 +375,12 @@ export async function accountFeeOptions(wallet, mainnet) {
  * The author's account must not pay this transaction, or its address is published.
  */
 /** Deployed HiddenAuthorBook. Empty until that contract is deployed and configured. */
+export function sealedTallyBookAddress() {
+  const raw = String(import.meta.env.VITE_SEALED_TALLY_BOOK_ADDRESS || "").trim();
+  if (!raw) return null;
+  return AztecAddress.fromStringUnsafe(raw);
+}
+
 export function hiddenAuthorBookAddress() {
   const raw = String(import.meta.env.VITE_HIDDEN_AUTHOR_BOOK_ADDRESS || "").trim();
   if (!raw) return null;
@@ -545,7 +551,32 @@ export function prepareVoteSession(wallet, from) {
  * Register HiddenAuthorBook from the node's published instance.
  * The private note and the daily create limit live here, not on HappyVote.
  */
+const sealedTallyBooks = new WeakMap();
+
+export async function registerSealedTallyBook(wallet) {
+  const cached = sealedTallyBooks.get(wallet);
+  if (cached) return cached;
+  const address = sealedTallyBookAddress();
+  if (!address) throw new Error("VITE_SEALED_TALLY_BOOK_ADDRESS is not set");
+  const node = createHappyVoteNode(getNodeUrl());
+  const instance = await node.getContract(address);
+  if (!instance) throw new Error(`Contract not found on node: ${address}`);
+  const { default: sealedBookJson } = await import(
+    "../contracts/sealed_tally_book-SealedTallyBook.json",
+    { with: { type: "json" } },
+  );
+  const artifact = loadContractArtifact(sealedBookJson);
+  await wallet.registerContract(instance, artifactForWallet(artifact));
+  const contract = Contract.at(address, artifact, wallet);
+  sealedTallyBooks.set(wallet, contract);
+  return contract;
+}
+
+const hiddenAuthorBooks = new WeakMap();
+
 export async function registerHiddenAuthorBook(wallet) {
+  const cached = hiddenAuthorBooks.get(wallet);
+  if (cached) return cached;
   const address = hiddenAuthorBookAddress();
   if (!address) {
     throw new Error("VITE_HIDDEN_AUTHOR_BOOK_ADDRESS is not set");
@@ -561,7 +592,9 @@ export async function registerHiddenAuthorBook(wallet) {
   );
   const artifact = loadContractArtifact(hiddenAuthorBookJson);
   await wallet.registerContract(instance, artifactForWallet(artifact));
-  return Contract.at(address, artifact, wallet);
+  const contract = Contract.at(address, artifact, wallet);
+  hiddenAuthorBooks.set(wallet, contract);
+  return contract;
 }
 
 /**
@@ -595,7 +628,10 @@ export async function registerHappyVote(wallet) {
  * SingleUseClaim / private entrypoints call HandshakeRegistry utilities.
  * External wallets won't have these preloaded unless we register them.
  */
+const standardContractsReady = new WeakSet();
+
 export async function registerStandardContracts(wallet) {
+  if (standardContractsReady.has(wallet)) return;
   const [{ getStandardHandshakeRegistry }, { getStandardAuthRegistry }, { getStandardMultiCallEntrypoint }] =
     await Promise.all([
       import("@aztec-labs/standard-contracts/handshake-registry/lazy"),
@@ -612,6 +648,7 @@ export async function registerStandardContracts(wallet) {
   for (const { instance, artifact } of standards) {
     await wallet.registerContract(instance, artifact);
   }
+  standardContractsReady.add(wallet);
 }
 
 export async function getContract(wallet, address) {

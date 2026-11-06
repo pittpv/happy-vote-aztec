@@ -10,7 +10,7 @@ function optionKindLabel(poll) {
   return "Single choice";
 }
 
-export function PollCard({ poll, now, closed = null, preview = false }) {
+export function PollCard({ poll, now, closed = null, statusPending = false, preview = false }) {
   const codes = pollCountryCodes(poll);
   const schedule = getPollSchedule(poll, now);
   const ended = closed === true || schedule.phase === POLL_PHASE.CLOSED;
@@ -19,12 +19,16 @@ export function PollCard({ poll, now, closed = null, preview = false }) {
     ? scheduleBadge(schedule, true)
     : statusKnown
       ? scheduleBadge(schedule, false)
-      : { label: "Status unknown", kind: "soon" };
+      : statusPending
+        ? { label: "Checking status", kind: "soon" }
+        : { label: "Status unavailable", kind: "soon" };
   const summary = ended
     ? scheduleSummary(schedule, true)
     : statusKnown
       ? scheduleSummary(schedule, false)
-      : null;
+      : statusPending
+        ? "Waiting for the chain status."
+        : "The chain has not returned a status for this poll.";
   const modeLabel =
     poll.eligibilityMode === ELIGIBILITY_MODE.GATED
       ? "Gated"

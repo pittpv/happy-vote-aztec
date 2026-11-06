@@ -75,7 +75,7 @@ Pattern: Aztec private voting — private function claims a nullifier, then enqu
 | `vote_claims` | `Map<Field, Owned<SingleUseClaim>>` | Packed `(poll, period)` → account claim |
 | `open_ballots` | `Map<PollId, Map<AztecAddress, Field>>` | `option_id + 1` (0 = none); latest open choice |
 | `identity_claims` | `Map<Field, bool>` | Poseidon2(`poll`, `period`, ZKPassport UID) |
-| `sealed` | `Map<PollId, PublicImmutable<u8>>` | Slot 13 flags: bit0 hide tallies until closed · bit1 UTC-day frequency |
+| `sealed` | `Map<PollId, PublicImmutable<u8>>` | Slot 13 flags: bit0 sealed option is a private note · bit1 UTC-day frequency |
 | `starts_at` | `Map<PollId, PublicImmutable<u64>>` | Unix seconds; `0` = unset |
 | `ends_at` | `Map<PollId, PublicImmutable<u64>>` | Unix seconds; `0` = unset |
 | `cancelled` | `Map<PollId, bool>` | Cancelled (no votes) |
@@ -90,13 +90,13 @@ Pattern: Aztec private voting — private function claims a nullifier, then enqu
 |--------|------------|---------|
 | `constructor(admin)` | public initializer | Non-zero admin; `next_poll_id = 1` |
 | `create_poll(..., sealed, starts_at, ends_at, vote_frequency)` | public | Contract admin; returns assigned id (`0` = next) |
-| `cast_vote_private(poll_id, option_id, identity_commitment, vote_period)` | private → enqueue public | Hidden address; public tally++ |
-| `cast_vote_open(poll_id, option_id, identity_commitment, vote_period)` | private → enqueue public | Public ballot + tally++ |
+| `cast_vote_private(poll_id, option_id, identity_commitment, vote_period)` | private → enqueue public | Hidden address. Unsealed: public tally++. Sealed polls reject this and use `SealedTallyBook`. |
+| `cast_vote_open(poll_id, option_id, identity_commitment, vote_period)` | private → enqueue public | Public ballot. Sealed polls reject this. |
 | `end_poll(poll_id)` | public | Admin close |
 | `cancel_poll(poll_id)` | public | Admin; only if `total_votes == 0` |
 | `transfer_admin(new_admin)` | public | Non-zero successor |
 | `set_paused(paused)` | public | Pause create + vote |
-| `get_tally` / `get_total_votes` | view | `0` if sealed and not closed |
+| `get_tally` / `get_total_votes` | view | `0` while a sealed poll's accepted ballots are not all published |
 | `is_voting_open` | view | Exists, not paused, not closed, started |
 | Config views | view | options, policy, eligibility, metadata, sealed, starts/ends, cancelled, paused, next id, admin, vote frequency / current period |
 | `get_open_ballot(poll_id, voter)` | view | Open receipt |
@@ -145,7 +145,7 @@ Application hashes in Aztec.nr use **Poseidon2**. Catalog `metadata_hash` (and a
 - Private votes with `ends_at != 0` or a daily period set `expiration_timestamp` so a late inclusion cannot burn the nullifier after the window.
 - `starts_at` cannot be fully enforced in private (no inclusion time). The public kernel rejects early votes; do not submit a ballot before start.
 
-Honest limits: `identity_commitment` is supplied by the caller (ZKPassport is re-verified off-chain). Sealed is view-hiding, not MPC — raw public storage of tallies remains readable. `option_id` is public in the enqueue. Pause/`end_poll` after a private proof can still consume the nullifier (those flags are `PublicMutable`).
+Honest limits: personhood and gated polls require a server attestation. The contract checks that signature in private and checks the stored public key and expiry in public. Open polls do not. A sealed option lives in a `SealedTallyBook` note owned by the tally recipient; the public HappyVote call does not receive it. The recipient can read those notes. Guests see the accepted-ballot count. Unsealed `option_id` is still public in the enqueue. Pause/`end_poll` after a private proof can still consume the nullifier (those flags are `PublicMutable`).
 
 ## 3. Off-chain
 

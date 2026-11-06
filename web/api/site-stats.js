@@ -4,18 +4,19 @@
  * POST /api/site-stats  → ingest one pageview (no cookies, no IP stored)
  * GET  /api/site-stats  → operator-only daily aggregates
  *
- * Persistence: Vercel Blob overlay (`BLOB_READ_WRITE_TOKEN`), unguessable pathname.
+ * Persistence: host file `HAPPYVOTE_DATA_DIR/site-stats.json`. The file is not served.
+ * Country is derived on this host from the request IP, then the IP is discarded.
+ * Counts below 3 visits are grouped as Other. The IP is not sent to a geo service.
  * Auth for GET: same bearer token as catalog publish.
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { createRequire } from "node:module";
+import { readJson, withStoreLock, writeJson } from "./local-store.js";
 
-function statsPathname() {
-  const id = createHmac("sha256", hmacSecret())
-    .update("site-stats-blob-name")
-    .digest("hex")
-    .slice(0, 32);
-  return `happyvote/site-stats-${id}.json`;
-}
+const require = createRequire(import.meta.url);
+const geoip = require("geoip-lite");
+
+const STATS_FILE = "site-stats.json";
 const K_ANON = 3;
 const MAX_UNIQUE_KEYS = 4000;
 const KEEP_DAYS = 90;
@@ -58,7 +59,7 @@ function checkAuth(req) {
 
 function allowedIngestOrigin(req) {
   const origin = req.headers.origin;
-  if (!origin) return true;
+  if (!origin) return false;
   try {
     const host = new URL(String(origin)).hostname.toLowerCase();
     return (
@@ -78,14 +79,15 @@ function header(req, name) {
 }
 
 function clientIp(req) {
-  const forwarded = header(req, "x-forwarded-for") || header(req, "x-vercel-forwarded-for");
-  const first = forwarded.split(",")[0].trim();
-  return first || header(req, "x-real-ip").trim() || "";
+  return header(req, "x-real-ip").trim();
 }
 
 function countryCode(req) {
-  const raw = header(req, "x-vercel-ip-country").trim().toUpperCase();
-  if (/^[A-Z]{2}$/.test(raw) && raw !== "XX") return raw;
+  const ip = clientIp(req);
+  if (!ip || ip === "127.0.0.1" || ip === "::1") return "unknown";
+  const looked = geoip.lookup(ip);
+  const code = looked && typeof looked.country === "string" ? looked.country.toUpperCase() : "";
+  if (/^[A-Z]{2}$/.test(code)) return code;
   return "unknown";
 }
 
@@ -227,46 +229,18 @@ function applyHit(store, hit) {
   store.updatedAt = new Date().toISOString();
 }
 
-async function readStore(token) {
-  if (!token) return emptyStore();
-  try {
-    const { list } = await import("@vercel/blob");
-    const pathname = statsPathname();
-    const result = await list({ prefix: "happyvote/site-stats-", token, limit: 10 });
-    const match = result.blobs?.find((b) => b.pathname === pathname);
-    const url = match?.downloadUrl || match?.url;
-    if (!url) return emptyStore();
-    const bust = url.includes("?") ? `${url}&cb=${Date.now()}` : `${url}?cb=${Date.now()}`;
-    const response = await fetch(bust, { cache: "no-store" });
-    if (!response.ok) return emptyStore();
-    const data = await response.json();
-    if (!data || typeof data !== "object") return emptyStore();
-    return {
-      version: Number(data.version || 1),
-      updatedAt: data.updatedAt || null,
-      days: data.days && typeof data.days === "object" ? data.days : {},
-    };
-  } catch (error) {
-    console.error("[site-stats] blob read failed", error);
-    return emptyStore();
-  }
+async function readStore() {
+  const data = await readJson(STATS_FILE);
+  if (!data) return emptyStore();
+  return {
+    version: Number(data.version || 1),
+    updatedAt: data.updatedAt || null,
+    days: data.days && typeof data.days === "object" ? data.days : {},
+  };
 }
 
-async function writeStore(token, store) {
-  if (!token) {
-    const err = new Error("BLOB_READ_WRITE_TOKEN is not configured");
-    err.code = "NO_BLOB";
-    throw err;
-  }
-  const { put } = await import("@vercel/blob");
-  await put(statsPathname(), JSON.stringify(store), {
-    access: "public",
-    contentType: "application/json",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    cacheControlMaxAge: 60,
-    token,
-  });
+async function writeStore(store) {
+  await writeJson(STATS_FILE, store);
 }
 
 function kAnonymize(map, k = K_ANON) {
@@ -357,9 +331,6 @@ export default async function handler(req, res) {
       const section = bucketPath(body.path);
       if (!section) return res.status(204).end();
 
-      const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
-      if (!blobToken) return res.status(204).end();
-
       const day = utcDay();
       const uaFamily = browserFamily(ua);
       const hit = {
@@ -372,19 +343,15 @@ export default async function handler(req, res) {
         uniqueKey: uniqueKey({ ip: clientIp(req), uaFamily, day }),
       };
 
-      let lastError = null;
-      for (let attempt = 0; attempt < 3; attempt += 1) {
-        try {
-          const store = pruneStore(await readStore(blobToken), day);
+      try {
+        await withStoreLock(async () => {
+          const store = pruneStore(await readStore(), day);
           applyHit(store, hit);
-          await writeStore(blobToken, store);
-          lastError = null;
-          break;
-        } catch (error) {
-          lastError = error;
-        }
+          await writeStore(store);
+        });
+      } catch (error) {
+        console.error("[site-stats] ingest failed", error);
       }
-      if (lastError) console.error("[site-stats] ingest failed", lastError);
       return res.status(204).end();
     }
 
@@ -399,15 +366,7 @@ export default async function handler(req, res) {
         MAX_RANGE_DAYS,
         Math.max(1, Number(url.searchParams.get("days")) || 14),
       );
-      const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
-      if (!blobToken) {
-        return res.status(200).json({
-          ok: true,
-          persisted: false,
-          ...summarize(emptyStore(), rangeDays),
-        });
-      }
-      const store = pruneStore(await readStore(blobToken), utcDay());
+      const store = pruneStore(await readStore(), utcDay());
       res.setHeader("Cache-Control", "private, no-store");
       return res.status(200).json({
         ok: true,

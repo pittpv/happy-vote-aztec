@@ -89,9 +89,9 @@ export function AdminSiteStats() {
   const [loading, setLoading] = useState(false);
 
   async function load(nextToken = token, nextDays = days) {
-    if (!nextToken) {
-      setError("Paste the catalog publish token to load visit aggregates.");
+    if (!String(nextToken || "").trim()) {
       setData(null);
+      setError("");
       return;
     }
     setLoading(true);
@@ -116,7 +116,9 @@ export function AdminSiteStats() {
   }
 
   useEffect(() => {
-    void load();
+    if (!String(token || "").trim()) return;
+    void load(token, days);
+    // The token is read when the range changes. Typing does not refetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [days]);
 
@@ -140,6 +142,14 @@ export function AdminSiteStats() {
           autoComplete="off"
           value={token}
           onChange={(event) => setToken(event.target.value)}
+          onBlur={() => {
+            const next = token.trim();
+            if (typeof sessionStorage !== "undefined") {
+              if (next) sessionStorage.setItem("happyvote.publishToken", next);
+              else sessionStorage.removeItem("happyvote.publishToken");
+            }
+            if (next) void load(next, days);
+          }}
           placeholder="Needed to read aggregates"
         />
       </label>
@@ -156,10 +166,14 @@ export function AdminSiteStats() {
             {range}d
           </button>
         ))}
-        <button type="button" className="btn btn-ghost" disabled={loading} onClick={() => load()}>
+        <button type="button" className="btn btn-ghost" disabled={loading || !token.trim()} onClick={() => load()}>
           {loading ? "Loading…" : "Refresh"}
         </button>
       </div>
+
+      {!token.trim() ? (
+        <p className="hint">Paste the catalog publish token above. It stays in this browser tab and is not stored in the page.</p>
+      ) : null}
 
       {error ? (
         <Notice tone="error" title="Could not load visits">

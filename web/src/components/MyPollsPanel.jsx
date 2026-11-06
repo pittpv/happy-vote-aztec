@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   AztecAddress,
   Fr,
   accountFeeOptions,
-  asFieldBigInt,
   authorFeeSponsorAddress,
   hiddenAuthorFeeOptions,
   pollIdFromRaw,
@@ -20,15 +19,9 @@ import {
 } from "../lib/catalogDraft.js";
 import { normalizeAddress } from "../lib/catalogMeta.js";
 import { networkPlace } from "../lib/networkLabel.js";
-import { fetchCreatorPolls, publishAccountPoll, refreshPollMetaById } from "../lib/polls.js";
+import { fetchCreatorPolls, fetchPollClosures, publishAccountPoll, refreshPollMetaById } from "../lib/polls.js";
 import { navigate, pollPath } from "../lib/routing.js";
 import { explainError } from "../lib/userMessages.js";
-
-function chainBool(value) {
-  if (typeof value === "boolean") return value;
-  if (value && typeof value === "object" && "result" in value) return chainBool(value.result);
-  return asFieldBigInt(value) !== 0n;
-}
 
 function sameChainValue(left, right) {
   return BigInt(left) === BigInt(right);
@@ -102,37 +95,26 @@ async function loadHiddenPolls(wallet, address) {
     if (/unknown function|no function|selector|get_hidden_author_note/i.test(text)) return [];
     throw error;
   }
-  const contract = await registerHappyVote(wallet);
-  const from = AztecAddress.fromStringUnsafe(address);
-  const rows = [];
-  for (const slot of slots) {
-    let title = `Poll #${slot.id}`;
-    let listed = false;
-    let endsAt = null;
-    const meta = await refreshPollMetaById(slot.id);
-    if (meta) {
-      title = meta.title || title;
-      listed = true;
-      endsAt = meta.endsAt || null;
-    }
-    const pollId = pollIdFromRaw(slot.id);
-    const [voteEnded, cancelled, chainEnds] = await Promise.all([
-      contract.methods.get_vote_ended(pollId).simulate({ from }),
-      contract.methods.get_cancelled(pollId).simulate({ from }),
-      contract.methods.get_ends_at(pollId).simulate({ from }),
-    ]);
-    const endsSeconds = asFieldBigInt(chainEnds);
-    rows.push({
+  if (slots.length === 0) return [];
+  const [metas, closures] = await Promise.all([
+    Promise.all(slots.map((slot) => refreshPollMetaById(slot.id))),
+    fetchPollClosures(slots.map((slot) => slot.id)),
+  ]);
+  const closureById = new Map(closures.map((row) => [String(row.id), row]));
+  return slots.map((slot, index) => {
+    const meta = metas[index];
+    const closure = closureById.get(String(slot.id));
+    if (!closure) throw new Error(`Chain status missing for poll ${slot.id}`);
+    return {
       id: slot.id,
-      title,
-      listed,
-      endsAt: endsAt || (endsSeconds > 0n ? new Date(Number(endsSeconds) * 1000).toISOString() : null),
-      voteEnded: chainBool(voteEnded),
-      cancelled: chainBool(cancelled),
+      title: meta?.title || `Poll #${slot.id}`,
+      listed: Boolean(meta),
+      endsAt: meta?.endsAt || closure.endsAt || null,
+      voteEnded: Boolean(closure.voteEnded),
+      cancelled: Boolean(closure.cancelled),
       authorSecret: slot.secret,
-    });
-  }
-  return rows;
+    };
+  });
 }
 
 export function MyPollsPanel({ walletConnect, active }) {
@@ -146,54 +128,92 @@ export function MyPollsPanel({ walletConnect, active }) {
   const [confirmId, setConfirmId] = useState("");
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
+  const [checkingPrivate, setCheckingPrivate] = useState(false);
+  const loadGen = useRef(0);
 
   const load = useCallback(async () => {
     if (!address) return;
+    const gen = loadGen.current + 1;
+    loadGen.current = gen;
     setLoading(true);
+    setCheckingPrivate(false);
     setError("");
+    const wallet = walletConnect.phase.wallet;
+    const hiddenPromise = wallet ? loadHiddenPolls(wallet, address) : Promise.resolve([]);
+    let hiddenPolls = null;
+    let hiddenError = null;
+    const hiddenTask = hiddenPromise
+      .then((rows) => {
+        hiddenPolls = rows;
+        return rows;
+      })
+      .catch((err) => {
+        hiddenError = err;
+        return null;
+      });
     try {
       const data = await fetchCreatorPolls(address);
-      const wallet = walletConnect.phase.wallet;
-      const hiddenPolls = wallet ? await loadHiddenPolls(wallet, address) : [];
-      const next = mergeRows(data.polls, data.openPolls, hiddenPolls);
-      let pendingId = "";
-      let missingId = "";
-      const draft = readCatalogDraft();
-      const draftForThisWallet =
-        draft &&
-        (draft.hiddenAuthor || normalizeAddress(draft.creator) === normalizeAddress(address));
-      if (draftForThisWallet) {
-        const draftId = draft.pollId ? String(draft.pollId) : "";
-        const draftRow = draftId ? next.find((row) => row.id === draftId) : null;
-        if (draftRow?.listed) {
-          clearCatalogDraft();
-        } else if (draftRow) {
-          pendingId = draftRow.id;
-        } else {
-          const hash = await catalogDraftContentHash(draft);
-          const match = next.find(
-            (row) =>
-              !row.listed &&
-              row.metadataHash != null &&
-              row.signingPubX != null &&
-              sameChainValue(hash, row.metadataHash) &&
-              sameChainValue(draft.publicKey.x, row.signingPubX),
-          );
-          if (match) pendingId = match.id;
-          else if (draftId) missingId = draftId;
+      if (gen !== loadGen.current) return;
+      const apply = async (privateRows) => {
+        const next = mergeRows(data.polls, data.openPolls, privateRows);
+        let pendingId = "";
+        let missingId = "";
+        const draft = readCatalogDraft();
+        const draftForThisWallet =
+          draft &&
+          (draft.hiddenAuthor || normalizeAddress(draft.creator) === normalizeAddress(address));
+        if (draftForThisWallet) {
+          const draftId = draft.pollId ? String(draft.pollId) : "";
+          const draftRow = draftId ? next.find((row) => row.id === draftId) : null;
+          if (draftRow?.listed) {
+            clearCatalogDraft();
+          } else if (draftRow) {
+            pendingId = draftRow.id;
+          } else {
+            const hash = await catalogDraftContentHash(draft);
+            const match = next.find(
+              (row) =>
+                !row.listed &&
+                row.metadataHash != null &&
+                row.signingPubX != null &&
+                sameChainValue(hash, row.metadataHash) &&
+                sameChainValue(draft.publicKey.x, row.signingPubX),
+            );
+            if (match) pendingId = match.id;
+            else if (draftId) missingId = draftId;
+          }
+        }
+        if (gen !== loadGen.current) return;
+        setDraftPollId(pendingId);
+        setOrphanId(missingId);
+        setRows(next);
+      };
+      const hiddenReady = hiddenPolls != null;
+      await apply(hiddenPolls || []);
+      if (gen !== loadGen.current) return;
+      setLoading(false);
+      if (!hiddenReady) {
+        setCheckingPrivate(true);
+        await hiddenTask;
+        if (gen !== loadGen.current) return;
+        setCheckingPrivate(false);
+        if (hiddenError) {
+          console.error(hiddenError);
+          const explained = explainError(hiddenError, "generic");
+          setError(explained.text || hiddenError.message);
+        } else if (hiddenPolls?.length > 0) {
+          await apply(hiddenPolls);
         }
       }
-      setDraftPollId(pendingId);
-      setOrphanId(missingId);
-      setRows(next);
     } catch (err) {
+      if (gen !== loadGen.current) return;
       console.error(err);
       const explained = explainError(err, "generic");
       setError(explained.text || err.message);
       setRows([]);
       setDraftPollId("");
       setOrphanId("");
-    } finally {
+      setCheckingPrivate(false);
       setLoading(false);
     }
   }, [address, walletConnect.phase.wallet]);
@@ -293,7 +313,8 @@ export function MyPollsPanel({ walletConnect, active }) {
         wallet. End closes voting from this wallet. A private ballot still hides the voter.
       </p>
       {loading ? <p className="status">Loading your polls…</p> : null}
-      {!loading && rows.length === 0 && !error ? (
+      {checkingPrivate ? <p className="meta">Checking private-author polls in this wallet…</p> : null}
+      {!loading && !checkingPrivate && rows.length === 0 && !error ? (
         <p className="meta">This address has not published a poll on this contract.</p>
       ) : null}
       {orphanId ? (

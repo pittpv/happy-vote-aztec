@@ -2,7 +2,7 @@ import { createHappyVoteNode } from "./nodeClient.js";
 import { Fr } from "@aztec-labs/aztec.js/fields";
 import { AztecAddress } from "@aztec-labs/aztec.js/addresses";
 import { deriveStorageSlotInMap } from "@aztec-labs/stdlib/hash";
-import { POLL_MAP_SLOTS } from "./pollStorageSlots.js";
+import { POLL_MAP_SLOTS, TALLY_TAGS } from "./pollStorageSlots.js";
 
 function asFieldBigInt(value) {
   if (typeof value === "bigint") return value;
@@ -83,6 +83,9 @@ export async function fetchPublicPollState({
     startsAtSlot,
     endsAtSlot,
     cancelledSlot,
+    recipientSlot,
+    sealedBallotsSlot,
+    sealedCountedSlot,
   ] = await Promise.all([
     deriveStorageSlotInMap(new Fr(POLL_MAP_SLOTS.total_votes), pollKey),
     deriveStorageSlotInMap(new Fr(POLL_MAP_SLOTS.privacy_policy), pollKey),
@@ -91,6 +94,9 @@ export async function fetchPublicPollState({
     deriveStorageSlotInMap(new Fr(POLL_MAP_SLOTS.starts_at), pollKey),
     deriveStorageSlotInMap(new Fr(POLL_MAP_SLOTS.ends_at), pollKey),
     deriveStorageSlotInMap(new Fr(POLL_MAP_SLOTS.cancelled), pollKey),
+    deriveStorageSlotInMap(tallyRoot, { toField: () => new Fr(TALLY_TAGS.recipient) }),
+    deriveStorageSlotInMap(tallyRoot, { toField: () => new Fr(TALLY_TAGS.sealedBallots) }),
+    deriveStorageSlotInMap(tallyRoot, { toField: () => new Fr(TALLY_TAGS.sealedCounted) }),
   ]);
 
   const [
@@ -103,6 +109,9 @@ export async function fetchPublicPollState({
     endsAtValue,
     cancelledValue,
     pausedValue,
+    recipientValue,
+    sealedBallotsValue,
+    sealedCountedValue,
   ] = await withRetry(
     () =>
       Promise.all([
@@ -117,6 +126,9 @@ export async function fetchPublicPollState({
         node.getPublicStorageAt("latest", address, endsAtSlot),
         node.getPublicStorageAt("latest", address, cancelledSlot),
         node.getPublicStorageAt("latest", address, new Fr(POLL_MAP_SLOTS.paused)),
+        node.getPublicStorageAt("latest", address, recipientSlot),
+        node.getPublicStorageAt("latest", address, sealedBallotsSlot),
+        node.getPublicStorageAt("latest", address, sealedCountedSlot),
       ]),
     { label: "getPublicStorageAt" },
   );
@@ -130,7 +142,9 @@ export async function fetchPublicPollState({
   const cancelled = asNumber(cancelledValue) !== 0;
   const paused = asNumber(pausedValue) !== 0;
   const closed = isPollClosedAt(voteEnded, cancelled, endsAt, nowSec);
-  const hideTallies = sealed && !closed;
+  const sealedBallots = asNumber(sealedBallotsValue);
+  const sealedCounted = asNumber(sealedCountedValue);
+  const hideTallies = sealed && sealedBallots !== sealedCounted;
   const votingOpen =
     !paused && !closed && (startsAt === 0 || nowSec >= startsAt);
 
@@ -146,5 +160,8 @@ export async function fetchPublicPollState({
     endsAt,
     voteFrequency: (sealedFlags >> 1) & 1,
     votingOpen,
+    sealedBallots,
+    sealedCounted,
+    tallyRecipient: `0x${asFieldBigInt(recipientValue).toString(16).padStart(64, "0")}`,
   };
 }

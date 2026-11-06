@@ -15,7 +15,7 @@ On EVM HappyVote, a vote is public (address ↔ choice). Aztec lets the product 
 Identity disclosure     Ballot disclosure     Tally visibility
 ─────────────────       ─────────────────     ────────────────
 anonymous               private               live
-pseudonymous            public                sealed until end
+pseudonymous            public                private note, then published
 verified personhood     (option still         final only
 (public address)         updates live tally)
 ```
@@ -36,7 +36,7 @@ Combinations = poll policy + voter choice + sealed flag.
 
 Mechanics: `cast_vote_private` → `SingleUseClaim` → `add_to_tally_public(option_id, identity_commitment)`.
 
-Honest UX: live boards reveal **which option moved**, not **who** moved it. Sealed polls hide counts until the poll is **closed** (`end_poll`, `cancel_poll`, or `now >= ends_at`).
+Honest UX: on an unsealed poll, live boards reveal **which option moved**, not **who** moved it. A sealed poll does not put the option in public state.
 
 ### B. Open
 
@@ -54,13 +54,15 @@ UI: **Private** (default) / **Open**. Both increment the same tally map.
 
 ## 4. Sealed polls
 
-Implemented on-chain (`sealed` storage):
+A sealed ballot does not call `cast_vote_private`. It calls `SealedTallyBook.cast`. The option is a private note owned by the poll's tally recipient. The public call records that a ballot was accepted and does not receive the option.
 
-- While `sealed && !closed`: views return `0`; the UI hides live results and omits counts on option buttons. Closed = `vote_ended` or cancelled or scheduled `ends_at`.
-- After close: true tallies are readable.
-- Guest API zeros tallies in the same window; the vote page does not render those zeros on the ballot.
+- `get_tally` and `get_total_votes` stay at zero until `sealed_ballots == sealed_counted`. Closing the poll does not publish the options.
+- After close, the tally recipient publishes notes in pages of at most 16. Views stay at zero until every accepted ballot is included.
+- Guests can read the accepted-ballot counter. They cannot read the notes. The recipient can read the notes before publishing them.
+- A hidden-author sealed poll uses the contract admin as the recipient, so that admin can read those notes.
+- An open ballot cannot be sealed. A sealed poll does not offer an open ballot.
 
-This is **view hiding**, not encrypted aggregate MPC.
+This is a private note held by a known recipient, not an encrypted tally that nobody can read.
 
 ## 5. Eligibility without doxxing
 
@@ -68,9 +70,10 @@ ZKPassport proves personhood / age / nationality / sanctions **on device**. Happ
 
 Binding:
 
-1. Server re-verify (`POST /api/zkpassport-verify`) before unlocking the ballot.
-2. `identity_commitment` from `uniqueIdentifier` claimed in `identity_claims` (Poseidon2 of poll, vote period, commitment).
-3. Account nullifier still applies — two accounts, one ID → second vote fails. Daily polls reuse the same identity the next UTC day.
+1. Server re-verify (`POST /api/zkpassport-verify`) checks the proof for `aztec.happyvote.xyz` and the poll's query.
+2. The server signs a short-lived attestation over the poll, the identity field, the vote period, and an expiry. The private circuit checks that secp256k1 signature. The public function checks the expiry window and that the public key matches the key stored on the contract.
+3. `identity_claims` stores Poseidon2 of poll, vote period, and that identity. Two accounts with one identity cannot both vote. Daily polls can use the same identity on the next UTC day, with a new signature for that day.
+4. The account nullifier still applies. Open polls do not take an identity or an attestation.
 
 Open eligibility (`eligibility_mode = 0`) only binds the **Aztec account**. Browser session mints a new account on every Connect, so reconnecting can add another ballot. An external wallet can do the same if the user creates more accounts. That is a cheap Sybil vector; it is acceptable for fun polls and is **not** a uniqueness guarantee. Personhood/gated polls add the identity claim above.
 

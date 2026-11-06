@@ -24,6 +24,13 @@ export const PRECOMPUTED_POLL_ID_MAX = 128;
 /** Contract + guest API cap. */
 export const MAX_POLL_OPTIONS = 32;
 
+/** Inner keys of the existing tally map. Not new storage fields. */
+export const TALLY_TAGS = {
+  recipient: 206n,
+  sealedBallots: 207n,
+  sealedCounted: 208n,
+};
+
 function asPollKey(pollId) {
   const id = typeof pollId === "bigint" ? pollId.toString() : String(pollId);
   return { toField: () => Fr.fromString(id) };
@@ -59,5 +66,12 @@ export async function computePollStorageSlots(pollId, optionsCount) {
     startsAt: slotHex(await deriveStorageSlotInMap(new Fr(POLL_MAP_SLOTS.starts_at), pollKey)),
     endsAt: slotHex(await deriveStorageSlotInMap(new Fr(POLL_MAP_SLOTS.ends_at), pollKey)),
     cancelled: slotHex(await deriveStorageSlotInMap(new Fr(POLL_MAP_SLOTS.cancelled), pollKey)),
+    recipient: slotHex(await deriveStorageSlotInMap(tallyRoot, { toField: () => new Fr(TALLY_TAGS.recipient) })),
+    sealedBallots: slotHex(
+      await deriveStorageSlotInMap(tallyRoot, { toField: () => new Fr(TALLY_TAGS.sealedBallots) }),
+    ),
+    sealedCounted: slotHex(
+      await deriveStorageSlotInMap(tallyRoot, { toField: () => new Fr(TALLY_TAGS.sealedCounted) }),
+    ),
   };
 }

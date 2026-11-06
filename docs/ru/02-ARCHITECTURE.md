@@ -75,7 +75,7 @@ flowchart TB
 | `vote_claims` | `Map<Field, Owned<SingleUseClaim>>` | Упакованный `(poll, period)` → аккаунт |
 | `open_ballots` | `Map<PollId, Map<AztecAddress, Field>>` | `option_id + 1` (0 = нет); последний open-выбор |
 | `identity_claims` | `Map<Field, bool>` | Poseidon2(`poll`, `period`, ZKPassport UID) |
-| `sealed` | `Map<PollId, PublicImmutable<u8>>` | Слот 13: bit0 скрыть tallies · bit1 сутки UTC |
+| `sealed` | `Map<PollId, PublicImmutable<u8>>` | Слот 13: bit0 вариант — приватная заметка · bit1 сутки UTC |
 | `starts_at` | `Map<PollId, PublicImmutable<u64>>` | Unix-секунды; `0` = не задано |
 | `ends_at` | `Map<PollId, PublicImmutable<u64>>` | Unix-секунды; `0` = не задано |
 | `cancelled` | `Map<PollId, bool>` | Отмена (без голосов) |
@@ -90,7 +90,7 @@ flowchart TB
 |-------|-----------|------------|
 | `constructor(admin)` | public initializer | Ненулевой admin; `next_poll_id = 1` |
 | `create_poll(..., sealed, starts_at, ends_at, vote_frequency)` | public | Контрактный admin; возвращает id (`0` = следующий) |
-| `cast_vote_private(..., vote_period)` | private → enqueue public | Адрес скрыт; публичный tally++ |
+| `cast_vote_private(..., vote_period)` | private → enqueue public | Адрес скрыт. Незакрытый опрос: публичный tally++. Sealed этот вызов отвергает и идёт в `SealedTallyBook`. |
 | `cast_vote_open(..., vote_period)` | private → enqueue public | Публичный бюллетень + tally++ |
 | `end_poll(poll_id)` | public | Закрытие (контрактный admin) |
 | `cancel_poll(poll_id)` | public | Отмена, только если `total_votes == 0` |
@@ -142,7 +142,7 @@ sequenceDiagram
 - При `ends_at != 0` private ставит `expiration_timestamp = ends_at - 1`, чтобы поздняя inclusion не сожгла nullifier.
 - `starts_at` в private полностью не проверить (нет времени включения). Публичный kernel отклоняет ранние голоса; не отправляйте бюллетень до старта.
 
-Честные ограничения: `identity_commitment` задаёт вызывающий (ZKPassport перепроверяется off-chain). Sealed — скрытие view, не MPC. `option_id` публичен в enqueue. Pause/`end_poll` после private proof могут всё равно потратить nullifier (`PublicMutable`).
+Честные ограничения: personhood и gated требуют свидетельство сервера. Контракт проверяет подпись в приватной функции и хранимый публичный ключ со сроком в публичной. Open-опросы этого не делают. Вариант sealed лежит в заметке `SealedTallyBook` у получателя итога; публичный вызов HappyVote его не получает. Получатель может прочитать заметки. Гость видит число принятых бюллетеней. У незакрытого итога `option_id` по-прежнему публичен в enqueue. Pause/`end_poll` после private proof могут всё равно потратить nullifier (`PublicMutable`).
 
 ## 3. Off-chain
 

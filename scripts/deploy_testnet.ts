@@ -11,6 +11,7 @@
  */
 import "dotenv/config";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { createPrivateKey, createPublicKey, randomBytes } from "node:crypto";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadDotenv } from "dotenv";
@@ -36,6 +37,41 @@ const ELIGIBILITY_PERSONHOOD = 1;
 const VOTE_ONCE = 0;
 const VOTE_DAILY = 1;
 const OPTIONS_COUNT_SLOT = 2n;
+const SECP256K1_N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
+
+function sec1PrivateKey(raw: Buffer) {
+  const body = Buffer.concat([
+    Buffer.from([0x02, 0x01, 0x01, 0x04, 0x20]),
+    raw,
+    Buffer.from([0xa0, 0x07, 0x06, 0x05, 0x2b, 0x81, 0x04, 0x00, 0x0a]),
+  ]);
+  return Buffer.concat([Buffer.from([0x30, body.length]), body]);
+}
+
+function limb(buf: Buffer, offset: number) {
+  return BigInt(`0x${buf.subarray(offset, offset + 16).toString("hex")}`);
+}
+
+/** Public limbs for set_zk_signer. The private key is written to .env and never logged. */
+function attestationKey() {
+  const existing = process.env.ZKPASSPORT_ATTEST_KEY?.trim() ?? "";
+  let raw: Buffer;
+  if (/^[0-9a-fA-F]{64}$/.test(existing)) {
+    raw = Buffer.from(existing, "hex");
+  } else {
+    raw = randomBytes(32);
+    while (raw.every((byte) => byte === 0) || BigInt(`0x${raw.toString("hex")}`) >= SECP256K1_N) {
+      raw = randomBytes(32);
+    }
+  }
+  const privateKey = createPrivateKey({ key: sec1PrivateKey(raw), format: "der", type: "sec1" });
+  const jwk = createPublicKey(privateKey).export({ format: "jwk" });
+  if (!jwk.x || !jwk.y) throw new Error("Attestation public key is invalid");
+  const x = Buffer.from(jwk.x, "base64url");
+  const y = Buffer.from(jwk.y, "base64url");
+  if (x.length !== 32 || y.length !== 32) throw new Error("Attestation public key is invalid");
+  return { hex: raw.toString("hex"), xHi: limb(x, 0), xLo: limb(x, 16), yHi: limb(y, 0), yLo: limb(y, 16) };
+}
 const PUBLIC_RPC = "https://aztec-testnet.drpc.org";
 const PUBLISH_TIMEOUT_MS = 20 * 60 * 1000;
 const PUBLISH_POLL_MS = 15_000;
@@ -148,25 +184,25 @@ async function waitUntilPublished(
   );
 }
 
+async function pollOptionCount(addressStr: string, pollIdNum: number): Promise<bigint> {
+  const node = createHappyVoteNode(PUBLIC_RPC);
+  const address = AztecAddress.fromStringUnsafe(addressStr);
+  const pollKey = { toField: () => Fr.fromString(String(pollIdNum)) };
+  const slot = await deriveStorageSlotInMap(new Fr(OPTIONS_COUNT_SLOT), pollKey);
+  const raw = await node.getPublicStorageAt("latest", address, slot);
+  if (raw == null) return 0n;
+  return asBigInt(raw);
+}
+
 async function waitUntilPollExists(
   addressStr: string,
   pollIdNum: number,
   minOptions: bigint,
   logger: Logger,
 ) {
-  const node = createHappyVoteNode(PUBLIC_RPC);
-  const address = AztecAddress.fromStringUnsafe(addressStr);
-  const pollKey = { toField: () => Fr.fromString(String(pollIdNum)) };
-  const slot = await deriveStorageSlotInMap(new Fr(OPTIONS_COUNT_SLOT), pollKey);
   const started = Date.now();
   while (Date.now() - started < PUBLISH_TIMEOUT_MS) {
-    const raw = await node.getPublicStorageAt("latest", address, slot);
-    let value = 0n;
-    try {
-      value = asBigInt(raw);
-    } catch {
-      value = 0n;
-    }
+    const value = await pollOptionCount(addressStr, pollIdNum);
     const elapsed = Math.round((Date.now() - started) / 1000);
     if (value >= minOptions) {
       logger.info(`Poll #${pollIdNum} visible on public RPC (options=${value})`);
@@ -209,9 +245,21 @@ async function main() {
   const admin = await deploySchnorrAccount(wallet);
   logger.info(`Admin: ${admin.address}`);
 
+  const resumeAddress = process.env.RESUME_HAPPY_VOTE_ADDRESS?.trim();
   let contract: Awaited<ReturnType<typeof HappyVoteContract.at>> | undefined;
   let lastError: unknown;
-  for (let attempt = 1; attempt <= DEPLOY_ATTEMPTS; attempt++) {
+  if (resumeAddress) {
+    logger.info(`Resuming published HappyVote ${resumeAddress}`);
+    const address = AztecAddress.fromStringUnsafe(resumeAddress);
+    const node = createHappyVoteNode(PUBLIC_RPC);
+    const instance = await node.getContract(address);
+    if (!instance) {
+      throw new Error(`Contract not found on node: ${resumeAddress}`);
+    }
+    await wallet.registerContract(instance, HappyVoteContract.artifact);
+    contract = await HappyVoteContract.at(address, wallet);
+  }
+  for (let attempt = 1; !contract && attempt <= DEPLOY_ATTEMPTS; attempt++) {
     logger.info(
       `Deploying HappyVote attempt ${attempt}/${DEPLOY_ATTEMPTS} (prove may take a while; publication is confirmed via public RPC)…`,
     );
@@ -247,38 +295,56 @@ async function main() {
     throw lastError instanceof Error ? lastError : new Error("HappyVote deploy did not publish on public RPC");
   }
 
-  const pollId = { id: Fr.fromString(process.env.POLL_ID ?? "1") };
-  logger.info("Creating Happy/Sad poll (voter_choice, daily)…");
-  await contract.methods
-    .create_poll(pollId, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(1), false, 0, 0, VOTE_DAILY)
-    .send({ from: admin.address, fee, wait: txWait });
-  await waitUntilPollExists(contract.address.toString(), 1, 2n, logger);
-
-  const poll2 = { id: Fr.fromString("2") };
-  logger.info("Creating single-choice poll #2 (3 options, open eligibility)…");
-  await contract.methods
-    .create_poll(poll2, 3, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(2), false, 0, 0, VOTE_ONCE)
-    .send({ from: admin.address, fee, wait: txWait });
-  await waitUntilPollExists(contract.address.toString(), 2, 3n, logger);
-
-  const poll3 = { id: Fr.fromString("3") };
-  logger.info("Creating poll #3 (ZKPassport personhood)…");
-  await contract.methods
-    .create_poll(poll3, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_PERSONHOOD, new Fr(3), false, 0, 0, VOTE_ONCE)
-    .send({ from: admin.address, fee, wait: txWait });
-  await waitUntilPollExists(contract.address.toString(), 3, 2n, logger);
-
-  const poll4 = { id: Fr.fromString("4") };
-  logger.info("Creating poll #4 (sealed tallies, 3 options)…");
-  await contract.methods
-    .create_poll(poll4, 3, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(4), true, 0, 0, VOTE_ONCE)
-    .send({ from: admin.address, fee, wait: txWait });
-  await waitUntilPollExists(contract.address.toString(), 4, 3n, logger);
+  const addressStr = contract.address.toString();
+  const polls: Array<{
+    id: string;
+    options: number;
+    label: string;
+    args: Parameters<typeof contract.methods.create_poll>;
+  }> = [
+    {
+      id: "1",
+      options: 2,
+      label: "Happy/Sad poll (voter_choice, daily)",
+      args: [{ id: Fr.fromString(process.env.POLL_ID ?? "1") }, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(1), false, 0, 0, VOTE_DAILY],
+    },
+    {
+      id: "2",
+      options: 3,
+      label: "Iteration 3 roadmap poll #2 (3 options, open eligibility)",
+      args: [{ id: Fr.fromString("2") }, 3, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(2), false, 0, 0, VOTE_ONCE],
+    },
+    {
+      id: "3",
+      options: 2,
+      label: "poll #3 (ZKPassport personhood)",
+      args: [{ id: Fr.fromString("3") }, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_PERSONHOOD, new Fr(3), false, 0, 0, VOTE_ONCE],
+    },
+    {
+      id: "4",
+      options: 3,
+      label: "poll #4 (sealed tallies, 3 options)",
+      args: [{ id: Fr.fromString("4") }, 3, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(4), true, 0, 0, VOTE_ONCE],
+    },
+  ];
+  for (const poll of polls) {
+    const existing = await pollOptionCount(addressStr, Number(poll.id));
+    if (existing >= BigInt(poll.options)) {
+      logger.info(`Poll #${poll.id} already on chain (options=${existing})`);
+      continue;
+    }
+    if (existing !== 0n) {
+      throw new Error(`Poll #${poll.id} has ${existing} options; expected 0 or at least ${poll.options}`);
+    }
+    logger.info(`Creating ${poll.label}…`);
+    await contract.methods.create_poll(...poll.args).send({ from: admin.address, fee, wait: txWait });
+    await waitUntilPollExists(addressStr, Number(poll.id), BigInt(poll.options), logger);
+  }
 
   if (typeof contract.methods.set_hidden_author_book !== "function") {
     throw new Error("HappyVote artifact has no set_hidden_author_book. Codegen the contract that was tested.");
   }
-  const bookArtifactPath = resolve(root, "../hidden_author_book/target/hidden_author_book-HiddenAuthorBook.json");
+  const bookArtifactPath = resolve(root, "hidden_author_book/target/hidden_author_book-HiddenAuthorBook.json");
   if (!existsSync(bookArtifactPath)) {
     throw new Error(`HiddenAuthorBook artifact missing: ${bookArtifactPath}`);
   }
@@ -300,57 +366,62 @@ async function main() {
     wait: txWait,
   });
 
-  const addressStr = contract.address.toString();
+  if (typeof contract.methods.set_sealed_tally_book !== "function") {
+    throw new Error("HappyVote artifact has no set_sealed_tally_book. Codegen the contract that was tested.");
+  }
+  const sealedArtifactPath = resolve(root, "sealed_tally_book/target/sealed_tally_book-SealedTallyBook.json");
+  if (!existsSync(sealedArtifactPath)) {
+    throw new Error(`SealedTallyBook artifact missing: ${sealedArtifactPath}`);
+  }
+  const sealedArtifact = loadContractArtifact(JSON.parse(readFileSync(sealedArtifactPath, "utf8")));
+  logger.info("Deploying SealedTallyBook…");
+  const sealedDeploy = Contract.deploy(wallet, sealedArtifact, [contract.address]);
+  await sealedDeploy.simulate({ from: admin.address });
+  const sealedSent = await sealedDeploy.send({ from: admin.address, fee, wait: deployWait });
+  const sealedContract = sealedSent.contract;
+  const sealedTx = txHashToString(sealedSent.receipt?.txHash) ?? txHashToString(sealedSent.receipt);
+  logger.info(
+    `SealedTallyBook send returned ${sealedContract.address} tx=${sealedTx ?? "unknown"} — confirming on public RPC`,
+  );
+  await waitUntilPublished(sealedContract.address.toString(), sealedTx, logger);
+  logger.info("Pointing HappyVote at SealedTallyBook…");
+  await contract.methods.set_sealed_tally_book(sealedContract.address).send({
+    from: admin.address,
+    fee,
+    wait: txWait,
+  });
+  const signer = attestationKey();
+  logger.info("Setting the ZK attestation signer…");
+  await contract.methods.set_zk_signer(signer.xHi, signer.xLo, signer.yHi, signer.yLo).send({
+    from: admin.address,
+    fee,
+    wait: txWait,
+  });
+
   const bookAddressStr = bookContract.address.toString();
+  const sealedAddressStr = sealedContract.address.toString();
   upsertEnvFile(resolve(root, ".env"), {
     AZTEC_ENV: "testnet",
     NODE_URL: PUBLIC_RPC,
     SPONSORED_FPC_ADDRESS: sponsoredFPC.address.toString(),
     HAPPY_VOTE_CONTRACT_ADDRESS: addressStr,
     HIDDEN_AUTHOR_BOOK_ADDRESS: bookAddressStr,
+    SEALED_TALLY_BOOK_ADDRESS: sealedAddressStr,
+    ZKPASSPORT_ATTEST_KEY: signer.hex,
     POLL_ID: "1",
   });
   upsertEnvFile(resolve(root, "web/.env.local"), {
     VITE_AZTEC_NODE_URL: PUBLIC_RPC,
     VITE_HAPPY_VOTE_CONTRACT_ADDRESS: addressStr,
     VITE_HIDDEN_AUTHOR_BOOK_ADDRESS: bookAddressStr,
+    VITE_SEALED_TALLY_BOOK_ADDRESS: sealedAddressStr,
     VITE_SPONSORED_FPC_ADDRESS: sponsoredFPC.address.toString(),
     VITE_DEFAULT_POLL_ID: "1",
   });
   logger.info("Updated aztec/.env and web/.env.local contract address (other keys preserved).");
-
-  const publicDoc = `# Testnet addresses — HappyVote on Aztec
-
-Network: **Aztec Testnet 6.0.0**  
-RPC: \`https://aztec-testnet.drpc.org\`  
-Explorer: https://testnet.aztecscan.xyz  
-Deployed: ${new Date().toISOString()}
-
-| Item | Value |
-|------|-------|
-| HappyVote | [\`${addressStr}\`](https://testnet.aztecscan.xyz/address/${addressStr}) |
-| HiddenAuthorBook | [\`${bookAddressStr}\`](https://testnet.aztecscan.xyz/address/${bookAddressStr}) |
-| Sponsored FPC | \`${sponsoredFPC.address}\` |
-| Poll id | \`1\` Happy/Sad (daily) · \`2\` single-choice (3 opts) · \`3\` ZKPassport personhood · \`4\` sealed tallies |
-| Eligibility modes | \`0\` open · \`1\` ZKPassport personhood · \`2\` gated |
-
-Testnet 6.0.0 is a new genesis. Transactions and the HappyVote address from Testnet 6.0.0-rc.3 are not on this network.
-
-## Frontend env
-
-\`\`\`
-VITE_AZTEC_NODE_URL=https://aztec-testnet.drpc.org
-VITE_HAPPY_VOTE_CONTRACT_ADDRESS=${addressStr}
-VITE_HIDDEN_AUTHOR_BOOK_ADDRESS=${bookAddressStr}
-VITE_DEFAULT_POLL_ID=1
-VITE_SPONSORED_FPC_ADDRESS=${sponsoredFPC.address}
-VITE_PROVER_ENABLED=true
-VITE_REQUIRE_ZKPASSPORT=false
-\`\`\`
-`;
-  writeFileSync(resolve(root, "../docs/aztec/en/10-TESTNET-ADDRESSES.md"), publicDoc, "utf8");
-  logger.info("Wrote docs/aztec/en/10-TESTNET-ADDRESSES.md");
   logger.info(`TESTNET DEPLOY OK ${addressStr}`);
+  logger.info(`HIDDEN_AUTHOR_BOOK ${bookAddressStr}`);
+  logger.info(`SEALED_TALLY_BOOK ${sealedAddressStr}`);
 }
 
 main().catch((error) => {

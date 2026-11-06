@@ -225,7 +225,7 @@ DAO, treasury, multisig, and prediction-market adapters are Iteration 3. Also ou
 
 **Status: not started.** Sketch only. Source: [HappyVote on Aztec, 2 Oct 2026](https://x.com/happyvoteaztec/status/2105979258011050065). These are homes for the same primitive, not buttons on the site.
 
-What exists: a private ballot (the address stays hidden), a nullifier (`SingleUseClaim`), a public tally or a tally sealed until close, and optional ZKPassport personhood. No third party stores the ballots.
+What exists: a private ballot (the address stays hidden), a nullifier (`SingleUseClaim`), a public tally or a sealed option kept as a private note until the tally recipient publishes it, and optional ZKPassport personhood. No third party stores the ballots.
 
 | Home | What the primitive maps to |
 |------|------------------------------|

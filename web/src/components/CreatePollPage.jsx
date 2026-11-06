@@ -61,9 +61,12 @@ const VOTE_FREQUENCY_OPTIONS = [
   { value: VOTE_FREQUENCY.DAILY, label: "Once every 24 hours" },
 ];
 
-function privacyHint(policy) {
+function privacyHint(policy, sealed) {
+  if (sealed) {
+    return "Sealed: the option is a private note held by you. Guests see how many ballots were accepted. Per-option counts appear after you publish them, and only after voting has closed. An open ballot is not offered.";
+  }
   if (policy === PRIVACY.PRIVATE_ONLY) {
-    return "Private only: voters cannot publish their address. The chosen option still updates the live tally unless the poll is sealed.";
+    return "Private only: voters cannot publish their address. The chosen option updates the public tally.";
   }
   if (policy === PRIVACY.PUBLIC_ONLY) {
     return "Open only: address and choice are published on-chain. Voters cannot hide who they are.";
@@ -668,14 +671,14 @@ export function CreatePollPage({ walletConnect }) {
                     role="radio"
                     aria-checked={privacy === option.value}
                     aria-pressed={privacy === option.value}
-                    disabled={busy}
+                    disabled={busy || (sealed && option.value === PRIVACY.PUBLIC_ONLY)}
                     onClick={() => setPrivacy(option.value)}
                   >
                     {option.label}
                   </button>
                 ))}
               </div>
-              <p className="meta">{privacyHint(privacy)}</p>
+              <p className="meta">{privacyHint(privacy, sealed)}</p>
               <p className="meta">
                 How often one Aztec account (and one ZKPassport identity, if required) may ballot.
                 Private and open votes share this limit. Cannot be changed after create.
@@ -702,9 +705,13 @@ export function CreatePollPage({ walletConnect }) {
                   type="checkbox"
                   checked={sealed}
                   disabled={busy}
-                  onChange={(event) => setSealed(event.target.checked)}
+                  onChange={(event) => {
+                    const next = event.target.checked;
+                    setSealed(next);
+                    if (next && privacy === PRIVACY.PUBLIC_ONLY) setPrivacy(PRIVACY.PRIVATE_ONLY);
+                  }}
                 />
-                Sealed tallies — hide results until the poll ends
+                Sealed tallies — keep each option in a private note until you publish the counts
               </label>
             </fieldset>
 

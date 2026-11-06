@@ -1,6 +1,6 @@
 /**
  * Off-chain poll metadata (on-chain stores options_count + privacy + eligibility + sealed).
- * Shared catalog: GET /api/polls (seed + optional Vercel Blob).
+ * Shared catalog: GET /api/polls (seed + host file overlay).
  * Local cache: localStorage for admin drafts / offline merge.
  */
 import {
@@ -90,22 +90,22 @@ export const POLLS = {
   },
   2: {
     id: "2",
-    title: "Which demo feature should we ship next?",
-    description: "Single-choice roadmap poll for the Aztec HappyVote demo.",
+    title: "What should we do in Iteration 3",
+    description: "Single-choice roadmap poll for the Aztec HappyVote Iteration 3",
     topics: ["demo", "product"],
     countries: [],
     options: [
       {
-        label: "Sealed tallies",
-        description: "Hide live results until the poll ends.",
+        label: "Publish on mainnet",
+        description: "Deploy this contract on Aztec Mainnet.",
       },
       {
-        label: "Share embeds",
-        description: "Embeddable poll cards for other sites.",
+        label: "DAO and treasury adapters",
+        description: "Connect a private ballot to a DAO or treasury decision.",
       },
       {
-        label: "ZKPassport gates",
-        description: "Personhood / age / nationality eligibility.",
+        label: "Tally indexer",
+        description: "Read tallies without querying contract storage directly.",
       },
     ],
     template: "single_choice",
@@ -163,7 +163,7 @@ export const POLLS = {
     id: "4",
     title: "Should results stay hidden until voting ends?",
     description:
-      "Sealed-tally demo on Aztec Testnet. Live results stay blank while this poll is open; they appear only after it closes. Open eligibility — private or open ballot.",
+      "Sealed-tally demo on Aztec Testnet. The chosen option is a private note. Guests see how many ballots were accepted. Per-option counts appear after the tally recipient publishes them. Open eligibility.",
     topics: ["demo", "sealed"],
     countries: [],
     options: [
@@ -514,6 +514,18 @@ export async function fetchCreatorPolls(creator) {
     throw new Error("Invalid creator catalog response");
   }
   return { polls: data.polls, openPolls: data.openPolls };
+}
+
+/** Public ended / cancelled / endsAt for ids the wallet already holds. */
+export async function fetchPollClosures(ids) {
+  const unique = [...new Set(ids.map((id) => String(id)))];
+  if (unique.length === 0) return [];
+  const response = await fetchCatalog(`/api/polls?closure=${encodeURIComponent(unique.join(","))}`);
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok || !Array.isArray(data.polls)) {
+    throw new Error(data.error || `Catalog HTTP ${response.status}`);
+  }
+  return data.polls;
 }
 
 /** Signed account listing. The server checks the chain before it stores the card. */

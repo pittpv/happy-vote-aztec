@@ -18,7 +18,7 @@ export const FAQ_GROUPS = [
         id: "results",
         question: "Who can see the results?",
         answer:
-          "Guests can read the tally without a wallet. Counts come from the contract, not from a private HappyVote database. A sealed poll hides those counts until voting closes. After the poll ends, is cancelled, or passes its end time, the numbers can be read.",
+          "Guests can read a public tally without a wallet. Counts come from the contract, not from a private HappyVote database. On a sealed poll the chosen option is a private note held by the tally recipient. Guests see how many ballots were accepted. Per-option counts appear after that recipient publishes the notes, which can happen only after voting has closed. The recipient can read the notes before publishing them.",
       },
       {
         id: "how",
@@ -48,13 +48,13 @@ export const FAQ_GROUPS = [
         id: "zkpassport",
         question: "Why does a poll ask for ZKPassport?",
         answer:
-          "Some polls need one person, one vote. ZKPassport checks personhood on your device and produces a proof. HappyVote does not receive a passport image. For those polls the proof is checked again on the server before the ballot is tied to an identity commitment. Open polls do not ask for this. Extra checks, such as age or nationality, are the ones signed with that poll.",
+          "Some polls need one person, one vote. ZKPassport checks personhood on your device and produces a proof. HappyVote does not receive a passport image. The server checks that proof again and signs a short-lived attestation. The contract checks that signature before the ballot counts. Open polls do not ask for this. Extra checks, such as age or nationality, are the ones signed with that poll. Scan again if more than 15 minutes pass before you vote.",
       },
       {
         id: "sealed",
         question: "What is a sealed poll?",
         answer:
-          "While voting is open, option counts and the total stay hidden. Option buttons show labels only. When the poll ends, is cancelled, or reaches its end time, the tally becomes readable.",
+          "The chosen option is a private note held by the tally recipient. Guests see how many ballots were accepted. Per-option counts appear after that recipient publishes the notes, and only after voting has closed. The recipient can read the notes before publishing them. A sealed poll does not offer an open ballot.",
       },
     ],
   },
@@ -134,7 +134,7 @@ export const FAQ_GROUPS = [
         id: "what",
         question: "What is HappyVote on Aztec?",
         answer:
-          "HappyVote is a technology layer for polls on Aztec Network. You cast a private or open ballot, and the tally is public unless the poll is sealed until it closes. It is not an election authority, a government, or a certified election system.",
+          "HappyVote is a technology layer for polls on Aztec Network. You cast a private or open ballot. On an unsealed poll the tally is public. On a sealed poll the option stays a private note until the tally recipient publishes the counts. It is not an election authority, a government, or a certified election system.",
       },
       {
         id: "official",

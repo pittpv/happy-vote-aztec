@@ -227,6 +227,8 @@ export async function verifyAccountPoll(raw) {
     chainStarts,
     chainEligibility,
     chainCommitment,
+    chainPrivacy,
+    chainFlags,
   ] = await Promise.all([
     rpcField(nodeUrl, contract, slots.metadata_hash),
     rpcField(nodeUrl, contract, creatorSlot),
@@ -238,6 +240,8 @@ export async function verifyAccountPoll(raw) {
     rpcField(nodeUrl, contract, slots.starts_at),
     rpcField(nodeUrl, contract, slots.eligibility_mode),
     rpcFieldOrZero(nodeUrl, contract, commitmentSlot),
+    rpcField(nodeUrl, contract, slots.privacy_policy),
+    rpcField(nodeUrl, contract, slots.sealed),
   ]);
 
   if (chainHash !== BigInt(contentHash)) {
@@ -265,6 +269,18 @@ export async function verifyAccountPoll(raw) {
   if (chainEligibility !== BigInt(derivedMode)) {
     throw new Error("Eligibility on the poll does not match the identity rules");
   }
+  if (chainPrivacy > 2n) throw new Error("Privacy on the poll is not valid");
+  const chainSealed = (chainFlags & 1n) === 1n;
+  const chainDaily = (chainFlags & 2n) === 2n;
+  if (poll.privacyPolicy != null && Number(poll.privacyPolicy) !== Number(chainPrivacy)) {
+    throw new Error("Privacy does not match the chain");
+  }
+  if (poll.sealed != null && Boolean(poll.sealed) !== chainSealed) {
+    throw new Error("Sealed flag does not match the chain");
+  }
+  if (poll.voteFrequency != null && (Number(poll.voteFrequency) === 1) !== chainDaily) {
+    throw new Error("Vote frequency does not match the chain");
+  }
 
   const endsAt = isoFromUnix(chainEnds);
   const startsAt = isoFromUnix(chainStarts);
@@ -280,8 +296,7 @@ export async function verifyAccountPoll(raw) {
     tallySlots.push(await mapSlot(hashApi, BigInt(slots.tally), BigInt(i)));
   }
 
-  const privacy = Number(poll.privacyPolicy ?? 2);
-  if (![0, 1, 2].includes(privacy)) throw new Error("Invalid privacy");
+  const privacy = Number(chainPrivacy);
   const eligibility = derivedMode;
 
   return {
@@ -305,9 +320,9 @@ export async function verifyAccountPoll(raw) {
     requiresZkPassport: eligibility > 0,
     eligibilityMode: eligibility,
     privacyPolicy: privacy,
-    voteFrequency: Number(poll.voteFrequency) === 1 ? 1 : 0,
+    voteFrequency: chainDaily ? 1 : 0,
     zkRequirements: zk,
-    sealed: Boolean(poll.sealed),
+    sealed: chainSealed,
     startsAt,
     endsAt,
     showOnHome: false,
@@ -340,8 +355,85 @@ async function poseidonMarker(hashApi, fields) {
 }
 
 const CREATOR_OPEN_TAGS = [210n, 211n, 212n];
+/** PublicMutable next_poll_id. Bit 63 is the sponsored-fee flag. */
+const NEXT_POLL_ID_SLOT = "0x11";
 
-async function readPollChainRow(hashApi, nodeUrl, contract, pollId) {
+function storageBigInt(raw) {
+  const value = raw && typeof raw === "object" && "value" in raw ? raw.value : raw;
+  if (value == null || value === "" || value === "0x") return 0n;
+  return BigInt(value);
+}
+
+async function rpcBatchOnce(nodeUrl, calls) {
+  const body = calls.map((call, index) => ({
+    jsonrpc: "2.0",
+    id: index + 1,
+    method: call.method,
+    params: call.params,
+  }));
+  const response = await fetch(nodeUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const text = await response.text();
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new Error(`RPC non-JSON (${response.status}): ${text.slice(0, 200)}`);
+  }
+  if (!response.ok && !Array.isArray(json)) {
+    throw new Error(json?.message || `HTTP ${response.status}`);
+  }
+  if (!Array.isArray(json)) {
+    if (json.error) throw new Error(json.error.message || JSON.stringify(json.error));
+    throw new Error("Expected JSON-RPC batch array");
+  }
+  return json
+    .slice()
+    .sort((a, b) => a.id - b.id)
+    .map((item) => {
+      if (item.error) throw new Error(item.error.message || JSON.stringify(item.error));
+      return storageBigInt(item.result);
+    });
+}
+
+/** dRPC's free Testnet plan rejects a JSON-RPC batch larger than 3. */
+async function readStorageBatch(nodeUrl, contract, slots) {
+  if (slots.length === 0) return [];
+  const calls = slots.map((slot) => ({
+    method: "node_getPublicStorageAt",
+    params: ["latest", padHex32(contract), padHex32(slot)],
+  }));
+  const chunks = [];
+  for (let offset = 0; offset < calls.length; offset += 3) {
+    chunks.push(calls.slice(offset, offset + 3));
+  }
+  const parts = await Promise.all(chunks.map((chunk) => rpcBatchOnce(nodeUrl, chunk)));
+  const values = parts.flat();
+  if (values.length !== slots.length) throw new Error("Short storage read");
+  return values;
+}
+
+function nextPollCounter(value) {
+  const counter = value & ((1n << 63n) - 1n);
+  const asNumber = Number(counter);
+  if (!Number.isSafeInteger(asNumber)) throw new Error("next_poll_id is out of range");
+  return asNumber;
+}
+
+async function closureSlots(hashApi, pollId) {
+  const idKey = BigInt(pollId);
+  const [endedSlot, cancelledSlot, endsSlot] = await Promise.all([
+    mapSlot(hashApi, SLOTS.vote_ended, idKey),
+    mapSlot(hashApi, SLOTS.cancelled, idKey),
+    mapSlot(hashApi, SLOTS.ends_at, idKey),
+  ]);
+  return [endedSlot, cancelledSlot, endsSlot];
+}
+
+async function unlistedSlots(hashApi, pollId) {
   const idKey = BigInt(pollId);
   const tallyRoot = await mapSlot(hashApi, SLOTS.tally, idKey);
   const [endedSlot, cancelledSlot, endsSlot, hashSlot, xSlot] = await Promise.all([
@@ -351,26 +443,13 @@ async function readPollChainRow(hashApi, nodeUrl, contract, pollId) {
     mapSlot(hashApi, SLOTS.metadata_hash, idKey),
     mapSlot(hashApi, BigInt(tallyRoot), TAG_PUBX),
   ]);
-  const [voteEnded, cancelled, endsAt, metadataHash, signingPubX] = await Promise.all([
-    rpcFieldOrZero(nodeUrl, contract, endedSlot),
-    rpcFieldOrZero(nodeUrl, contract, cancelledSlot),
-    rpcFieldOrZero(nodeUrl, contract, endsSlot),
-    rpcFieldOrZero(nodeUrl, contract, hashSlot),
-    rpcFieldOrZero(nodeUrl, contract, xSlot),
-  ]);
-  return {
-    id: String(pollId),
-    voteEnded: voteEnded !== 0n,
-    cancelled: cancelled !== 0n,
-    endsAt: isoFromUnix(endsAt),
-    metadataHash: metadataHash.toString(),
-    signingPubX: signingPubX.toString(),
-  };
+  return [endedSlot, cancelledSlot, endsSlot, hashSlot, xSlot];
 }
 
 /**
- * The three open-poll slots stored under this account, plus chain closure for
- * those ids and any catalog ids the caller already knows.
+ * Open-poll slots for this account, plus closure for catalog ids.
+ * Unlisted open slots also include the metadata hash and signing key.
+ * The next poll id shares the first storage batch with the three open slots.
  * @param {string} account
  * @param {string[]} pollIds
  */
@@ -380,21 +459,89 @@ export async function readCreatorChain(account, pollIds) {
   const hashApi = await loadHash();
   const creator = BigInt(normalizeAddress(account));
   const ownerRoot = await mapSlot(hashApi, SLOTS.tally, creator);
+  const openSlotAddrs = await Promise.all(
+    CREATOR_OPEN_TAGS.map((tag) => mapSlot(hashApi, BigInt(ownerRoot), tag)),
+  );
+  const header = await readStorageBatch(nodeUrl, contract, [NEXT_POLL_ID_SLOT, ...openSlotAddrs]);
+  const nextPollId = nextPollCounter(header[0]);
   const openIds = [];
-  for (const tag of CREATOR_OPEN_TAGS) {
-    const slot = await mapSlot(hashApi, BigInt(ownerRoot), tag);
-    const value = await rpcFieldOrZero(nodeUrl, contract, slot);
+  for (let index = 0; index < CREATOR_OPEN_TAGS.length; index += 1) {
+    const value = header[index + 1];
     if (value !== 0n) openIds.push(value.toString());
   }
-  const ids = [...new Set([...openIds, ...pollIds.map((id) => String(id))])];
-  const rows = await Promise.all(
-    ids.map((id) => readPollChainRow(hashApi, nodeUrl, contract, id)),
+  const known = new Set(
+    pollIds
+      .map((id) => String(id))
+      .filter((id) => {
+        const numeric = Number(id);
+        return numeric > 0 && numeric < nextPollId;
+      }),
   );
-  const byId = Object.fromEntries(rows.map((row) => [row.id, row]));
+  const fullIds = openIds.filter((id) => !known.has(id));
+  const plans = [];
+  for (const id of known) {
+    plans.push({ id, full: false, slots: await closureSlots(hashApi, id) });
+  }
+  for (const id of fullIds) {
+    plans.push({ id, full: true, slots: await unlistedSlots(hashApi, id) });
+  }
+  const values = await readStorageBatch(
+    nodeUrl,
+    contract,
+    plans.flatMap((plan) => plan.slots),
+  );
+  let cursor = 0;
+  const byId = {};
+  for (const plan of plans) {
+    const voteEnded = values[cursor];
+    const cancelled = values[cursor + 1];
+    const endsAt = values[cursor + 2];
+    cursor += plan.slots.length;
+    byId[plan.id] = {
+      id: plan.id,
+      voteEnded: voteEnded !== 0n,
+      cancelled: cancelled !== 0n,
+      endsAt: isoFromUnix(endsAt),
+      metadataHash: plan.full ? values[cursor - 2].toString() : null,
+      signingPubX: plan.full ? values[cursor - 1].toString() : null,
+    };
+  }
+  for (const id of openIds) {
+    if (!byId[id]) throw new Error(`Chain status missing for open poll ${id}`);
+  }
   return {
+    nextPollId,
     openPolls: openIds.map((id) => byId[id]),
     byId,
   };
+}
+
+/**
+ * Public closure for poll ids the wallet already knows.
+ * @param {string[]} pollIds
+ */
+export async function readPollClosures(pollIds) {
+  const contract = requiredEnv("VITE_HAPPY_VOTE_CONTRACT_ADDRESS");
+  const nodeUrl = requiredEnv("VITE_AZTEC_NODE_URL");
+  const hashApi = await loadHash();
+  const plans = [];
+  for (const id of pollIds) {
+    plans.push({ id: String(id), slots: await closureSlots(hashApi, id) });
+  }
+  const values = await readStorageBatch(
+    nodeUrl,
+    contract,
+    plans.flatMap((plan) => plan.slots),
+  );
+  return plans.map((plan, index) => {
+    const base = index * 3;
+    return {
+      id: plan.id,
+      voteEnded: values[base] !== 0n,
+      cancelled: values[base + 1] !== 0n,
+      endsAt: isoFromUnix(values[base + 2]),
+    };
+  });
 }
 
 export async function readAuthoritativeFlag(account) {

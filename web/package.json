@@ -10,6 +10,7 @@
     "postinstall": "node scripts/patch-zkpassport-json-import.mjs && node scripts/patch-bb-ios.mjs"
   },
   "dependencies": {
+    "@aztec-foundation/bb.js": "6.0.0",
     "@aztec-labs/accounts": "6.0.0",
     "@aztec-labs/aztec.js": "6.0.0",
     "@aztec-labs/foundation": "6.0.0",
@@ -20,12 +21,11 @@
     "@aztec-labs/stdlib": "6.0.0",
     "@aztec-labs/wallet-sdk": "6.0.0",
     "@aztec-labs/wallets": "6.0.0",
-    "@aztec-foundation/bb.js": "6.0.0",
-    "@vercel/blob": "^1.1.1",
     "@zkpassport/sdk": "^0.16.1",
     "@zkpassport/ui": "^0.16.1",
     "assert": "^2.1.0",
     "buffer": "^6.0.3",
+    "geoip-lite": "^1.4.10",
     "i18n-iso-countries": "^7.14.0",
     "process": "^0.11.10",
     "react": "^19.1.0",

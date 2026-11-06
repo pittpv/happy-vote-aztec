@@ -4,22 +4,30 @@
  * GET  /api/polls          → { polls: PollMeta[], source }
  * GET  /api/polls?id=3     → single poll
  * GET  /api/polls?creator= → that account's listed polls, including ended, plus open-poll slots
+ * GET  /api/polls?closure=1,2 → public ended / cancelled / endsAt for those ids
  * POST /api/polls          → upsert poll (Authorization: Bearer POLLS_PUBLISH_TOKEN)
  * POST /api/polls { homepage: [{ id, showOnHome, homeRank }] } → featured flags for `/`
  * POST /api/polls { policy: { id, policyId } } → Dashboard PolicyID for an existing poll
  *
- * Persistence: embedded seed + optional Vercel Blob overlay (`BLOB_READ_WRITE_TOKEN`).
+ * Persistence: embedded seed + host file overlay (`HAPPYVOTE_DATA_DIR/polls-catalog.json`).
  */
+import { timingSafeEqual } from "node:crypto";
+import { withStoreLock } from "./local-store.js";
 import {
   catalogCacheControl,
   loadMergedCatalog,
   loadSeed,
   mergeCatalogs,
-  readBlobCatalog,
-  writeBlobCatalog,
+  readCatalogOverlay,
+  writeCatalogOverlay,
 } from "./poll-catalog.js";
 import { fallbackSlots, isUsableSlotEntry } from "./poll-slots.js";
-import { readAuthoritativeFlag, readCreatorChain, verifyAccountPoll } from "./verify-account-poll.js";
+import {
+  readAuthoritativeFlag,
+  readCreatorChain,
+  readPollClosures,
+  verifyAccountPoll,
+} from "./verify-account-poll.js";
 import { normalizeAddress } from "../src/lib/catalogMeta.js";
 import {
   accountHomeFlag,
@@ -106,7 +114,22 @@ function checkAuth(req) {
   if (!expected) return false;
   const header = req.headers.authorization || req.headers.Authorization || "";
   const match = String(header).match(/^Bearer\s+(.+)$/i);
-  return Boolean(match && match[1] === expected);
+  if (!match) return false;
+  const got = Buffer.from(String(match[1]));
+  const want = Buffer.from(expected);
+  if (got.length !== want.length) return false;
+  return timingSafeEqual(got, want);
+}
+
+function publishOriginAllowed(req) {
+  const origin = req.headers.origin;
+  if (!origin) return false;
+  try {
+    const host = new URL(String(origin)).hostname.toLowerCase();
+    return host === "aztec.happyvote.xyz" || host === "localhost" || host === "127.0.0.1";
+  } catch {
+    return false;
+  }
 }
 
 function normalizePoll(raw) {
@@ -366,30 +389,20 @@ async function publishAccountPoll(res, body) {
     const status = error?.code === "NO_AZTEC_LIBS" ? 503 : 400;
     return res.status(status).json({ ok: false, error: error?.message || String(error) });
   }
-  const seed = loadSeed();
-  const overlay = (await readBlobCatalog()) || { version: 1, polls: {} };
-  poll.showOnHome = accountHomeFlag((overlay.polls || {})[poll.id]);
-  if ((overlay.polls || {})[poll.id]?.hidden === true) poll.hidden = true;
-  const next = nextOverlay(overlay, { ...(overlay.polls || {}), [poll.id]: poll });
-  const mergedForClients = mergeCatalogs(seed, next);
-  try {
-    const blob = await writeBlobCatalog(next);
+  return withStoreLock(async () => {
+    const seed = loadSeed();
+    const overlay = (await readCatalogOverlay()) || { version: 1, polls: {} };
+    poll.showOnHome = accountHomeFlag((overlay.polls || {})[poll.id]);
+    if ((overlay.polls || {})[poll.id]?.hidden === true) poll.hidden = true;
+    const next = nextOverlay(overlay, { ...(overlay.polls || {}), [poll.id]: poll });
+    const mergedForClients = mergeCatalogs(seed, next);
+    await writeCatalogOverlay(next);
     return res.status(200).json({
       ok: true,
       poll: annotatePoll(poll, accountSet(mergedForClients)),
       persisted: true,
-      blobUrl: blob.url,
     });
-  } catch (error) {
-    if (error?.code === "NO_BLOB") {
-      return res.status(503).json({
-        ok: false,
-        error: "BLOB_READ_WRITE_TOKEN is not configured — the poll was not listed.",
-        persisted: false,
-      });
-    }
-    throw error;
-  }
+  });
 }
 
 async function publishAuthoritative(res, seed, overlay, raw) {
@@ -424,24 +437,12 @@ async function publishAuthoritative(res, seed, overlay, raw) {
   const authoritativeAccounts = [...current];
   const next = nextOverlay(overlay, overlay.polls || {}, authoritativeAccounts);
   const mergedForClients = mergeCatalogs(seed, next);
-  try {
-    const blob = await writeBlobCatalog(next);
-    return res.status(200).json({
-      ok: true,
-      persisted: true,
-      blobUrl: blob.url,
-      authoritativeAccounts: mergedForClients.authoritativeAccounts,
-    });
-  } catch (error) {
-    if (error?.code === "NO_BLOB") {
-      return res.status(503).json({
-        ok: false,
-        error: "BLOB_READ_WRITE_TOKEN is not configured — the mark was not saved.",
-        persisted: false,
-      });
-    }
-    throw error;
-  }
+  await writeCatalogOverlay(next);
+  return res.status(200).json({
+    ok: true,
+    persisted: true,
+    authoritativeAccounts: mergedForClients.authoritativeAccounts,
+  });
 }
 
 async function publishHide(res, seed, overlay, merged, raw) {
@@ -459,24 +460,12 @@ async function publishHide(res, seed, overlay, merged, raw) {
   };
   const next = nextOverlay(overlay, polls);
   const mergedForClients = mergeCatalogs(seed, next);
-  try {
-    const blob = await writeBlobCatalog(next);
-    return res.status(200).json({
-      ok: true,
-      persisted: true,
-      blobUrl: blob.url,
-      poll: annotatePoll(mergedForClients.polls[id], accountSet(mergedForClients)),
-    });
-  } catch (error) {
-    if (error?.code === "NO_BLOB") {
-      return res.status(503).json({
-        ok: false,
-        error: "BLOB_READ_WRITE_TOKEN is not configured — the listing was not updated.",
-        persisted: false,
-      });
-    }
-    throw error;
-  }
+  await writeCatalogOverlay(next);
+  return res.status(200).json({
+    ok: true,
+    persisted: true,
+    poll: annotatePoll(mergedForClients.polls[id], accountSet(mergedForClients)),
+  });
 }
 
 export default async function handler(req, res) {
@@ -495,7 +484,6 @@ export default async function handler(req, res) {
           authoritativeAccounts: catalog.authoritativeAccounts || [],
         });
       }
-      const nextPollId = await readNextPollId();
       const creatorParam = url.searchParams.get("creator");
       if (creatorParam != null && creatorParam !== "") {
         let creator;
@@ -505,15 +493,16 @@ export default async function handler(req, res) {
           return res.status(400).json({ ok: false, error: error?.message || "Invalid creator address" });
         }
         const accounts = accountSet(catalog);
-        const polls = Object.values(catalog.polls)
-          .filter((poll) => onCurrentContract(poll, nextPollId))
+        const listed = Object.values(catalog.polls)
           .filter((poll) => poll.hidden !== true)
-          .filter((poll) => creatorAddressMatches(poll, creator))
-          .map((poll) => annotatePoll(poll, accounts));
+          .filter((poll) => creatorAddressMatches(poll, creator));
         const chain = await readCreatorChain(
           creator,
-          polls.map((poll) => poll.id),
+          listed.map((poll) => poll.id),
         );
+        const polls = listed
+          .filter((poll) => onCurrentContract(poll, chain.nextPollId))
+          .map((poll) => annotatePoll(poll, accounts));
         const withChain = polls.map((poll) => {
           const status = chain.byId[String(poll.id)];
           if (!status) throw new Error(`Chain status missing for poll ${poll.id}`);
@@ -526,6 +515,17 @@ export default async function handler(req, res) {
           openPolls: chain.openPolls,
         });
       }
+      const closureParam = url.searchParams.get("closure");
+      if (closureParam != null && closureParam !== "") {
+        const ids = [...new Set(closureParam.split(",").map((part) => part.trim()).filter(Boolean))];
+        if (ids.length < 1 || ids.length > 12 || ids.some((id) => !/^\d+$/.test(id))) {
+          return res.status(400).json({ ok: false, error: "closure expects 1 to 12 poll ids" });
+        }
+        const closures = await readPollClosures(ids);
+        res.setHeader("Cache-Control", "private, no-store");
+        return res.status(200).json({ ok: true, polls: closures });
+      }
+      const nextPollId = await readNextPollId();
       const id = url.searchParams.get("id");
       if (id) {
         const poll = catalog.polls[String(id)];
@@ -579,6 +579,9 @@ export default async function handler(req, res) {
     }
 
     if (req.method === "POST") {
+      if (!publishOriginAllowed(req)) {
+        return res.status(403).json({ ok: false, error: "Origin is not allowed" });
+      }
       const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
       if (body.accountPoll) {
         if (body.homepage || body.policy || body.hide || body.authoritative) {
@@ -597,8 +600,9 @@ export default async function handler(req, res) {
         });
       }
       if (!checkAuth(req)) return unauthorized(res);
+      return withStoreLock(async () => {
       const seed = loadSeed();
-      const overlay = (await readBlobCatalog()) || { version: 1, polls: {} };
+      const overlay = (await readCatalogOverlay()) || { version: 1, polls: {} };
       const merged = mergeCatalogs(seed, overlay);
 
       if (body.authoritative && typeof body.authoritative === "object") {
@@ -616,28 +620,15 @@ export default async function handler(req, res) {
           applyHomepage(merged.polls, overlay.polls || {}, entries),
         );
         const mergedForClients = mergeCatalogs(seed, next);
-        try {
-          const blob = await writeBlobCatalog(next);
-          return res.status(200).json({
-            ok: true,
-            persisted: true,
-            blobUrl: blob.url,
-            totalPolls: Object.keys(mergedForClients.polls).length,
-            homepage: Object.values(mergedForClients.polls)
-              .filter((p) => p.showOnHome !== false)
-              .map((p) => p.id),
-          });
-        } catch (error) {
-          if (error?.code === "NO_BLOB") {
-            return res.status(503).json({
-              ok: false,
-              error:
-                "BLOB_READ_WRITE_TOKEN is not configured — homepage selection saved only in this browser until Blob is configured.",
-              persisted: false,
-            });
-          }
-          throw error;
-        }
+        await writeCatalogOverlay(next);
+        return res.status(200).json({
+          ok: true,
+          persisted: true,
+          totalPolls: Object.keys(mergedForClients.polls).length,
+          homepage: Object.values(mergedForClients.polls)
+            .filter((p) => p.showOnHome !== false)
+            .map((p) => p.id),
+        });
       }
 
       if (body.policy && typeof body.policy === "object") {
@@ -652,28 +643,13 @@ export default async function handler(req, res) {
         const next = nextOverlay(overlay, patchedPolls);
         const mergedForClients = mergeCatalogs(seed, next);
         const poll = publicPoll(mergedForClients.polls[patch.id]);
-        try {
-          const blob = await writeBlobCatalog(next);
-          return res.status(200).json({
-            ok: true,
-            persisted: true,
-            blobUrl: blob.url,
-            poll,
-            policyId: poll?.zkRequirements?.policyId ?? null,
-          });
-        } catch (error) {
-          if (error?.code === "NO_BLOB") {
-            return res.status(503).json({
-              ok: false,
-              error:
-                "BLOB_READ_WRITE_TOKEN is not configured — PolicyID saved only in this browser until Blob is configured.",
-              persisted: false,
-              poll,
-              policyId: poll?.zkRequirements?.policyId ?? null,
-            });
-          }
-          throw error;
-        }
+        await writeCatalogOverlay(next);
+        return res.status(200).json({
+          ok: true,
+          persisted: true,
+          poll,
+          policyId: poll?.zkRequirements?.policyId ?? null,
+        });
       }
 
       const incoming = body.poll || body;
@@ -690,30 +666,15 @@ export default async function handler(req, res) {
       }
       if (poll.publisher === "account") poll.showOnHome = accountHomeFlag(prior);
       const next = nextOverlay(overlay, { ...(overlay.polls || {}), [poll.id]: poll });
-      // Keep seed polls visible even if blob only has overlays
       const mergedForClients = mergeCatalogs(seed, next);
-
-      try {
-        const blob = await writeBlobCatalog(next);
-        return res.status(200).json({
-          ok: true,
-          poll: publicPoll(poll),
-          persisted: true,
-          blobUrl: blob.url,
-          totalPolls: Object.keys(mergedForClients.polls).length,
-        });
-      } catch (error) {
-        if (error?.code === "NO_BLOB") {
-          return res.status(503).json({
-            ok: false,
-            error:
-              "BLOB_READ_WRITE_TOKEN is not configured — poll saved only in the admin browser. Add Vercel Blob to publish globally.",
-            poll: publicPoll(poll),
-            persisted: false,
-          });
-        }
-        throw error;
-      }
+      await writeCatalogOverlay(next);
+      return res.status(200).json({
+        ok: true,
+        poll: publicPoll(poll),
+        persisted: true,
+        totalPolls: Object.keys(mergedForClients.polls).length,
+      });
+      });
     }
 
     return res.status(405).json({ ok: false, error: "Method not allowed" });

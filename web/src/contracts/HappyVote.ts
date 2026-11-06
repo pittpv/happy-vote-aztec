@@ -167,8 +167,14 @@ hidden_author_book: {
     /** cast_vote_open(poll_id: struct, option_id: field, identity_commitment: field, vote_period: field) */
     cast_vote_open: ((poll_id: { id: FieldLike }, option_id: FieldLike, identity_commitment: FieldLike, vote_period: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** cast_vote_open_attested(poll_id: struct, option_id: field, identity_commitment: field, vote_period: field, expiry: integer, x_hi: field, x_lo: field, y_hi: field, y_lo: field, sig_r: array, sig_s: array) */
+    cast_vote_open_attested: ((poll_id: { id: FieldLike }, option_id: FieldLike, identity_commitment: FieldLike, vote_period: FieldLike, expiry: (bigint | number), x_hi: FieldLike, x_lo: FieldLike, y_hi: FieldLike, y_lo: FieldLike, sig_r: (bigint | number)[], sig_s: (bigint | number)[]) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** cast_vote_private(poll_id: struct, option_id: field, identity_commitment: field, vote_period: field) */
     cast_vote_private: ((poll_id: { id: FieldLike }, option_id: FieldLike, identity_commitment: FieldLike, vote_period: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** cast_vote_private_attested(poll_id: struct, option_id: field, identity_commitment: field, vote_period: field, expiry: integer, x_hi: field, x_lo: field, y_hi: field, y_lo: field, sig_r: array, sig_s: array) */
+    cast_vote_private_attested: ((poll_id: { id: FieldLike }, option_id: FieldLike, identity_commitment: FieldLike, vote_period: FieldLike, expiry: (bigint | number), x_hi: FieldLike, x_lo: FieldLike, y_hi: FieldLike, y_lo: FieldLike, sig_r: (bigint | number)[], sig_s: (bigint | number)[]) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** commit_pool_ballot(poll_id: struct, fee_cap: integer) */
     commit_pool_ballot: ((poll_id: { id: FieldLike }, fee_cap: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -242,6 +248,12 @@ hidden_author_book: {
     /** get_sealed(poll_id: struct) */
     get_sealed: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** get_sealed_ballots(poll_id: struct) */
+    get_sealed_ballots: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_sealed_tally_book() */
+    get_sealed_tally_book: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** get_signing_pubkey_x(poll_id: struct) */
     get_signing_pubkey_x: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
@@ -251,6 +263,9 @@ hidden_author_book: {
     /** get_tally(poll_id: struct, option_id: field) */
     get_tally: ((poll_id: { id: FieldLike }, option_id: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** get_tally_recipient(poll_id: struct) */
+    get_tally_recipient: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** get_total_votes(poll_id: struct) */
     get_total_votes: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
@@ -259,6 +274,18 @@ hidden_author_book: {
 
     /** get_vote_frequency(poll_id: struct) */
     get_vote_frequency: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_zk_x_hi() */
+    get_zk_x_hi: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_zk_x_lo() */
+    get_zk_x_lo: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_zk_y_hi() */
+    get_zk_y_hi: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_zk_y_lo() */
+    get_zk_y_lo: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** has_identity_voted(poll_id: struct, identity_commitment: field) */
     has_identity_voted: ((poll_id: { id: FieldLike }, identity_commitment: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -278,8 +305,14 @@ hidden_author_book: {
     /** public_dispatch(selector: field) */
     public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** publish_sealed_tally(poll_id: struct, counts: array, batch: integer, recipient: struct) */
+    publish_sealed_tally: ((poll_id: { id: FieldLike }, counts: FieldLike[], batch: (bigint | number), recipient: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** quote_pool(poll_id: struct, fee_cap: integer) */
     quote_pool: ((poll_id: { id: FieldLike }, fee_cap: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** record_sealed_participation(poll_id: struct, identity_commitment: field, vote_period: field, expiry: integer, x_hi: field, x_lo: field, y_hi: field, y_lo: field, sig_r: array, sig_s: array, eligibility_mode: integer, options_count: integer, recipient: struct) */
+    record_sealed_participation: ((poll_id: { id: FieldLike }, identity_commitment: FieldLike, vote_period: FieldLike, expiry: (bigint | number), x_hi: FieldLike, x_lo: FieldLike, y_hi: FieldLike, y_lo: FieldLike, sig_r: (bigint | number)[], sig_s: (bigint | number)[], eligibility_mode: (bigint | number), options_count: (bigint | number), recipient: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** set_allow_sponsored(allowed: boolean) */
     set_allow_sponsored: ((allowed: boolean) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -295,6 +328,12 @@ hidden_author_book: {
 
     /** set_pool_payer(payer: struct) */
     set_pool_payer: ((payer: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** set_sealed_tally_book(book: struct) */
+    set_sealed_tally_book: ((book: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** set_zk_signer(x_hi: integer, x_lo: integer, y_hi: integer, y_lo: integer) */
+    set_zk_signer: ((x_hi: (bigint | number), x_lo: (bigint | number), y_hi: (bigint | number), y_lo: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** sync_state(scope: struct) */
     sync_state: ((scope: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;

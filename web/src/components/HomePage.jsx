@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { listHomePolls, refreshSharedCatalog } from "../lib/polls.js";
 import { useNow } from "../hooks/useNow.js";
 import { navigate, pollsPath } from "../lib/routing.js";
@@ -8,14 +8,15 @@ import { usePageSeo } from "../hooks/usePageSeo.js";
 import { SiteFooter } from "./SiteFooter.jsx";
 import { SiteHeader } from "./SiteHeader.jsx";
 import { PollCard } from "./PollCard.jsx";
-import { cardClosedFlag } from "../lib/catalogClosure.js";
+import { cardClosedFlag, openPollIdKey } from "../lib/catalogClosure.js";
 import { useCatalogClosures } from "../hooks/useCatalogClosures.js";
 
 export function HomePage({ walletConnect }) {
   const now = useNow(1000);
   const [polls, setPolls] = useState(() => listHomePolls());
   const [catalogStatus, setCatalogStatus] = useState("Loading featured polls…");
-  const { closures, error: closureError, ready: closuresReady } = useCatalogClosures();
+  const openIds = useMemo(() => openPollIdKey(polls), [polls]);
+  const { closures, error: closureError, pending: statusPending } = useCatalogClosures(openIds);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,7 +115,7 @@ export function HomePage({ walletConnect }) {
               Browse all polls
             </button>
           </div>
-        ) : !closuresReady && !closureError ? (
+        ) : closures == null && !closureError ? (
           <p className="meta">Checking which polls have ended…</p>
         ) : (
           <div className="poll-grid">
@@ -123,7 +124,8 @@ export function HomePage({ walletConnect }) {
                 key={poll.id}
                 poll={poll}
                 now={now}
-                closed={closuresReady ? cardClosedFlag(closures, poll, now) : null}
+                closed={cardClosedFlag(closures, poll, now)}
+                statusPending={statusPending}
               />
             ))}
           </div>

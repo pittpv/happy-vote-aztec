@@ -59,6 +59,26 @@ function fieldToNumber(value) {
   throw new Error(`Unexpected storage value: ${JSON.stringify(value)}`);
 }
 
+function fieldToHex(value) {
+  let raw = value;
+  if (raw && typeof raw === "object" && "value" in raw) raw = raw.value;
+  if (raw == null || raw === "" || raw === "0x") return padHex32("0");
+  const hex = typeof raw === "bigint" ? raw.toString(16) : String(raw);
+  return padHex32(hex);
+}
+
+async function withSealSlots(pollId, slots) {
+  if (slots.sealedBallots && slots.sealedCounted && slots.recipient) return slots;
+  const { computePollStorageSlots } = await import("../src/lib/pollStorageSlots.js");
+  const computed = await computePollStorageSlots(pollId, 2);
+  return {
+    ...slots,
+    sealedBallots: slots.sealedBallots || computed.sealedBallots,
+    sealedCounted: slots.sealedCounted || computed.sealedCounted,
+    recipient: slots.recipient || computed.recipient,
+  };
+}
+
 async function rpcBatch(nodeUrl, calls) {
   // dRPC's free Testnet plan rejects JSON-RPC batches larger than 3.
   const out = [];
@@ -280,7 +300,7 @@ export default async function handler(req, res) {
       return;
     }
 
-    const slots = await resolveSlots(pollId, optionsCount);
+    const slots = await withSealSlots(pollId, await resolveSlots(pollId, optionsCount));
     const contract = padHex32(contractAddress);
 
     const calls = [
@@ -320,6 +340,18 @@ export default async function handler(req, res) {
         method: "node_getPublicStorageAt",
         params: ["latest", contract, padHex32(PAUSED_SLOT)],
       },
+      {
+        method: "node_getPublicStorageAt",
+        params: ["latest", contract, padHex32(slots.sealedBallots)],
+      },
+      {
+        method: "node_getPublicStorageAt",
+        params: ["latest", contract, padHex32(slots.sealedCounted)],
+      },
+      {
+        method: "node_getPublicStorageAt",
+        params: ["latest", contract, padHex32(slots.recipient)],
+      },
     ];
 
     const results = await withRetry(() => rpcBatch(nodeUrl, calls));
@@ -333,6 +365,9 @@ export default async function handler(req, res) {
     const endsAt = fieldToNumber(results[optionsCount + 5]);
     const cancelled = fieldToNumber(results[optionsCount + 6]) !== 0;
     const paused = fieldToNumber(results[optionsCount + 7]) !== 0;
+    const sealedBallots = fieldToNumber(results[optionsCount + 8]);
+    const sealedCounted = fieldToNumber(results[optionsCount + 9]);
+    const tallyRecipient = fieldToHex(results[optionsCount + 10]);
     let poolRemaining;
     if (slots.poolRemaining) {
       const poolValue = await withRetry(() =>
@@ -349,7 +384,7 @@ export default async function handler(req, res) {
     const nowSec = Math.floor(Date.now() / 1000);
     const closed =
       voteEndedFlag || cancelled || (endsAt !== 0 && nowSec >= endsAt);
-    const hideTallies = sealed && !closed;
+    const hideTallies = sealed && sealedBallots !== sealedCounted;
     const votingOpen =
       !paused && !closed && (startsAt === 0 || nowSec >= startsAt);
 
@@ -365,6 +400,9 @@ export default async function handler(req, res) {
       endsAt,
       voteFrequency,
       votingOpen,
+      sealedBallots,
+      sealedCounted,
+      tallyRecipient,
       ...(poolRemaining == null ? {} : { poolRemaining }),
     };
 

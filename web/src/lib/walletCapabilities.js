@@ -7,6 +7,7 @@ import {
   getContractAddress,
   getSponsoredFpcAddress,
   hiddenAuthorBookAddress,
+  sealedTallyBookAddress,
 } from "./aztecClient.js";
 
 /**
@@ -31,8 +32,10 @@ export function happyVoteCapabilities() {
   ];
   if (happyVote) contracts.push(happyVote);
   const book = hiddenAuthorBookAddress();
+  const sealedBook = sealedTallyBookAddress();
   const authorSponsor = authorFeeSponsorAddress();
   if (book) contracts.push(book.toString());
+  if (sealedBook) contracts.push(sealedBook.toString());
   if (authorSponsor) contracts.push(authorSponsor.toString());
 
   const feeTxScope = [
@@ -43,7 +46,11 @@ export function happyVoteCapabilities() {
   const happyVoteTxScope = happyVote
     ? [
         { contract: happyVote, function: "cast_vote_private" },
+        { contract: happyVote, function: "cast_vote_private_attested" },
         { contract: happyVote, function: "cast_vote_open" },
+        { contract: happyVote, function: "cast_vote_open_attested" },
+        { contract: happyVote, function: "record_sealed_participation" },
+        { contract: happyVote, function: "publish_sealed_tally" },
         { contract: happyVote, function: "create_poll" },
         { contract: happyVote, function: "end_poll" },
         { contract: happyVote, function: "cancel_poll" },
@@ -59,6 +66,7 @@ export function happyVoteCapabilities() {
         { contract: happyVote, function: "get_starts_at" },
         { contract: happyVote, function: "get_ends_at" },
         { contract: happyVote, function: "get_cancelled" },
+        { contract: happyVote, function: "get_vote_ended" },
         { contract: happyVote, function: "get_vote_frequency" },
         { contract: happyVote, function: "get_current_vote_period" },
         { contract: happyVote, function: "create_user_poll" },
@@ -79,21 +87,32 @@ export function happyVoteCapabilities() {
       ]
     : [];
 
+  const sealedScope = sealedBook && happyVote
+    ? [
+        { contract: sealedBook.toString(), function: "cast" },
+        { contract: sealedBook.toString(), function: "reveal" },
+      ]
+    : [];
   const hiddenScope = book && happyVote
     ? [
         { contract: book.toString(), function: "create_user_poll_private" },
         { contract: book.toString(), function: "end_hidden_poll" },
-        { contract: book.toString(), function: "get_hidden_author_note" },
         { contract: happyVote, function: "init_hidden_user_poll" },
         { contract: happyVote, function: "finish_hidden_poll" },
         { contract: happyVote, function: "set_hidden_author_book" },
       ]
     : [];
+  // get_hidden_author_note is an unconstrained utility. Wallets check it
+  // against simulation.utilities, not the transaction list. An empty utility
+  // scope rejects Your polls with "outside the permissions you gave this app".
+  const utilityScope = book
+    ? [{ contract: book.toString(), function: "get_hidden_author_note" }]
+    : [];
   const authorSponsorScope = authorSponsor
     ? [{ contract: authorSponsor.toString(), function: "sponsor_unconditionally" }]
     : [];
 
-  const txScope = [...happyVoteTxScope, ...hiddenScope, ...feeTxScope, ...authorSponsorScope];
+  const txScope = [...happyVoteTxScope, ...hiddenScope, ...sealedScope, ...feeTxScope, ...authorSponsorScope];
 
   return {
     version: "1.0",
@@ -113,7 +132,7 @@ export function happyVoteCapabilities() {
       },
       {
         type: "simulation",
-        utilities: { scope: [] },
+        utilities: { scope: utilityScope },
         transactions: {
           scope: txScope,
         },

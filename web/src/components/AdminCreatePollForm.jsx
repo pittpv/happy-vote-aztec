@@ -505,9 +505,13 @@ export function AdminCreatePollForm({
             type="checkbox"
             checked={sealed}
             disabled={busy}
-            onChange={(e) => setSealed(e.target.checked)}
+            onChange={(e) => {
+              const next = e.target.checked;
+              setSealed(next);
+              if (next && privacyPolicy === PRIVACY.PUBLIC_ONLY) setPrivacyPolicy(PRIVACY.PRIVATE_ONLY);
+            }}
           />
-          Sealed tallies — hide results until the poll ends
+          Sealed tallies — keep each option in a private note until you publish the counts
         </label>
         <label className="check-row">
           <input

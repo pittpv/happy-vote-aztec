@@ -47,11 +47,11 @@ sequenceDiagram
   UI->>API: re-verify
   API-->>UI: OK
   UI->>UI: Свернуть gate — Identity verified
-  U->>PXE: cast_vote_*(…, identity_commitment)
+  U->>PXE: cast_vote_*_attested(identity, expiry, signature)
   PXE->>C: claim identity + tally
 ```
 
-On-chain: `identity_commitment ≠ 0` для eligibility 1/2; `identity_claims` запрещает повтор.
+On-chain: `identity_commitment ≠ 0` для eligibility 1/2; `identity_claims` запрещает повтор. Голос использует поле identity из свидетельства. Подпись покрывает опрос, identity, период и срок. Она действует около 15 минут. Поздний голос требует нового скана.
 
 ## 5. Домен
 

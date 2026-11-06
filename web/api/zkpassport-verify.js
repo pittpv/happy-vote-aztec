@@ -14,6 +14,10 @@ import "./bb-crs-env.js";
 import { ZKPassport } from "@zkpassport/sdk";
 import { loadMergedCatalog } from "./poll-catalog.js";
 import { querySatisfiesAccountRules } from "../src/lib/zkRuleCanonical.js";
+import { attestZkIdentity } from "./zk-attest.js";
+
+const SITE_DOMAIN = "aztec.happyvote.xyz";
+let verifyInFlight = 0;
 
 export default async function handler(req, res) {
   if (req.method === "OPTIONS") {
@@ -45,18 +49,19 @@ export default async function handler(req, res) {
       });
     }
 
+    let poll;
     try {
-      await bindQueryToPoll(pollId, originalQuery);
+      poll = await bindQueryToPoll(pollId, originalQuery);
     } catch (error) {
       const status = error?.code === "NO_CATALOG" ? 503 : error?.status || 400;
       return res.status(status).json({ ok: false, error: error?.message || String(error) });
     }
+    const requiredScope = poll.zkRequirements?.policyId ? "" : `poll:${poll.id}`;
+    if (requiredScope && String(scope || "").trim() !== requiredScope) {
+      return res.status(400).json({ ok: false, error: "Identity scope does not match this poll" });
+    }
 
-    const resolvedDomain =
-      (typeof domain === "string" && domain.trim()) ||
-      process.env.ZKPASSPORT_DOMAIN ||
-      process.env.VITE_ZKPASSPORT_DOMAIN ||
-      "aztec.happyvote.xyz";
+    const resolvedDomain = SITE_DOMAIN;
 
     const allowDev =
       process.env.ZKPASSPORT_DEV_MODE === "true" ||
@@ -85,12 +90,17 @@ export default async function handler(req, res) {
       originalError.apply(console, args);
     };
 
+    if (verifyInFlight >= 2) {
+      return res.status(503).json({ ok: false, error: "Identity check is busy" });
+    }
+    verifyInFlight += 1;
     let verified;
     let uniqueIdentifier;
     let queryResultErrors;
     try {
       ({ verified, uniqueIdentifier, queryResultErrors } = await zkPassport.verify(verifyArgs));
     } finally {
+      verifyInFlight -= 1;
       console.error = originalError;
     }
 
@@ -115,18 +125,25 @@ export default async function handler(req, res) {
       });
     }
 
+    const attestation = await attestZkIdentity({
+      pollId: poll.id,
+      uniqueIdentifier: String(uniqueIdentifier),
+      voteFrequency: Number(poll.voteFrequency) === 1 ? 1 : 0,
+    });
     return res.status(200).json({
       ok: true,
       verified: true,
       uniqueIdentifier: String(uniqueIdentifier),
-      pollId: pollId ?? null,
+      pollId: poll.id,
       domain: resolvedDomain,
+      attestation,
     });
   } catch (error) {
     console.error("[zkpassport-verify]", error);
-    return res.status(500).json({
+    const status = error?.status || 500;
+    return res.status(status).json({
       ok: false,
-      error: error?.message || String(error),
+      error: status === 400 ? error.message : "Identity check failed",
     });
   }
 }
@@ -153,11 +170,11 @@ async function bindQueryToPoll(pollId, originalQuery) {
     error.status = 404;
     throw error;
   }
-  if (poll.publisher !== "account") return;
   const mode = Number(poll.eligibilityMode ?? 0);
-  if (mode === 0 && !poll.zkRequirements) return;
+  if (mode === 0 && !poll.zkRequirements) return poll;
   if (!poll.zkRequirements) throw new Error("Identity rules for this poll are missing");
   querySatisfiesAccountRules(originalQuery, poll.zkRequirements);
+  return poll;
 }
 
 function stringifyLogArg(value) {

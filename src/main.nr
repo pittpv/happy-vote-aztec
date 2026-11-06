@@ -18,9 +18,73 @@
 // - ends_at is enforced in public (timestamp) and as tx expiration_timestamp.
 // - starts_at cannot be fully enforced in private (no inclusion time); public
 //   rejects early votes. Do not submit ballots before start.
-// - identity_commitment is claimed by the voter; ZKPassport proofs are
-//   re-verified off-chain. Direct contract calls can pass an arbitrary Field.
-// - sealed hides view functions; raw public storage of tallies is still readable.
+// - Personhood and gated polls accept an identity only with a secp256k1 attestation
+//   over poll, identity, period, and expiry. The site signs that after it re-verifies
+//   the ZKPassport proof. An arbitrary Field is rejected.
+// - Sealed polls do not publish the chosen option. SealedTallyBook stores it in a
+//   private note for the tally recipient. Public per-option totals stay zero until
+//   that recipient publishes them after the poll closes.
+// - fund_pool is an accounting credit. Only the admin or the configured pool payer
+//   can raise it. A poll creator cannot inflate the balance the payer spends.
+
+pub global ZK_ATTEST_DOMAIN: Field = 0x48565f5a4b;
+pub global ZK_ATTEST_WINDOW: u64 = 1200;
+
+pub fn u128_pair_to_be_bytes(hi: u128, lo: u128) -> [u8; 32] {
+    let hi_bytes: [u8; 32] = (hi as Field).to_be_bytes();
+    let lo_bytes: [u8; 32] = (lo as Field).to_be_bytes();
+    let mut out: [u8; 32] = [0; 32];
+    for i in 0..16 {
+        out[i] = hi_bytes[16 + i];
+        out[16 + i] = lo_bytes[16 + i];
+    }
+    out
+}
+
+pub fn zk_attestation_digest(poll_id: Field, identity: Field, period: Field, expiry: u64) -> [u8; 32] {
+    let mut message: [u8; 160] = [0; 160];
+    let poll_bytes: [u8; 32] = poll_id.to_be_bytes();
+    let identity_bytes: [u8; 32] = identity.to_be_bytes();
+    let period_bytes: [u8; 32] = period.to_be_bytes();
+    let expiry_bytes: [u8; 32] = (expiry as Field).to_be_bytes();
+    let domain_bytes: [u8; 32] = ZK_ATTEST_DOMAIN.to_be_bytes();
+    for i in 0..32 {
+        message[i] = poll_bytes[i];
+        message[32 + i] = identity_bytes[i];
+        message[64 + i] = period_bytes[i];
+        message[96 + i] = expiry_bytes[i];
+        message[128 + i] = domain_bytes[i];
+    }
+    sha256::digest(message)
+}
+
+pub fn assert_zk_attestation(
+    x_hi: u128,
+    x_lo: u128,
+    y_hi: u128,
+    y_lo: u128,
+    poll_id: Field,
+    identity: Field,
+    period: Field,
+    expiry: u64,
+    sig_r: [u8; 32],
+    sig_s: [u8; 32],
+) {
+    assert((x_hi != 0) | (x_lo != 0), "ZK signer is not set");
+    let digest = zk_attestation_digest(poll_id, identity, period, expiry);
+    let mut signature: [u8; 64] = [0; 64];
+    for i in 0..32 {
+        signature[i] = sig_r[i];
+        signature[32 + i] = sig_s[i];
+    }
+    let ok = std::ecdsa_secp256k1::verify_signature(
+        u128_pair_to_be_bytes(x_hi, x_lo),
+        u128_pair_to_be_bytes(y_hi, y_lo),
+        signature,
+        digest,
+    );
+    assert(ok, "ZK attestation rejected");
+}
 
 mod test;
 
@@ -114,7 +178,7 @@ pub contract HappyVote {
     global VOTE_DAILY: u8 = 1;
     global SECONDS_PER_DAY: u64 = 86400;
     global PERIOD_KEY_SHIFT: Field = 4294967296;
-    /// Packed into `sealed` storage: bit 0 = hide tallies until close.
+    /// Packed into `sealed` storage: bit 0 = option is a private note on SealedTallyBook.
     global FLAG_SEALED: u8 = 1;
     /// Packed into `sealed` storage: bit 1 = UTC-day vote frequency.
     global FLAG_DAILY: u8 = 2;
@@ -143,6 +207,14 @@ pub contract HappyVote {
     /// 0 for a public author. Poseidon commitment when the author is hidden.
     /// Stored in the existing tally map so the Storage type stays under the Noir complexity cap.
     global TAG_AUTHOR: Field = 205;
+    global TAG_RECIPIENT: Field = 206;
+    global TAG_SEALED_BALLOTS: Field = 207;
+    global TAG_SEALED_COUNTED: Field = 208;
+    global TAG_ZK_X_HI: Field = 221;
+    global TAG_ZK_X_LO: Field = 222;
+    global TAG_ZK_Y_HI: Field = 223;
+    global TAG_ZK_Y_LO: Field = 224;
+    global TAG_SEALED_BOOK: Field = 225;
 
     #[derive(Serialize, Deserialize)]
     pub struct PollId {
@@ -269,6 +341,9 @@ pub contract HappyVote {
         }
 
         let flags = self.storage.sealed.at(poll_id).read();
+        if (flags & FLAG_SEALED) != (0 as u8) {
+            assert(false, "Sealed ballot uses the tally book");
+        }
         let freq = if (flags & FLAG_DAILY) != (0 as u8) { VOTE_DAILY } else { VOTE_ONCE };
         assert(freq <= VOTE_DAILY, "Unsupported vote frequency");
         if freq == VOTE_ONCE {
@@ -314,6 +389,9 @@ pub contract HappyVote {
         assert(options_count >= 2, "Need at least 2 options");
         assert(options_count <= MAX_OPTIONS, "Too many options");
         assert(privacy_policy <= PRIVACY_VOTER_CHOICE, "Invalid privacy policy");
+        if sealed {
+            assert(privacy_policy != PRIVACY_PUBLIC_ONLY, "Sealed poll cannot be open-only");
+        }
         assert(eligibility_mode <= ELIGIBILITY_GATED, "Unsupported eligibility mode");
         assert(vote_frequency <= VOTE_DAILY, "Unsupported vote frequency");
 
@@ -351,6 +429,9 @@ pub contract HappyVote {
             flags = flags + FLAG_DAILY;
         }
         self.storage.sealed.at(resolved).initialize(flags);
+        self.storage.tally.at(resolved).at(TAG_RECIPIENT).write(self.msg_sender().to_field());
+        self.storage.tally.at(resolved).at(TAG_SEALED_BALLOTS).write(0);
+        self.storage.tally.at(resolved).at(TAG_SEALED_COUNTED).write(0);
         self.storage.vote_ended.at(resolved).write(false);
         self.storage.cancelled.at(resolved).write(false);
         self.storage.total_votes.at(resolved).write(0);
@@ -392,7 +473,71 @@ pub contract HappyVote {
             vote_period,
         );
         self.storage.vote_claims.at(poll_id.id + vote_period * PERIOD_KEY_SHIFT).at(self.msg_sender()).claim();
-        self.enqueue_self.add_to_tally_public(poll_id, option_id, identity_commitment, vote_period);
+        self.enqueue_self.add_to_tally_public(
+            poll_id,
+            option_id,
+            identity_commitment,
+            vote_period,
+            false,
+            0,
+            0,
+            0,
+            0,
+            0,
+            [0; 32],
+            [0; 32],
+        );
+    }
+
+    /// Same ballot as `cast_vote_private`, plus the site attestation for a personhood or gated poll.
+    #[external("private")]
+    fn cast_vote_private_attested(
+        poll_id: PollId,
+        option_id: Field,
+        identity_commitment: Field,
+        vote_period: Field,
+        expiry: u64,
+        x_hi: Field,
+        x_lo: Field,
+        y_hi: Field,
+        y_lo: Field,
+        sig_r: [u8; 32],
+        sig_s: [u8; 32],
+    ) {
+        self.internal.assert_ballot_private(
+            poll_id,
+            option_id,
+            identity_commitment,
+            false,
+            vote_period,
+        );
+        self.internal.prove_zk_attestation(
+            poll_id.id,
+            identity_commitment,
+            vote_period,
+            expiry,
+            x_hi,
+            x_lo,
+            y_hi,
+            y_lo,
+            sig_r,
+            sig_s,
+        );
+        self.storage.vote_claims.at(poll_id.id + vote_period * PERIOD_KEY_SHIFT).at(self.msg_sender()).claim();
+        self.enqueue_self.add_to_tally_public(
+            poll_id,
+            option_id,
+            identity_commitment,
+            vote_period,
+            true,
+            expiry,
+            x_hi,
+            x_lo,
+            y_hi,
+            y_lo,
+            sig_r,
+            sig_s,
+        );
     }
 
     /// Open ballot — voter + choice recorded publicly.
@@ -419,6 +564,67 @@ pub contract HappyVote {
             option_id,
             identity_commitment,
             vote_period,
+            false,
+            0,
+            0,
+            0,
+            0,
+            0,
+            [0; 32],
+            [0; 32],
+        );
+    }
+
+    /// Same ballot as `cast_vote_open`, plus the site attestation for a personhood or gated poll.
+    #[external("private")]
+    fn cast_vote_open_attested(
+        poll_id: PollId,
+        option_id: Field,
+        identity_commitment: Field,
+        vote_period: Field,
+        expiry: u64,
+        x_hi: Field,
+        x_lo: Field,
+        y_hi: Field,
+        y_lo: Field,
+        sig_r: [u8; 32],
+        sig_s: [u8; 32],
+    ) {
+        self.internal.assert_ballot_private(
+            poll_id,
+            option_id,
+            identity_commitment,
+            true,
+            vote_period,
+        );
+        self.internal.prove_zk_attestation(
+            poll_id.id,
+            identity_commitment,
+            vote_period,
+            expiry,
+            x_hi,
+            x_lo,
+            y_hi,
+            y_lo,
+            sig_r,
+            sig_s,
+        );
+        let voter = self.msg_sender();
+        self.storage.vote_claims.at(poll_id.id + vote_period * PERIOD_KEY_SHIFT).at(voter).claim();
+        self.enqueue_self.record_open_vote_public(
+            poll_id,
+            voter,
+            option_id,
+            identity_commitment,
+            vote_period,
+            true,
+            expiry,
+            x_hi,
+            x_lo,
+            y_hi,
+            y_lo,
+            sig_r,
+            sig_s,
         );
     }
 
@@ -429,8 +635,29 @@ pub contract HappyVote {
         option_id: Field,
         identity_commitment: Field,
         vote_period: Field,
+        attested: bool,
+        expiry: u64,
+        x_hi: Field,
+        x_lo: Field,
+        y_hi: Field,
+        y_lo: Field,
+        sig_r: [u8; 32],
+        sig_s: [u8; 32],
     ) {
         self.internal.assert_vote_allowed(poll_id, identity_commitment, vote_period);
+        self.internal.assert_identity_attestation(
+            poll_id,
+            identity_commitment,
+            vote_period,
+            attested,
+            expiry,
+            x_hi,
+            x_lo,
+            y_hi,
+            y_lo,
+            sig_r,
+            sig_s,
+        );
         assert(
             self.storage.privacy_policy.at(poll_id).read() != PRIVACY_PUBLIC_ONLY,
             "Poll requires open votes",
@@ -456,8 +683,29 @@ pub contract HappyVote {
         option_id: Field,
         identity_commitment: Field,
         vote_period: Field,
+        attested: bool,
+        expiry: u64,
+        x_hi: Field,
+        x_lo: Field,
+        y_hi: Field,
+        y_lo: Field,
+        sig_r: [u8; 32],
+        sig_s: [u8; 32],
     ) {
         self.internal.assert_vote_allowed(poll_id, identity_commitment, vote_period);
+        self.internal.assert_identity_attestation(
+            poll_id,
+            identity_commitment,
+            vote_period,
+            attested,
+            expiry,
+            x_hi,
+            x_lo,
+            y_hi,
+            y_lo,
+            sig_r,
+            sig_s,
+        );
         assert(
             self.storage.privacy_policy.at(poll_id).read() != PRIVACY_PRIVATE_ONLY,
             "Poll requires private votes",
@@ -473,6 +721,64 @@ pub contract HappyVote {
         self.storage.tally.at(poll_id).at(option).write(new_tally);
         let total = self.storage.total_votes.at(poll_id).read() + 1;
         self.storage.total_votes.at(poll_id).write(total);
+    }
+
+    /// Signature check stays in private. The public AVM transpiler does not accept secp256k1.
+    #[internal("private")]
+    fn prove_zk_attestation(
+        poll_id: Field,
+        identity_commitment: Field,
+        vote_period: Field,
+        expiry: u64,
+        x_hi: Field,
+        x_lo: Field,
+        y_hi: Field,
+        y_lo: Field,
+        sig_r: [u8; 32],
+        sig_s: [u8; 32],
+    ) {
+        crate::assert_zk_attestation(
+            x_hi as u128,
+            x_lo as u128,
+            y_hi as u128,
+            y_lo as u128,
+            poll_id,
+            identity_commitment,
+            vote_period,
+            expiry,
+            sig_r,
+            sig_s,
+        );
+    }
+
+    #[internal("public")]
+    fn assert_identity_attestation(
+        poll_id: PollId,
+        identity_commitment: Field,
+        vote_period: Field,
+        attested: bool,
+        expiry: u64,
+        x_hi: Field,
+        x_lo: Field,
+        y_hi: Field,
+        y_lo: Field,
+        sig_r: [u8; 32],
+        sig_s: [u8; 32],
+    ) {
+        let mode = self.storage.eligibility_mode.at(poll_id).read();
+        if mode != ELIGIBILITY_OPEN {
+            assert(attested, "ZK attestation required");
+            let now = self.context.timestamp();
+            assert(now <= expiry, "ZK attestation expired");
+            assert(expiry - now <= crate::ZK_ATTEST_WINDOW, "ZK attestation window");
+            let root = PollId::new(0);
+            assert(x_hi == self.storage.tally.at(root).at(TAG_ZK_X_HI).read(), "ZK attestation rejected");
+            assert(x_lo == self.storage.tally.at(root).at(TAG_ZK_X_LO).read(), "ZK attestation rejected");
+            assert(y_hi == self.storage.tally.at(root).at(TAG_ZK_Y_HI).read(), "ZK attestation rejected");
+            assert(y_lo == self.storage.tally.at(root).at(TAG_ZK_Y_LO).read(), "ZK attestation rejected");
+        }
+        let _ = sig_r;
+        let _ = sig_s;
     }
 
     /// Enforce window + eligibility + claim ZKPassport identity when required.
@@ -730,7 +1036,8 @@ pub contract HappyVote {
     #[internal("public")]
     fn tallies_hidden(poll_id: PollId) -> bool {
         if (self.storage.sealed.at(poll_id).read() & FLAG_SEALED) != (0 as u8) {
-            self.internal.poll_is_closed(poll_id) == false
+            self.storage.tally.at(poll_id).at(TAG_SEALED_BALLOTS).read()
+                != self.storage.tally.at(poll_id).at(TAG_SEALED_COUNTED).read()
         } else {
             false
         }
@@ -756,6 +1063,9 @@ pub contract HappyVote {
         assert(options_count >= 2, "Need at least 2 options");
         assert(options_count <= MAX_OPTIONS, "Too many options");
         assert(privacy_policy <= PRIVACY_VOTER_CHOICE, "Invalid privacy policy");
+        if sealed {
+            assert(privacy_policy != PRIVACY_PUBLIC_ONLY, "Sealed poll cannot be open-only");
+        }
         assert(eligibility_mode <= ELIGIBILITY_GATED, "Unsupported eligibility mode");
         assert(vote_frequency <= VOTE_DAILY, "Unsupported vote frequency");
         assert(metadata_hash != 0, "Metadata hash required");
@@ -846,6 +1156,9 @@ pub contract HappyVote {
             flags = flags + FLAG_DAILY;
         }
         self.storage.sealed.at(resolved).initialize(flags);
+        self.storage.tally.at(resolved).at(TAG_RECIPIENT).write(creator.to_field());
+        self.storage.tally.at(resolved).at(TAG_SEALED_BALLOTS).write(0);
+        self.storage.tally.at(resolved).at(TAG_SEALED_COUNTED).write(0);
         self.storage.vote_ended.at(resolved).write(false);
         self.storage.cancelled.at(resolved).write(false);
         self.storage.total_votes.at(resolved).write(0);
@@ -866,6 +1179,158 @@ pub contract HappyVote {
         self.internal.assert_admin();
         assert(book.eq(AztecAddress::zero()) == false, "Book required");
         self.storage.hidden_author_book.initialize(book);
+    }
+
+    /// Admin sets the sealed-tally book once. That contract holds the private ballot notes.
+    #[external("public")]
+    fn set_sealed_tally_book(book: AztecAddress) {
+        self.internal.assert_admin();
+        assert(book.eq(AztecAddress::zero()) == false, "Book required");
+        let root = PollId::new(0);
+        assert(self.storage.tally.at(root).at(TAG_SEALED_BOOK).read() == 0, "Book already set");
+        self.storage.tally.at(root).at(TAG_SEALED_BOOK).write(book.to_field());
+    }
+
+    /// secp256k1 public key that attests ZKPassport checks. Each half is 16 bytes.
+    #[external("public")]
+    fn set_zk_signer(x_hi: u128, x_lo: u128, y_hi: u128, y_lo: u128) {
+        self.internal.assert_admin();
+        assert((x_hi != 0) | (x_lo != 0), "ZK signer is not set");
+        let root = PollId::new(0);
+        self.storage.tally.at(root).at(TAG_ZK_X_HI).write(x_hi as Field);
+        self.storage.tally.at(root).at(TAG_ZK_X_LO).write(x_lo as Field);
+        self.storage.tally.at(root).at(TAG_ZK_Y_HI).write(y_hi as Field);
+        self.storage.tally.at(root).at(TAG_ZK_Y_LO).write(y_lo as Field);
+    }
+
+    /// Sealed ballot accepted. The option stays in SealedTallyBook.
+    #[external("public")]
+    fn record_sealed_participation(
+        poll_id: PollId,
+        identity_commitment: Field,
+        vote_period: Field,
+        expiry: u64,
+        x_hi: Field,
+        x_lo: Field,
+        y_hi: Field,
+        y_lo: Field,
+        sig_r: [u8; 32],
+        sig_s: [u8; 32],
+        eligibility_mode: u8,
+        options_count: u32,
+        recipient: AztecAddress,
+    ) {
+        let book = AztecAddress::from_field(self.storage.tally.at(PollId::new(0)).at(TAG_SEALED_BOOK).read());
+        assert(self.msg_sender().eq(book), "Only sealed tally book");
+        assert(
+            (self.storage.sealed.at(poll_id).read() & FLAG_SEALED) != (0 as u8),
+            "Poll is not sealed",
+        );
+        self.internal.assert_vote_allowed(poll_id, identity_commitment, vote_period);
+        self.internal.assert_identity_attestation(
+            poll_id,
+            identity_commitment,
+            vote_period,
+            true,
+            expiry,
+            x_hi,
+            x_lo,
+            y_hi,
+            y_lo,
+            sig_r,
+            sig_s,
+        );
+        assert(eligibility_mode == self.storage.eligibility_mode.at(poll_id).read(), "Wrong eligibility");
+        assert(options_count == self.storage.options_count.at(poll_id).read(), "Invalid option");
+        assert(
+            recipient.to_field() == self.storage.tally.at(poll_id).at(TAG_RECIPIENT).read(),
+            "Only tally recipient",
+        );
+        assert(
+            self.storage.privacy_policy.at(poll_id).read() != PRIVACY_PUBLIC_ONLY,
+            "Poll requires open votes",
+        );
+        let next = self.storage.tally.at(poll_id).at(TAG_SEALED_BALLOTS).read() + 1;
+        self.storage.tally.at(poll_id).at(TAG_SEALED_BALLOTS).write(next);
+    }
+
+    /// Add one revealed batch. Per-option views stay at zero until every sealed ballot is included.
+    #[external("public")]
+    fn publish_sealed_tally(poll_id: PollId, counts: [Field; 32], batch: u64, recipient: AztecAddress) {
+        let book = AztecAddress::from_field(self.storage.tally.at(PollId::new(0)).at(TAG_SEALED_BOOK).read());
+        assert(self.msg_sender().eq(book), "Only sealed tally book");
+        self.internal.assert_poll_exists(poll_id);
+        assert(self.internal.poll_is_closed(poll_id), "Vote has not ended");
+        assert(
+            (self.storage.sealed.at(poll_id).read() & FLAG_SEALED) != (0 as u8),
+            "Poll is not sealed",
+        );
+        assert(batch != 0, "Sealed ballots missing");
+        assert(
+            recipient.to_field() == self.storage.tally.at(poll_id).at(TAG_RECIPIENT).read(),
+            "Only tally recipient",
+        );
+        let options = self.storage.options_count.at(poll_id).read();
+        let mut summed = 0;
+        for i in 0..32 {
+            if (i as u32) < options {
+                let option = i as Field;
+                let next = self.storage.tally.at(poll_id).at(option).read() + counts[i];
+                self.storage.tally.at(poll_id).at(option).write(next);
+                summed = summed + counts[i];
+            }
+        }
+        assert(summed == (batch as Field), "Sealed tally overcounted");
+        let counted = self.storage.tally.at(poll_id).at(TAG_SEALED_COUNTED).read() + (batch as Field);
+        let accepted = self.storage.tally.at(poll_id).at(TAG_SEALED_BALLOTS).read();
+        let counted_n = counted as u64;
+        let accepted_n = accepted as u64;
+        assert((counted_n as Field) == counted, "Sealed tally overcounted");
+        assert(counted_n <= accepted_n, "Sealed tally overcounted");
+        self.storage.tally.at(poll_id).at(TAG_SEALED_COUNTED).write(counted);
+        self.storage.total_votes.at(poll_id).write(counted);
+    }
+
+    #[external("public")]
+    #[view]
+    fn get_tally_recipient(poll_id: PollId) -> AztecAddress {
+        AztecAddress::from_field(self.storage.tally.at(poll_id).at(TAG_RECIPIENT).read())
+    }
+
+    #[external("public")]
+    #[view]
+    fn get_sealed_ballots(poll_id: PollId) -> Field {
+        self.storage.tally.at(poll_id).at(TAG_SEALED_BALLOTS).read()
+    }
+
+    #[external("public")]
+    #[view]
+    fn get_sealed_tally_book() -> AztecAddress {
+        AztecAddress::from_field(self.storage.tally.at(PollId::new(0)).at(TAG_SEALED_BOOK).read())
+    }
+
+    #[external("public")]
+    #[view]
+    fn get_zk_x_hi() -> Field {
+        self.storage.tally.at(PollId::new(0)).at(TAG_ZK_X_HI).read()
+    }
+
+    #[external("public")]
+    #[view]
+    fn get_zk_x_lo() -> Field {
+        self.storage.tally.at(PollId::new(0)).at(TAG_ZK_X_LO).read()
+    }
+
+    #[external("public")]
+    #[view]
+    fn get_zk_y_hi() -> Field {
+        self.storage.tally.at(PollId::new(0)).at(TAG_ZK_Y_HI).read()
+    }
+
+    #[external("public")]
+    #[view]
+    fn get_zk_y_lo() -> Field {
+        self.storage.tally.at(PollId::new(0)).at(TAG_ZK_Y_LO).read()
     }
 
     /// Called by the hidden-author book. The author's account is not an argument.
@@ -893,6 +1358,9 @@ pub contract HappyVote {
         assert(options_count >= 2, "Need at least 2 options");
         assert(options_count <= MAX_OPTIONS, "Too many options");
         assert(privacy_policy <= PRIVACY_VOTER_CHOICE, "Invalid privacy policy");
+        if sealed {
+            assert(privacy_policy != PRIVACY_PUBLIC_ONLY, "Sealed poll cannot be open-only");
+        }
         assert(eligibility_mode <= ELIGIBILITY_GATED, "Unsupported eligibility mode");
         assert(vote_frequency <= VOTE_DAILY, "Unsupported vote frequency");
         assert(metadata_hash != 0, "Metadata hash required");
@@ -941,6 +1409,9 @@ pub contract HappyVote {
             flags = flags + FLAG_DAILY;
         }
         self.storage.sealed.at(resolved).initialize(flags);
+        self.storage.tally.at(resolved).at(TAG_RECIPIENT).write(self.storage.admin.read().to_field());
+        self.storage.tally.at(resolved).at(TAG_SEALED_BALLOTS).write(0);
+        self.storage.tally.at(resolved).at(TAG_SEALED_COUNTED).write(0);
         self.storage.vote_ended.at(resolved).write(false);
         self.storage.cancelled.at(resolved).write(false);
         self.storage.total_votes.at(resolved).write(0);
@@ -986,7 +1457,15 @@ pub contract HappyVote {
     fn fund_pool(poll_id: PollId, count: u64, juice: u64) {
         self.internal.assert_poll_exists(poll_id);
         assert(self.internal.poll_is_closed(poll_id) == false, "Vote has ended");
-        assert(self.storage.tally.at(poll_id).at(TAG_CREATOR).read() == self.msg_sender().to_field(), "Only creator");
+        let payer = AztecAddress::from_field(
+            self.storage.tally.at(PollId::new(0)).at(TAG_PAYER).read(),
+        );
+        let sender = self.msg_sender();
+        assert(
+            sender.eq(self.storage.admin.read())
+                | ((payer.eq(AztecAddress::zero()) == false) & sender.eq(payer)),
+            "Only admin or pool payer",
+        );
         assert(((self.storage.tally.at(poll_id).at(TAG_FEE).read() as u64) as u8) % 16 == FEE_POOL, "Poll has no pool");
         assert(count > (0 as u64), "Pool count required");
         assert(juice > (0 as u64), "Pool juice required");

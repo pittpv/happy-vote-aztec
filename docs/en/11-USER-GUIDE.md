@@ -51,7 +51,7 @@ All polls has a section **Earlier networks** after Ended only when a previous ne
 
 - **One vote per Aztec account per poll**, or **one vote per UTC day** when the poll is created with daily frequency. Private and open share that limit. A new Browser session is a new account, so open-eligibility polls can be voted again after reconnecting. That is expected for fun polls (`/p/1`, `/p/2`, `/p/4`). Personhood/gated polls (`/p/3`) also bind **one ZKPassport identity**, so extra session addresses do not add extra ballots. After a ballot, this browser may show a **device hint** (no address stored). It does not lock the Vote button; sending again with the **same account** still fails on-chain.
 - Daily polls reset at **00:00 UTC**. Each new day adds to the tally; the previous choice is not removed.
-- Private mode hides your **address**; the chosen option still increments the **public** tally (unless the poll is sealed).
+- Private mode hides your **address**. On an unsealed poll the chosen option increments the **public** tally. On a sealed poll the option stays in a private note until the tally recipient publishes the counts.
 - Open mode publishes address + choice.
 - Important polls may also bind **one ZKPassport identity per poll** (or per UTC day on daily polls).
 - Guest tallies come from same-origin `/api/poll-state`.

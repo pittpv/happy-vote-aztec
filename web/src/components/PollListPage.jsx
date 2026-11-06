@@ -10,11 +10,11 @@ import { SiteFooter } from "./SiteFooter.jsx";
 import { SiteHeader } from "./SiteHeader.jsx";
 import { PollCard } from "./PollCard.jsx";
 import { EarlierNetworks } from "./EarlierNetworks.jsx";
-import { cardClosedFlag, partitionPolls } from "../lib/catalogClosure.js";
+import { cardClosedFlag, openPollIdKey, partitionPolls } from "../lib/catalogClosure.js";
 import { orderAuthoritative, sortPolls, splitAuthority } from "../lib/catalogSections.js";
 import { useCatalogClosures } from "../hooks/useCatalogClosures.js";
 
-function PollGrid({ polls, now, closures, closed }) {
+function PollGrid({ polls, now, closures, statusPending = false }) {
   return (
     <div className="poll-grid">
       {polls.map((poll) => (
@@ -22,7 +22,8 @@ function PollGrid({ polls, now, closures, closed }) {
           key={poll.id}
           poll={poll}
           now={now}
-          closed={closed === null ? null : cardClosedFlag(closures, poll, now)}
+          closed={cardClosedFlag(closures, poll, now)}
+          statusPending={statusPending}
         />
       ))}
     </div>
@@ -47,44 +48,26 @@ function endedInLane(polls, archive, sort, now, closures, lane) {
   return lane === "authoritative" ? orderAuthoritative(merged, sort) : sortPolls(merged, sort);
 }
 
-function CatalogLane({ id, title, note, polls, now, closures, closureError, filtersOn, emptyLabel }) {
-  const groups = partitionPolls(polls, now, closures);
-  const showActive = groups.active.length > 0 || groups.unknown.length === 0;
+function CatalogLane({ id, title, note, polls, now, closures, statusPending, filtersOn, emptyLabel }) {
+  const openPolls = polls.filter((poll) => cardClosedFlag(closures, poll, now) !== true);
   return (
     <section className="catalog-lane" aria-labelledby={id}>
       <header className="catalog-lane-head">
         <h2 id={id} className="section-title">
           {title}
+          {openPolls.length > 0 ? <span className="catalog-count">{openPolls.length}</span> : null}
         </h2>
         <p className="section-lede">{note}</p>
       </header>
-      {showActive ? (
-        <section className="catalog-group" aria-labelledby={`${id}-active`}>
-          <h3 id={`${id}-active`} className="catalog-group-title">
-            Active
-            {groups.active.length > 0 ? (
-              <span className="catalog-count">{groups.active.length}</span>
-            ) : null}
-          </h3>
-          {groups.active.length === 0 ? (
-            <p className="meta">
-              {filtersOn
-                ? `No active ${emptyLabel} polls match these filters.`
-                : `No active ${emptyLabel} polls.`}
-            </p>
-          ) : (
-            <PollGrid polls={groups.active} now={now} closures={closures} />
-          )}
-        </section>
-      ) : null}
-      {groups.unknown.length > 0 ? (
-        <section className="catalog-group" aria-labelledby={`${id}-unknown`}>
-          <h3 id={`${id}-unknown`} className="catalog-group-title">
-            Status unavailable
-          </h3>
-          <PollGrid polls={groups.unknown} now={now} closures={closures} closed={null} />
-        </section>
-      ) : null}
+      {openPolls.length === 0 ? (
+        <p className="meta">
+          {filtersOn
+            ? `No ${emptyLabel} polls match these filters.`
+            : `No ${emptyLabel} polls.`}
+        </p>
+      ) : (
+        <PollGrid polls={openPolls} now={now} closures={closures} statusPending={statusPending} />
+      )}
     </section>
   );
 }
@@ -101,7 +84,8 @@ export function PollListPage({ walletConnect }) {
   const [archive, setArchive] = useState({ authoritative: [], users: [] });
   const [archiveTotal, setArchiveTotal] = useState({ authoritative: 0, users: 0 });
   const [archiveBusy, setArchiveBusy] = useState({ authoritative: false, users: false });
-  const { closures, error: closureError, ready: closuresReady } = useCatalogClosures();
+  const openIds = useMemo(() => openPollIdKey(polls), [polls]);
+  const { closures, error: closureError, pending: statusPending } = useCatalogClosures(openIds);
 
   useEffect(() => {
     let cancelled = false;
@@ -159,9 +143,10 @@ export function PollListPage({ walletConnect }) {
     });
   }, [polls, topic, country, eligibility, query]);
 
-  const closureMap = closuresReady ? closures : closureError ? {} : null;
+  const closureMap = closures;
+  const waitingForStatus = closureMap == null && !closureError;
   const lanes =
-    closureMap == null
+    waitingForStatus
       ? null
       : (() => {
           const split = splitAuthority(filtered);
@@ -387,7 +372,7 @@ export function PollListPage({ walletConnect }) {
               polls={lanes.authoritative}
               now={now}
               closures={closureMap}
-              closureError={closureError}
+              statusPending={statusPending}
               filtersOn={filtersOn}
               emptyLabel="authoritative"
             />
@@ -398,7 +383,7 @@ export function PollListPage({ walletConnect }) {
               polls={lanes.users}
               now={now}
               closures={closureMap}
-              closureError={closureError}
+              statusPending={statusPending}
               filtersOn={filtersOn}
               emptyLabel="user"
             />
@@ -425,7 +410,7 @@ export function PollListPage({ walletConnect }) {
                   </p>
                 ) : (
                   <>
-                    <PollGrid polls={endedCards} now={now} closures={closureMap} closed />
+                    <PollGrid polls={endedCards} now={now} closures={closureMap} />
                     {endedHasMore ? (
                       <button
                         type="button"

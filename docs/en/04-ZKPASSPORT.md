@@ -61,13 +61,13 @@ sequenceDiagram
   U->>Z: NFC scan + prove
   Z->>UI: verified + uniqueIdentifier + proofs
   UI->>API: re-verify original query
-  API-->>UI: OK
+  API-->>UI: OK + short-lived attestation
   UI->>UI: Collapse gate — Identity verified
-  U->>PXE: cast_vote_*(…, identity_commitment)
-  PXE->>C: claim identity + tally
+  U->>PXE: cast_vote_*_attested(identity, expiry, signature)
+  PXE->>C: private signature check, then public key and expiry check
 ```
 
-On-chain: `identity_commitment ≠ 0` for eligibility 1/2; `identity_claims` rejects reuse.
+On-chain: `identity_commitment ≠ 0` for eligibility 1/2; `identity_claims` rejects reuse. The vote uses the identity field from the attestation. The signature covers poll, identity, period, and expiry. It is valid for about 15 minutes. A later vote needs a new scan.
 
 ## 5. Domain rules
 

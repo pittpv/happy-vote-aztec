@@ -2,7 +2,7 @@ import { scheduleEnded } from "./pollSchedule.js";
 
 /**
  * All polls lanes. Operator polls and authoritative creators stay in the first lane.
- * Other account polls stay in the second. Active stays inside each lane.
+ * Other account polls stay in the second. Open polls stay in each lane.
  * Ended is one shared list after both lanes.
  */
 

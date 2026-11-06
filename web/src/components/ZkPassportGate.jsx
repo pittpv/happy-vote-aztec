@@ -110,13 +110,14 @@ export function ZkPassportGate({
     });
   }
 
-  function finishVerified({ uniqueIdentifier, mock, serverVerified: serverOk }) {
+  function finishVerified({ uniqueIdentifier, mock, serverVerified: serverOk, attestation }) {
     const payload = {
       uniqueIdentifier,
       verified: true,
       mock: Boolean(mock),
       serverVerified: Boolean(serverOk),
       requirements: effective,
+      attestation: attestation || null,
     };
     setDone({
       uniqueIdentifier,
@@ -305,6 +306,7 @@ export function ZkPassportGate({
                   uniqueIdentifier: server.uniqueIdentifier,
                   mock: false,
                   serverVerified: true,
+                  attestation: server.attestation,
                 });
               } catch (err) {
                 console.error(err);

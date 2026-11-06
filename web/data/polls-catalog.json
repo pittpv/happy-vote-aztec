@@ -50,9 +50,9 @@
 
       "id": "2",
 
-      "title": "Which demo feature should we ship next?",
+      "title": "What should we do in Iteration 3",
 
-      "description": "Single-choice roadmap poll for the Aztec HappyVote demo.",
+      "description": "Single-choice roadmap poll for the Aztec HappyVote Iteration 3",
 
       "topics": ["demo", "product"],
 
@@ -62,25 +62,25 @@
 
         {
 
-          "label": "Sealed tallies",
+          "label": "Publish on mainnet",
 
-          "description": "Hide live results until the poll ends."
-
-        },
-
-        {
-
-          "label": "Share embeds",
-
-          "description": "Embeddable poll cards for other sites."
+          "description": "Deploy this contract on Aztec Mainnet."
 
         },
 
         {
 
-          "label": "ZKPassport gates",
+          "label": "DAO and treasury adapters",
 
-          "description": "Personhood / age / nationality eligibility."
+          "description": "Connect a private ballot to a DAO or treasury decision."
+
+        },
+
+        {
+
+          "label": "Tally indexer",
+
+          "description": "Read tallies without querying contract storage directly."
 
         }
 
@@ -182,7 +182,7 @@
 
       "title": "Should results stay hidden until voting ends?",
 
-      "description": "Sealed-tally demo on Aztec Testnet. Live results stay blank while this poll is open; they appear only after it closes. Open eligibility — private or open ballot.",
+      "description": "Sealed-tally demo on Aztec Testnet. The chosen option is a private note. Guests see how many ballots were accepted. Per-option counts appear after the tally recipient publishes them. Open eligibility.",
 
       "topics": ["demo", "sealed"],
 

@@ -1,11 +1,12 @@
 /**
- * Seed + optional Vercel Blob overlay for the shared poll catalog.
+ * Seed plus a host-file overlay for the shared poll catalog.
+ * The overlay file is HAPPYVOTE_DATA_DIR/polls-catalog.json.
  */
 import seedCatalog from "../data/polls-catalog.json" with { type: "json" };
+import { readJson, writeJson } from "./local-store.js";
 
-export const BLOB_PATHNAME = "happyvote/polls-catalog.json";
+const OVERLAY_FILE = "polls-catalog.json";
 const CATALOG_TTL_MS = 15_000;
-const BLOB_READ_ATTEMPTS = 3;
 
 /** @type {{ at: number, data: object } | null} */
 let catalogCache = null;
@@ -19,61 +20,21 @@ export function invalidateCatalogCache() {
 }
 
 export function catalogCacheControl(catalog) {
-  if (catalog?.sources?.blob) {
+  if (catalog?.sources?.overlay) {
     return "public, s-maxage=30, stale-while-revalidate=120";
   }
-  // Seed-only responses omit Blob polls (e.g. #5). Do not let the CDN keep that miss.
+  // Seed-only responses omit overlay polls. Do not let a cache keep that miss.
   return "public, max-age=0, s-maxage=5, must-revalidate";
 }
 
-async function readBlobCatalogOnce(token) {
-  const { list } = await import("@vercel/blob");
-  const result = await list({ prefix: "happyvote/polls-catalog", token, limit: 10 });
-  const match =
-    result.blobs?.find((b) => b.pathname === BLOB_PATHNAME) || result.blobs?.[0];
-  if (!match?.url) return null;
-  const response = await fetch(match.url, { cache: "no-store" });
-  if (!response.ok) {
-    throw new Error(`blob HTTP ${response.status}`);
-  }
-  return await response.json();
+export async function readCatalogOverlay() {
+  return readJson(OVERLAY_FILE);
 }
 
-export async function readBlobCatalog() {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) return null;
-  let lastError;
-  for (let i = 0; i < BLOB_READ_ATTEMPTS; i++) {
-    try {
-      return await readBlobCatalogOnce(token);
-    } catch (error) {
-      lastError = error;
-      if (i === BLOB_READ_ATTEMPTS - 1) break;
-      await new Promise((resolve) => setTimeout(resolve, 250 * 2 ** i));
-    }
-  }
-  console.error("[polls] blob read failed", lastError);
-  return null;
-}
-
-export async function writeBlobCatalog(catalog) {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
-    const err = new Error("BLOB_READ_WRITE_TOKEN is not configured");
-    err.code = "NO_BLOB";
-    throw err;
-  }
-  const { put } = await import("@vercel/blob");
-  const body = JSON.stringify(catalog, null, 2);
-  const blob = await put(BLOB_PATHNAME, body, {
-    access: "public",
-    contentType: "application/json",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    token,
-  });
+export async function writeCatalogOverlay(catalog) {
+  const saved = await writeJson(OVERLAY_FILE, catalog);
   invalidateCatalogCache();
-  return blob;
+  return saved;
 }
 
 export function mergeCatalogs(seed, overlay) {
@@ -93,7 +54,7 @@ export function mergeCatalogs(seed, overlay) {
     authoritativeAccounts: accounts,
     sources: {
       seed: true,
-      blob: Boolean(overlay),
+      overlay: Boolean(overlay),
     },
   };
 }
@@ -104,8 +65,8 @@ export async function loadMergedCatalog({ force = false } = {}) {
     return catalogCache.data;
   }
   const seed = loadSeed();
-  const overlay = await readBlobCatalog();
+  const overlay = await readCatalogOverlay();
   const data = mergeCatalogs(seed, overlay);
-  catalogCache = data.sources.blob ? { at: now, data } : null;
+  catalogCache = data.sources.overlay ? { at: now, data } : null;
   return data;
 }

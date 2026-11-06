@@ -5,9 +5,10 @@
  */
 import manifest from "../data/earlier-networks.json" with { type: "json" };
 import snapshotFile from "../data/earlier-networks-snapshot.json" with { type: "json" };
+import { readJson, writeJson } from "./local-store.js";
 import { fallbackSlots, isUsableSlotEntry, sliceSlots } from "./poll-slots.js";
 
-const SNAPSHOT_BLOB = "happyvote/earlier-networks-snapshot.json";
+const SNAPSHOT_FILE = "earlier-networks-snapshot.json";
 const LIVE_FETCH_MS = 3000;
 
 const CACHE_TTL_MS = 15_000;
@@ -210,22 +211,14 @@ function usableSnapshot(raw) {
   };
 }
 
-async function readBlobSnapshot() {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) return null;
-  const { list } = await import("@vercel/blob");
-  const result = await list({ prefix: "happyvote/earlier-networks-snapshot", token, limit: 10 });
-  const match = result.blobs?.find((blob) => blob.pathname === SNAPSHOT_BLOB) || result.blobs?.[0];
-  if (!match?.url) return null;
-  const response = await fetch(match.url, { cache: "no-store" });
-  if (!response.ok) throw new Error(`snapshot blob HTTP ${response.status}`);
-  return usableSnapshot(await response.json());
+async function readHostSnapshot() {
+  return usableSnapshot(await readJson(SNAPSHOT_FILE));
 }
 
 export async function readEarlierSnapshot() {
   try {
-    const fromBlob = await readBlobSnapshot();
-    if (fromBlob) return fromBlob;
+    const fromHost = await readHostSnapshot();
+    if (fromHost) return fromHost;
   } catch (error) {
     console.error("earlier-networks snapshot read failed", error);
   }
@@ -233,19 +226,7 @@ export async function readEarlierSnapshot() {
 }
 
 async function writeEarlierSnapshot(snapshot) {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
-  if (!token) {
-    console.error("earlier-networks snapshot skipped: blob token is not configured");
-    return;
-  }
-  const { put } = await import("@vercel/blob");
-  await put(SNAPSHOT_BLOB, JSON.stringify(snapshot), {
-    access: "public",
-    contentType: "application/json",
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    token,
-  });
+  await writeJson(SNAPSHOT_FILE, snapshot);
 }
 
 export default async function handler(req, res) {

@@ -30,6 +30,9 @@ export function sliceSlots(entry, optionsCount) {
   if (typeof entry.poolRemaining === "string" && entry.poolRemaining.length > 0) {
     slots.poolRemaining = entry.poolRemaining;
   }
+  for (const key of ["recipient", "sealedBallots", "sealedCounted"]) {
+    if (typeof entry[key] === "string" && entry[key].length > 0) slots[key] = entry[key];
+  }
   return slots;
 }
 

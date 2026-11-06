@@ -73,7 +73,37 @@ function readZkSessionMap() {
  * Persist a successful ZKPassport check so iOS Safari reloads (wallet popup / memory)
  * do not force the voter to scan again.
  */
-export function saveZkSession(pollId, { uniqueIdentifier, serverVerified, mock, requirements }) {
+function validAttestation(value) {
+  if (!value || typeof value !== "object") return null;
+  const expiry = Number(value.expiry);
+  const fields = ["identity", "period", "r", "s", "xHi", "xLo", "yHi", "yLo"];
+  if (!Number.isFinite(expiry) || fields.some((key) => String(value[key] ?? "") === "")) return null;
+  return {
+    identity: String(value.identity),
+    period: String(value.period),
+    expiry,
+    r: String(value.r),
+    s: String(value.s),
+    xHi: String(value.xHi),
+    xLo: String(value.xLo),
+    yHi: String(value.yHi),
+    yLo: String(value.yLo),
+  };
+}
+
+export function attestationBytes(hex) {
+  const raw = String(hex || "").replace(/^0x/i, "");
+  if (!/^[0-9a-fA-F]{64}$/.test(raw)) throw new Error("Attestation is incomplete");
+  const out = [];
+  for (let i = 0; i < raw.length; i += 2) out.push(Number.parseInt(raw.slice(i, i + 2), 16));
+  return out;
+}
+
+export function zeroAttestationBytes() {
+  return Array(32).fill(0);
+}
+
+export function saveZkSession(pollId, { uniqueIdentifier, serverVerified, mock, requirements, attestation }) {
   const id = String(uniqueIdentifier || "").trim();
   if (!id) throw new Error("uniqueIdentifier is required to save ZKPassport session");
   const pollKey = String(pollId);
@@ -85,12 +115,14 @@ export function saveZkSession(pollId, { uniqueIdentifier, serverVerified, mock, 
   } catch {
     map = {};
   }
+  const checked = validAttestation(attestation);
   map[pollKey] = {
     uniqueIdentifier: id,
     serverVerified: Boolean(serverVerified),
     mock: Boolean(mock),
     req: requirementsFingerprint(requirements),
     at: Date.now(),
+    ...(checked ? { attestation: checked } : {}),
   };
   try {
     localStorage.setItem(ZK_SESSION_KEY, JSON.stringify(map));
@@ -121,9 +153,12 @@ export function loadZkSession(pollId, { requirements } = {}) {
   if (requirements && row.req && row.req !== requirementsFingerprint(requirements)) {
     return null;
   }
+  const attestation = validAttestation(row.attestation);
+  const fresh = attestation && attestation.expiry > Math.floor(Date.now() / 1000) + 30;
   return {
     uniqueIdentifier: id,
     serverVerified: Boolean(row.serverVerified),
     mock: Boolean(row.mock),
+    attestation: fresh ? attestation : null,
   };
 }

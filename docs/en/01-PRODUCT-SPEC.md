@@ -43,7 +43,7 @@ created → (optional wait until startsAt) → open → ended
 - Optional `starts_at` / `ends_at` (unix seconds on-chain). The catalog stores the same instants as ISO-8601 for display. Omit both → the poll stays open until `end_poll` or `cancel_poll`.
 - A poll can be **published before `starts_at`**. Guests can read the question; Connect and Vote unlock automatically at start, then lock at `ends_at`. Direct `cast_vote_*` calls are rejected on-chain outside the window.
 - After close, votes are rejected; tallies stay readable (unless sealed and still open).
-- **Sealed tally:** while sealed **and** not closed (`vote_ended`, cancelled, or `now >= ends_at`), `get_tally` / `get_total_votes` return `0`; the UI hides live results and omits counts on option buttons (no fake zeros).
+- **Sealed tally:** the option is a private note on `SealedTallyBook`. `get_tally` / `get_total_votes` stay `0` until the tally recipient publishes every accepted ballot after voting has closed. The UI hides per-option counts until then and shows the accepted-ballot count.
 
 `end_poll` still closes immediately. Scheduled `ends_at` auto-closes without an extra admin tx. `cancel_poll` is allowed only while `total_votes == 0`.
 
@@ -109,7 +109,7 @@ Still manual: real-device ZKPassport E2E; participation receipt note.
 
 ### Iteration 2 — live on Testnet
 
-See [05-DEVELOPMENT-PLAN.md](./05-DEVELOPMENT-PLAN.md). A non-admin create, a catalog signature bound to `metadata_hash`, the daily and open-poll limits, All polls sections, a paged ended catalog, hide, and an authoritative mark are in this build. Noir tests passed: HappyVote 66, HiddenAuthorBook 14, AuthorFeeSponsor 6. The published Testnet contract includes `create_user_poll` for a public author and accepts `HiddenAuthorBook` for a private author. That book is deployed on this Testnet, so **Private** is available on the site. On Testnet the canonical Sponsored FPC pays the private-author create and the early end. On Mainnet the same payment shape is `AuthorFeeSponsor`: the published fee payer is that contract, not the author. `AuthorFeeSponsor` is in this source and is not deployed. A Mainnet site keeps Private off until that address is configured, because paying from the author wallet would publish the address. `/create` uses the same Connect dialog as voting and has two tabs: **Create poll**, and **Your polls** for that address, including an early `end_poll`. An installed wallet keeps the address after a refresh. A browser session starts a new address each Connect, so those polls are not listed again from a new session. The homepage stays curated. The creator cannot put a poll on `/`. Ballots from the previous Testnet contract remain in Earlier networks.
+See [05-DEVELOPMENT-PLAN.md](./05-DEVELOPMENT-PLAN.md). A non-admin create, a catalog signature bound to `metadata_hash`, the daily and open-poll limits, All polls sections, a paged ended catalog, hide, and an authoritative mark are in this build. Noir tests passed: HappyVote 70, HiddenAuthorBook 14, SealedTallyBook 5, AuthorFeeSponsor 6. The published Testnet contract includes `create_user_poll` for a public author and accepts `HiddenAuthorBook` for a private author. That book is deployed on this Testnet, so **Private** is available on the site. On Testnet the canonical Sponsored FPC pays the private-author create and the early end. On Mainnet the same payment shape is `AuthorFeeSponsor`: the published fee payer is that contract, not the author. `AuthorFeeSponsor` is in this source and is not deployed. A Mainnet site keeps Private off until that address is configured, because paying from the author wallet would publish the address. `/create` uses the same Connect dialog as voting and has two tabs: **Create poll**, and **Your polls** for that address, including an early `end_poll`. An installed wallet keeps the address after a refresh. A browser session starts a new address each Connect, so those polls are not listed again from a new session. The homepage stays curated. The creator cannot put a poll on `/`. Ballots from the previous Testnet contract remain in Earlier networks.
 
 ### Iteration 3 — not started
 
@@ -146,4 +146,4 @@ Open poll → ZKPassport QR → server re-verify → compact **Identity verified
 
 ### Sealed tally (`/p/4`)
 
-Home → Featured polls → sealed demo. Live results stay blank while the poll is open; option buttons show labels only. After close (`end_poll`, cancel, or `ends_at`), tallies become readable. Open eligibility; private or open ballot.
+Home → Featured polls → sealed demo. Option buttons show labels only. Per-option counts stay hidden until the tally recipient publishes them after voting closes. Open eligibility; the ballot stays private.

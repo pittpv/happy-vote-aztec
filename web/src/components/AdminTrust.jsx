@@ -107,8 +107,8 @@ export function AdminTrust({
   }
 
   return (
-    <div className="admin-trust">
-      <h2 className="section-title">Authoritative accounts</h2>
+    <section className="admin-form admin-trust" aria-label="Trust">
+      <h2>Authoritative accounts</h2>
       <p className="meta">
         The mark is public on the account that publishes polls. It does not identify a voter and it does
         not store a passport. Only the contract admin can set it.
@@ -128,7 +128,7 @@ export function AdminTrust({
           spellCheck={false}
         />
       </label>
-      <div className="create-option-actions">
+      <div className="admin-controls-row">
         <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void setMark(true)}>
           Grant authoritative
         </button>
@@ -148,7 +148,7 @@ export function AdminTrust({
         <p className="meta">No authoritative accounts in the catalog yet.</p>
       )}
 
-      <h2 className="section-title">Hide a listing</h2>
+      <h2>Hide a listing</h2>
       <p className="meta">
         Hiding removes the card from All polls and the homepage. Cancel, on the Contract tab, stops
         voting. Neither erases the chain row.
@@ -157,7 +157,7 @@ export function AdminTrust({
         Poll id
         <input value={pollId} onChange={(event) => setPollId(event.target.value)} inputMode="numeric" />
       </label>
-      <div className="create-option-actions">
+      <div className="admin-controls-row">
         <button type="button" className="btn btn-primary" disabled={busy} onClick={() => void hide(true)}>
           Hide card
         </button>
@@ -165,6 +165,6 @@ export function AdminTrust({
           Show card
         </button>
       </div>
-    </div>
+    </section>
   );
 }

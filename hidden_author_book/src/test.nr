@@ -189,7 +189,7 @@ unconstrained fn test_hidden_pool_credit_with_secret() {
     assert_eq(env.view_public(HappyVote::at(happy_vote).get_pool_juice(poll_id)), 200);
 }
 
-#[test(should_fail_with = "Only creator")]
+#[test(should_fail_with = "Only admin or pool payer")]
 unconstrained fn test_fail_public_fund_of_hidden_poll() {
     let (mut env, happy_vote, book, _) = setup();
     let alice = env.create_light_account();
