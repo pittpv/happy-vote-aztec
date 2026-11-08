@@ -1,6 +1,6 @@
 /**
  * Lightweight client error ingest (Phase 5.5).
- * Logs to Vercel function logs; optional Blob append when configured.
+ * Logs to the site process.
  */
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");

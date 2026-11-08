@@ -1,5 +1,5 @@
 /**
- * JSON files on the site host. Replaces the suspended Vercel Blob store.
+ * JSON files on the site host.
  * HAPPYVOTE_DATA_DIR is an absolute directory mounted outside the image.
  */
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";

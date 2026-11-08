@@ -1,5 +1,5 @@
 /**
- * Rewrite @zkpassport/sdk ESM so Node 20+ on Vercel can load it:
+ * Rewrite @zkpassport/sdk ESM so Node can load it:
  * - add `with { type: "json" }` to i18n-iso-countries locale import
  * - rewrite `buffer/` directory import to `buffer/index.js`
  * - convert CJS named import of i18n-iso-countries to default import

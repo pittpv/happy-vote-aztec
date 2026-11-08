@@ -1,6 +1,6 @@
 /**
- * Long-running host for the same API handlers Vercel runs as separate functions.
- * Static files and the security headers follow web/vercel.json.
+ * Long-running host for the site API and the built web app.
+ * Security headers are set in this file.
  */
 import { createReadStream } from "node:fs";
 import { stat } from "node:fs/promises";

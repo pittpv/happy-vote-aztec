@@ -104,7 +104,7 @@ Three groups, highest-priority question first inside each: **For voters**, **For
 
 ## SEO
 
-Per-route `document.title`, meta description, canonical, Open Graph, Twitter card, and JSON-LD. Crawlers receive that head from `/api/document` before the app hydrates. Each poll page is unique: its own title, description, `og:*`, `twitter:*`, image URL (`/api/og?path=/p/:id`), and a `Question` with one suggested `Answer` per option. Home is `Organization` / `WebSite` / `WebApplication`. FAQ is an `FAQPage`. `robots.txt` allows indexing of public pages. `sitemap.xml` lists home, **All polls** `/polls`, **Create** `/create`, **FAQ** `/faq`, poll pages `/p/1`–`/p/5`, and legal URLs.
+Per-route `document.title`, meta description, canonical, Open Graph, Twitter card, and JSON-LD. Crawlers receive that head from `/api/document` before the app hydrates. Each poll page is unique: its own title, description, `og:*`, `twitter:*`, image URL (`/api/og?path=/p/:id`), and a `Question` with one suggested `Answer` per option. Home is `Organization` / `WebSite` / `WebApplication`. FAQ is an `FAQPage`. `robots.txt` allows indexing of public pages. `sitemap.xml` lists home, **All polls** `/polls`, **Create** `/create`, **FAQ** `/faq`, every public poll page, and legal URLs.
 
 No third-party analytics counter on this subdomain. First-party cookieless daily aggregates only (`POST /api/site-stats`).
 

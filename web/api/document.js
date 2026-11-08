@@ -35,17 +35,7 @@ async function loadShell() {
       if (error?.code !== "ENOENT") throw error;
     }
   }
-  const host = process.env.VERCEL_URL;
-  if (!host) throw new Error("Built index.html was not found");
-  const response = await fetch(`https://${host}/index.html`, { redirect: "manual" });
-  if (response.status >= 300 && response.status < 400) {
-    throw new Error("index.html redirected; refusing to follow it back into the page handler");
-  }
-  if (!response.ok) throw new Error(`index.html HTTP ${response.status}`);
-  const html = await response.text();
-  if (!html.includes('id="root"')) throw new Error("index.html is missing #root");
-  shellHtml = html;
-  return html;
+  throw new Error("Built index.html was not found");
 }
 
 export default async function handler(req, res) {

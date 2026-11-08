@@ -1,6 +1,6 @@
 /**
  * Barretenberg (bb.js) writes CRS files under HOME/.bb-crs, or ./.bb-crs when
- * HOME is unset. Vercel/Lambda cwd is /var/task (read-only). Point both at /tmp
+ * HOME is unset. The image root is read-only. Point both at /tmp
  * before @zkpassport/sdk loads UltraHonkVerifierBackend.
  */
 import { accessSync, constants, mkdirSync } from "node:fs";
@@ -25,9 +25,8 @@ function cwdWritable() {
   }
 }
 
-// Vercel serves the function from a read-only directory. A normal server keeps
-// its own working directory so later reads of dist/ and the catalog stay put.
-// A read-only image with HAPPYVOTE_DATA_DIR keeps that directory: CRS is already under /tmp.
+// A read-only image must not chdir away from the app when the data directory is
+// mounted: later reads of dist/ and the catalog stay put. CRS is already under /tmp.
 if (!cwdWritable() && !process.env.HAPPYVOTE_DATA_DIR) {
   process.env.HOME = writableRoot;
   try {

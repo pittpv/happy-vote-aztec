@@ -4,7 +4,7 @@
  *
  * Slots are catalog metadata written at publish (any poll id). A baked JSON
  * file is only a fallback for older records. Do NOT import @aztec-labs/* here —
- * Vercel serverless lacks pino-pretty transport.
+ * this route stays on raw JSON-RPC.
  */
 import { loadMergedCatalog } from "./poll-catalog.js";
 import { readNextPollId } from "./polls.js";

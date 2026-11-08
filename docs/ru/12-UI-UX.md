@@ -77,4 +77,4 @@ flowchart LR
 
 ## SEO
 
-Title, description, canonical, OG, Twitter, JSON-LD. Краулеры получают head из `/api/document` до гидрации. У каждого опроса свои title, description, `og:*`, `twitter:*`, URL картинки (`/api/og?path=/p/:id`) и схема `Question` с `Answer` на каждый вариант. FAQ — `FAQPage`. `robots.txt`, `sitemap.xml` (включая `/faq`, `/polls` и `/p/1`–`/p/5`). Стороннего счётчика нет. Есть свои cookieless дневные агрегаты (`POST /api/site-stats`).
+Title, description, canonical, OG, Twitter, JSON-LD. Краулеры получают head из `/api/document` до гидрации. У каждого опроса свои title, description, `og:*`, `twitter:*`, URL картинки (`/api/og?path=/p/:id`) и схема `Question` с `Answer` на каждый вариант. FAQ — `FAQPage`. `robots.txt`, `sitemap.xml` (включая `/faq`, `/polls` и страницу каждого публичного опроса). Стороннего счётчика нет. Есть свои cookieless дневные агрегаты (`POST /api/site-stats`).

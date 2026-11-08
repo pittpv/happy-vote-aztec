@@ -17,7 +17,7 @@ Cast a **private or open** ballot. An unsealed tally stays public. A sealed opti
 | `author_fee_sponsor/` | Mainnet fee payer for a private author. Not deployed |
 | `src/test/` | Noir tests |
 | `scripts/` | Contract deploy helpers |
-| `web/` | Vite + React UI and Vercel serverless APIs |
+| `web/` | Vite + React UI and the site API |
 | `docs/en` · `docs/ru` | Product, architecture (Mermaid), privacy, user guide |
 
 Related EVM HappyVote is a **separate** product. This repository is Aztec-only.
@@ -39,7 +39,7 @@ A public author is stored on the poll. A private author is a Poseidon2 commitmen
 
 ```mermaid
 flowchart LR
-  Browser --> APIs["Vercel APIs"]
+  Browser --> APIs["Site API"]
   Browser --> PXE["aztec.js PXE"]
   Browser --> ZKP[ZKPassport]
   APIs --> Node[Aztec Testnet RPC]

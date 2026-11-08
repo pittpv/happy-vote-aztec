@@ -39,7 +39,7 @@ Those `VITE_*` values are also read by the site API. Live contract: [10-TESTNET-
 
 ### Response headers
 
-The site sends the headers listed in `web/vercel.json`:
+The site sends the headers defined in `web/server.mjs`:
 
 | Setting | Purpose |
 |---------|---------|
@@ -48,7 +48,7 @@ The site sends the headers listed in `web/vercel.json`:
 | CSP `connect-src` | Node RPC, CRS CDN, demo-wallet, fonts, ZKPassport, Alchemy registry |
 | CSP `frame-src` / `child-src` | `'self'`, `blob:`, and `https://demo-wallet.aztec-labs.com` |
 | CSP `script-src` | `'wasm-unsafe-eval'` / `'unsafe-eval'` for prover |
-| SPA rewrite | `/`, `/polls`, `/faq`, `/p/:id`, and `/legal/:slug` → `/api/document` (unique head). Other app paths → `/index.html` |
+| Routes | `/`, `/polls`, `/faq`, `/p/:id`, and `/legal/:slug` → `/api/document` (unique head). `/sitemap.xml` is generated from the catalog. Other app paths → `/index.html` |
 | Permissions-Policy | camera/mic/geo off |
 
 Without CRS hosts in `connect-src`, proving fails with opaque `Failed to fetch`.
@@ -100,7 +100,7 @@ Without the overlay, everyone still sees the seed catalog. Overlay polls appear 
 
 ## ZKPassport verify
 
-`POST /api/zkpassport-verify` — server re-verify with `@zkpassport/sdk` (memory 2048 MB, 60s). Domain `aztec.happyvote.xyz`.
+`POST /api/zkpassport-verify` — server re-verify with `@zkpassport/sdk`. Domain `aztec.happyvote.xyz`.
 
 ## Client errors
 
@@ -115,7 +115,7 @@ Without the overlay, everyone still sees the seed catalog. Overlay polls appear 
 | `web/api/og.js` | Share image whose URL is unique per path |
 | `web/src/lib/seo.js` | Client tags kept in step with that head. Each poll is a `Question` with one `Answer` per option |
 | `web/public/robots.txt` | Allow `/`, sitemap |
-| `web/public/sitemap.xml` | Home, All polls, FAQ, polls `/p/1`–`/p/5`, legal pages |
+| `/sitemap.xml` | Generated from the catalog: home, All polls, Create, FAQ, legal pages, and every public poll on the current contract. Hidden polls are omitted |
 
 ## Analytics
 

@@ -62,12 +62,7 @@ function allowedIngestOrigin(req) {
   if (!origin) return false;
   try {
     const host = new URL(String(origin)).hostname.toLowerCase();
-    return (
-      host === "aztec.happyvote.xyz" ||
-      host === "localhost" ||
-      host === "127.0.0.1" ||
-      host.endsWith(".vercel.app")
-    );
+    return host === "aztec.happyvote.xyz" || host === "localhost" || host === "127.0.0.1";
   } catch {
     return false;
   }

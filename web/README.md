@@ -34,7 +34,7 @@ Smoke creates poll `1` with the deploy account. **Browser session** creates an *
 - Legal pages, SEO (Open Graph, JSON-LD, sitemap)
 - Honest private-vote copy (address hidden; live tally still public)
 
-Docs: [user guide](../../docs/aztec/en/11-USER-GUIDE.md) · [UI/UX](../../docs/aztec/en/12-UI-UX.md) · [Русский](../../docs/aztec/ru/README.md)
+Docs: [user guide](../docs/en/11-USER-GUIDE.md) · [UI/UX](../docs/en/12-UI-UX.md) · [Русский](../docs/ru/README.md)
 
 ## Public tallies API
 
@@ -42,8 +42,8 @@ Docs: [user guide](../../docs/aztec/en/11-USER-GUIDE.md) · [UI/UX](../../docs/a
 GET /api/poll-state?pollId=1&optionsCount=2
 ```
 
-See [hosting](../../docs/aztec/en/09-HOSTING.md). Map slots are stored with catalog metadata when a poll is published (any id).
+See [hosting](../docs/en/09-HOSTING.md). Map slots are stored with catalog metadata when a poll is published (any id).
 
 ## Headers / proving
 
-Vite + `vercel.json`: COOP/COEP (`credentialless`). CSP must allow CRS CDN (`crs.aztec-cdn.foundation`) or proving fails with `Failed to fetch`.
+`server.mjs` sends COOP/COEP (`credentialless`). CSP must allow CRS CDN (`crs.aztec-cdn.foundation`) or proving fails with `Failed to fetch`.
