@@ -6,6 +6,15 @@ export function isIosBrowser() {
   return navigator.platform === "MacIntel" && (navigator.maxTouchPoints || 0) > 1;
 }
 
+/** Phone or tablet, including an in-app wallet browser. */
+export function isMobileBrowser() {
+  if (typeof navigator === "undefined") return false;
+  if (isIosBrowser()) return true;
+  const ua = navigator.userAgent || "";
+  if (/Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(ua)) return true;
+  return navigator.userAgentData?.mobile === true;
+}
+
 /** bb.js WASM abort / worker crash — do not unmount the React app. */
 export function isBbWasmAbort(message) {
   const text = String(message || "");

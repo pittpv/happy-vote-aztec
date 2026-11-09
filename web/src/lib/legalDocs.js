@@ -3,7 +3,7 @@
  * Content reflects current product behaviour; not a substitute for counsel review.
  */
 
-export const LEGAL_EFFECTIVE_DATE = "15 August 2026";
+export const LEGAL_EFFECTIVE_DATE = "9 November 2026";
 export const LEGAL_CONTACT = "legal@happyvote.xyz";
 export const SERVICE_NAME = "HappyVote on Aztec";
 export const SERVICE_URL = "https://aztec.happyvote.xyz";
@@ -58,6 +58,7 @@ export const LEGAL_DOCUMENTS = {
           "Transactions you submit (including private and open votes) are irreversible once included on the network, subject only to the underlying chain’s consensus rules.",
           "Network fees, Sponsored FPC availability, faucet claims, and RPC reliability are outside our control.",
           "Browser-session wallets keep material in memory for the tab session; do not use them for high-value assets.",
+          "An Ethereum wallet sign-in asks you to sign one message. That signature is the key to the Aztec account. This browser stores the derived account key locally so you can reconnect. HappyVote’s server does not receive the Ethereum address or the signature. A leaked signature can recreate the account.",
         ],
       },
       {
@@ -122,7 +123,7 @@ export const LEGAL_DOCUMENTS = {
         bullets: [
           "Public blockchain data: poll tallies, open votes (address and choice when you vote openly), contract addresses, and transaction hashes visible on Aztec explorers.",
           "Private votes: validity and tally updates without revealing your address as the voter; live public tallies still show option counts.",
-          "Wallet / account identifiers you connect in the browser for the session.",
+          "Wallet / account identifiers you connect in the browser for the session. An Ethereum wallet sign-in is checked in the page. The Ethereum address and signature are not sent to the HappyVote server.",
           "Optional ZKPassport proofs: cryptographic personhood / eligibility signals (for example a scoped unique identifier). We do not receive your raw passport document through the HappyVote UI.",
           "Local browser storage: poll catalog metadata you or admins persist in this browser (key happyvote.aztec.polls.v1); a short-lived ZKPassport personhood identifier per poll (key happyvote.aztec.zkid.v1) so a tab reload on mobile does not drop a completed identity check (this is not your passport image); and an optional participation hint per poll (key happyvote.aztec.voted.v1) that records only that a ballot was submitted from this browser — not a wallet address.",
           "Server logs / edge requests: when you load the site or call our guest tallies API (/api/poll-state), our host may process standard request metadata (IP, user agent, path, time) to deliver and secure the Service.",
@@ -157,6 +158,7 @@ export const LEGAL_DOCUMENTS = {
         bullets: [
           "Browser localStorage: until you clear site data or we change storage keys.",
           "Session wallet material: until you disconnect or close the tab (as described in the UI).",
+          "Ethereum account key: encrypted in this browser’s IndexedDB (happyvote-ethereum-account-v1) until you clear site data. Disconnect leaves it so the same wallet can reopen the account. The stored record is not sent to HappyVote.",
           "Visit aggregates: daily totals for a limited rolling window (on the order of months), without IP addresses or cookies.",
           "Same-day uniqueness hashes used only to approximate unique visits: dropped within about two days.",
           "Hosting/API logs: according to the host’s retention (often days to weeks) unless needed longer for security.",
@@ -201,6 +203,7 @@ export const LEGAL_DOCUMENTS = {
           "localStorage — poll metadata catalog (happyvote.aztec.polls.v1) so created/listed polls persist in your browser; ZKPassport personhood id for a poll (happyvote.aztec.zkid.v1) for up to 12 hours so iPhone reloads do not require scanning again; a participation hint per poll (happyvote.aztec.voted.v1) that does not store a wallet address.",
           "sessionStorage — a one-time catalog signing key (happyvote.aztec.catalogDraft.v1) kept until the poll listing is published or you dismiss it. It signs that poll’s catalog text.",
           "In-memory session state — wallet connection and admin key material for the current tab (not written to localStorage for admin import).",
+          "IndexedDB — an encrypted Aztec account key after an Ethereum wallet sign-in (happyvote-ethereum-account-v1), kept on this device until you clear site data. It does not store a copy that HappyVote’s server can read.",
           "Essential host/CDN cookies — our hosting or security edge may set strictly necessary cookies to deliver the site.",
           "Third-party flows — connecting an external Aztec wallet or completing ZKPassport may involve cookies or storage controlled by those providers.",
         ],
@@ -239,7 +242,7 @@ export const LEGAL_DOCUMENTS = {
           "App activity: poll IDs requested from our tallies API, connection errors shown in the UI. We do not run a third-party analytics counter on this subdomain. A first-party cookieless counter stores only daily aggregates (not IP, cookies, or poll IDs).",
           "App info & performance: basic request logs via hosting (IP, user agent) for delivery and abuse prevention.",
           "Financial info: not collected by HappyVote (on-chain fee payments are handled by your wallet / network).",
-          "Personal info: wallet addresses you choose to connect; optional ZKPassport unique identifier / eligibility signals — not government ID images.",
+          "Personal info: Aztec addresses you use in the browser; an Ethereum address seen only in the page during Ethereum sign-in and not sent to the HappyVote server; optional ZKPassport unique identifier / eligibility signals — not government ID images.",
           "Messages / photos / files: not collected by the Service UI.",
         ],
       },
@@ -256,6 +259,7 @@ export const LEGAL_DOCUMENTS = {
         bullets: [
           "HTTPS in production; security headers (CSP, COOP/COEP where required for proving, clickjacking protections).",
           "Admin deploy keys are not written to localStorage by the import UI; clear the tab after admin use.",
+          "An Ethereum sign-in key is encrypted in this browser. Clearing site data removes it. The signature itself remains the account key.",
           "Camera/microphone/geolocation are disabled via Permissions-Policy on the host configuration.",
           "No system can eliminate all risk on a public testnet or when you expose keys.",
         ],

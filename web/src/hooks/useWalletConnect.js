@@ -435,7 +435,7 @@ export function useWalletConnect() {
     [cleanup],
   );
 
-  const adoptSession = useCallback((wallet, address, signingKey = null) => {
+  const adoptSession = useCallback((wallet, address, signingKey = null, accountKind = null) => {
     disconnectUnsubRef.current?.();
     disconnectUnsubRef.current = null;
     panelProviderRef.current = null;
@@ -444,6 +444,7 @@ export function useWalletConnect() {
       wallet,
       address: String(address),
       ...(signingKey ? { signingKey } : {}),
+      ...(accountKind ? { accountKind } : {}),
     });
   }, []);
 

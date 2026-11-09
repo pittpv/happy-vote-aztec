@@ -15,6 +15,7 @@ import {
   createWallet,
   warmBrowserProver,
   createSessionAccount,
+  createAccountFromKeys,
   importAccount,
   pollIdFromRaw,
   Fr,
@@ -35,6 +36,7 @@ import {
 } from "./lib/polls.js";
 import { parseRoute, navigate } from "./lib/routing.js";
 import { WalletConnectModal } from "./components/WalletConnectModal.jsx";
+import { connectEthereumProvider } from "./lib/ethereumAccount.js";
 import { AdminCreatePollForm } from "./components/AdminCreatePollForm.jsx";
 import { AdminContractControls } from "./components/AdminContractControls.jsx";
 import { AdminSiteStats } from "./components/AdminSiteStats.jsx";
@@ -239,6 +241,24 @@ function AppWalletModal({ walletConnect, allowAdminImport }) {
     }
   }
 
+  async function connectEthereum(provider) {
+    warmBrowserProver();
+    const onProgress = (text) => walletConnect.setProgress(text);
+    try {
+      const { keys } = await connectEthereumProvider(provider, {
+        origin: window.location.origin,
+        onProgress,
+      });
+      const proverEnabled = import.meta.env.VITE_PROVER_ENABLED === "true";
+      const nextWallet = await createWallet({ proverEnabled, onProgress });
+      const created = await createAccountFromKeys(nextWallet, keys, { onProgress });
+      walletConnect.adoptSession(nextWallet, created.account.address.toString(), null, "ethereum");
+    } catch (error) {
+      console.error(error);
+      walletConnect.fail(error);
+    }
+  }
+
   return (
     <WalletConnectModal
       phase={walletConnect.phase}
@@ -250,6 +270,7 @@ function AppWalletModal({ walletConnect, allowAdminImport }) {
       beginDiscovery={walletConnect.beginDiscovery}
       beginSession={() => connectSession()}
       beginSessionWithKeys={(keys) => connectSession(keys)}
+      beginEthereumAccount={connectEthereum}
       rescanExtensions={walletConnect.start}
       allowAdminImport={allowAdminImport}
     />
@@ -1594,8 +1615,9 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
                 : "Review the options and public tallies."}
             </li>
             <li>
-              Click <strong>Connect Aztec wallet</strong>. Choose <em>Browser session</em>, or an
-              installed wallet that appears by name.
+              Click <strong>Connect Aztec wallet</strong>. Choose <em>Browser session</em>, an Ethereum
+              wallet, or an installed wallet that appears by name. On a phone, open this site in the
+              Ethereum wallet’s browser before that sign-in.
             </li>
             <li>Choose an option, pick Private or Open, then vote. Proving the ballot can take several minutes.</li>
             <li>On Testnet the network fee is covered by the Sponsored FPC.</li>

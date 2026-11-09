@@ -170,6 +170,38 @@ export async function createSessionAccount(wallet, { onProgress } = {}) {
 }
 
 /**
+ * Open the initializerless account derived from an Ethereum signature.
+ * The keys are already deterministic. This does not deploy the account.
+ */
+export async function createAccountFromKeys(wallet, rawKeys, { onProgress } = {}) {
+  if (typeof wallet.createSchnorrInitializerlessAccount !== "function") {
+    throw new Error(
+      "This Aztec wallet build is missing createSchnorrInitializerlessAccount. Pin @aztec-labs/wallets to 6.0.0.",
+    );
+  }
+  if (!rawKeys?.secretKey || !rawKeys?.signingKey || !rawKeys?.salt) {
+    throw new Error("Ethereum account keys are incomplete");
+  }
+
+  const { Fr: Field } = await import("@aztec-labs/aztec.js/fields");
+  const { GrumpkinScalar } = await import("@aztec-labs/foundation/curves/grumpkin");
+  const secretKey = Field.fromString(String(rawKeys.secretKey).trim());
+  const signingKey = GrumpkinScalar.fromString(String(rawKeys.signingKey).trim());
+  const salt = Field.fromString(String(rawKeys.salt).trim());
+
+  onProgress?.("Opening your Aztec account…");
+  const account = await wallet.createSchnorrInitializerlessAccount(secretKey, salt, signingKey);
+  if (!account?.address) {
+    throw new Error("Initializerless account was created without an address");
+  }
+
+  onProgress?.("Registering Sponsored FPC…");
+  const sponsoredFPC = await getSponsoredFpc(wallet);
+  const paymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC.address);
+  return { account, paymentMethod };
+}
+
+/**
  * Import an existing Schnorr account (e.g. contract admin) from SECRET_KEY / SIGNING_KEY / SALT.
  * Keys are used only in-memory for this wallet session — never logged or persisted by this helper.
  *

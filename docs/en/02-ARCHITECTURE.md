@@ -222,6 +222,8 @@ Connect lists the wallets this browser can use.
 
 **Browser session** is always shown. That is how to vote in the tab, including on iPhone. It creates an initializerless Schnorr account in the page. Each Connect is a new address.
 
+**Ethereum wallet** is the next choice. It is not the default. One `personal_sign` in an externally owned Ethereum account is the account key. The page derives an initializerless Schnorr account from that signature, with no account-deploy transaction. The same wallet on https://aztec.happyvote.xyz opens the same Aztec address. Another site origin opens another account. HappyVote does not send the Ethereum address or the signature to its server, and neither is a field of the ballot, the nullifier, or a ZKPassport attestation. This browser may keep an encrypted copy so the next connect can skip the signature. A contract wallet such as Safe cannot use this sign-in. On a phone, the page asks the user to open https://aztec.happyvote.xyz/ in the wallet’s browser and can copy that address. The signature is possession of the account. Sign only on https://aztec.happyvote.xyz.
+
 **Installed wallet-sdk extensions** appear with the name and icon the wallet sends, when that wallet speaks this network. A site cannot silently enumerate installed extensions: the wallet identifies itself after the user approves this origin. An origin that was already approved can answer immediately. Several wallet-sdk extensions can be installed together. Each one has its own channel, and HappyVote connects only the wallet the user picks.
 
 The Labs Demo Wallet is not offered: the public build is Aztec 5.0.1, so it cannot complete the 6.0.0 handshake, and it cannot prove a HappyVote ballot.
@@ -232,6 +234,7 @@ After the encrypted channel opens, HappyVote and the wallet each show the same e
 |--------|------------|---------|----------|
 | **Browser extension** | A wallet-sdk extension that speaks this Testnet. It is listed under the name it sends. | Persistent if the user keeps that account. | Default path once the wallet matches the network. |
 | **Browser session** | In-page PXE (`EmbeddedWallet`, ephemeral). Creates an **initializerless** Schnorr account — no on-chain account-deploy tx. | **New on every Connect** (keys are not restored after the tab session). | Optional “vote without installing a wallet”, not a lasting identity. |
+| **Ethereum wallet** | One `personal_sign` from an externally owned Ethereum account. The signature derives an initializerless Schnorr account. | **Same address** for the same wallet on https://aztec.happyvote.xyz. | A stable account without a separate Aztec wallet. Not personhood. |
 
 `cast_vote_private` and `cast_vote_open` are private entrypoints on HappyVote, so a session account does not need a public account deploy to vote.
 

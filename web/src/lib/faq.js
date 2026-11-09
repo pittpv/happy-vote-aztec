@@ -42,7 +42,13 @@ export const FAQ_GROUPS = [
         id: "wallet",
         question: "Which wallet should I use?",
         answer:
-          "Browser session is always offered. It is an in-page account for this browser, with a new address each time you connect. Installed wallets that speak this network are listed by name. To keep an account, use Nulo Wallet (https://nulo.sh/).",
+          "Browser session is always offered. It is an in-page account for this browser, with a new address each time you connect. An Ethereum wallet can open the same Aztec address again. The next answer explains that sign-in. A contract wallet such as Safe cannot use it. Installed Aztec wallets that speak this network are listed by name. To keep an account inside an Aztec wallet, use Nulo Wallet (https://nulo.sh/).",
+      },
+      {
+        id: "ethereum",
+        question: "Can I connect an Ethereum wallet?",
+        answer:
+          "Yes. Choose Ethereum wallet and sign one message. That signature is the key to a private Aztec account. The same wallet on https://aztec.happyvote.xyz opens the same Aztec address, so later polls and polls you create stay with that account.\n\nHappyVote does not send the Ethereum address or the signature to its server. They are not written into the ballot. A private ballot still hides the Aztec address. An open ballot still publishes that Aztec address and the choice. HappyVote does not publish which Ethereum wallet opened it.\n\nSign that message only on https://aztec.happyvote.xyz. Do not share the signature. Anyone who has it can open the same account. A contract wallet such as Safe cannot use this sign-in.\n\nThis browser can keep an encrypted copy of the account key so the next connect can skip the signature. Disconnect leaves that copy. Clear site data to remove it. Signing the same message again opens the same account.\n\nOn a phone, open https://aztec.happyvote.xyz/ in your wallet’s browser, such as MetaMask or Rabby, then choose Ethereum wallet there. The page can copy that address. Safari or Chrome on the phone cannot hand this signature to the wallet app.",
       },
       {
         id: "zkpassport",
@@ -79,7 +85,7 @@ export const FAQ_GROUPS = [
         id: "create-how",
         question: "How do I create a poll?",
         answer:
-          "Connect, open the Create poll tab, and fill in the question. Then choose Create poll on-chain. Proving can take a few minutes. After the transaction is included, this same tab publishes the title and option labels to the catalog. Stay in the tab until that listing finishes, then the poll page opens.\n\nAn installed wallet keeps this author address after you reconnect. A browser session starts a new address each Connect, so polls from the previous session are not listed under the new one.",
+          "Connect, open the Create poll tab, and fill in the question. Then choose Create poll on-chain. Proving can take a few minutes. After the transaction is included, this same tab publishes the title and option labels to the catalog. Stay in the tab until that listing finishes, then the poll page opens.\n\nAn installed Aztec wallet keeps this author address after you reconnect. An Ethereum wallet sign-in does too. A browser session starts a new address each Connect, so polls from the previous session are not listed under the new one.",
       },
       {
         id: "rules",

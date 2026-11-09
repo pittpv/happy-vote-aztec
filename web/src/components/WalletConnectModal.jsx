@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { extraWalletSources } from "../lib/walletClient.js";
+import { discoverEthereumProviders } from "../lib/ethereumAccount.js";
 import { parseAdminKeyMaterial } from "../lib/adminKeys.js";
 import { Notice } from "./Notice.jsx";
 import { explainError } from "../lib/userMessages.js";
-import { isIosBrowser } from "../lib/browser.js";
+import { isIosBrowser, isMobileBrowser } from "../lib/browser.js";
 
 function ProviderIcon({ icon, name }) {
   const [broken, setBroken] = useState(false);
@@ -75,6 +76,7 @@ function ChooseSourceBody({
   pickProvider,
   beginDiscovery,
   beginSession,
+  beginEthereum,
   onImportKeys,
   onRescan,
   allowAdminImport,
@@ -93,8 +95,11 @@ function ChooseSourceBody({
           </>
         ) : (
           <>
-            Vote with <strong>Browser session</strong>, or pick an installed wallet. If yours is
-            not listed, approve HappyVote in the wallet popup and its name will appear here.
+            Vote with <strong>Browser session</strong>, connect an <strong>Ethereum wallet</strong>{" "}
+            to keep the same Aztec address, or pick an installed Aztec wallet. If yours is not
+            listed, approve HappyVote in the wallet popup and its name will appear here. The
+            Ethereum signature is the account key. HappyVote does not receive that Ethereum
+            address.
             {allowAdminImport ? (
               <>
                 {" "}
@@ -109,6 +114,11 @@ function ChooseSourceBody({
           name="Browser session"
           hint={ios ? "Use this to vote on iPhone" : "Keys stay in this tab"}
           onClick={beginSession}
+        />
+        <WalletRow
+          name="Ethereum wallet"
+          hint="Same Aztec address when you reconnect"
+          onClick={beginEthereum}
         />
         {found.map((provider) => (
           <WalletRow
@@ -241,6 +251,118 @@ function ImportAdminKeysBody({ beginSessionWithKeys, onBack }) {
   );
 }
 
+const HAPPYVOTE_SITE = "https://aztec.happyvote.xyz/";
+
+function copySiteWithCommand(text) {
+  const field = document.createElement("textarea");
+  field.value = text;
+  field.setAttribute("readonly", "");
+  field.style.position = "fixed";
+  field.style.top = "0";
+  field.style.left = "0";
+  field.style.opacity = "0";
+  document.body.appendChild(field);
+  field.focus();
+  field.select();
+  field.setSelectionRange(0, text.length);
+  let copied = false;
+  try {
+    copied = document.execCommand("copy");
+  } finally {
+    field.remove();
+  }
+  return copied;
+}
+
+function EthereumChooserBody({ choices, error, onPick, onBack, mobile }) {
+  const [copyState, setCopyState] = useState("");
+  const siteRef = useRef(null);
+
+  async function copySite() {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(HAPPYVOTE_SITE);
+        setCopyState("copied");
+        return;
+      }
+    } catch {
+      /* The page may be unfocused. The command below is the second attempt. */
+    }
+    if (copySiteWithCommand(HAPPYVOTE_SITE)) {
+      setCopyState("copied");
+      return;
+    }
+    setCopyState("failed");
+    siteRef.current?.focus();
+    siteRef.current?.select();
+  }
+
+  return (
+    <div className="wc-stack">
+      {mobile ? (
+        <>
+          <p className="wc-hint">
+            Open this site in your wallet’s browser, then choose <strong>Ethereum wallet</strong>{" "}
+            again. MetaMask and Rabby can sign from that browser.
+          </p>
+          <input
+            ref={siteRef}
+            className="wc-mono wc-site"
+            readOnly
+            value={HAPPYVOTE_SITE}
+            aria-label="Site address"
+          />
+          <button type="button" className="btn btn-primary wc-full" onClick={copySite}>
+            {copyState === "copied" ? "Copied" : "Copy site address"}
+          </button>
+          {copyState === "failed" ? (
+            <p className="wc-fine">Select the address above and copy it.</p>
+          ) : null}
+        </>
+      ) : (
+        <p className="wc-hint">
+          Sign one message in an Ethereum wallet. That signature is the key to a private Aztec
+          account, and the same wallet opens it again. HappyVote does not receive the Ethereum
+          address. A contract wallet such as Safe cannot use this sign-in.
+        </p>
+      )}
+      {error ? (
+        <Notice tone="error" title="Could not look for Ethereum wallets">
+          {error}
+        </Notice>
+      ) : null}
+      {choices == null ? (
+        mobile ? null : <p className="wc-fine">Looking for Ethereum wallets…</p>
+      ) : choices.length === 0 ? (
+        mobile ? null : (
+          <p className="wc-hint">
+            No Ethereum wallet was found in this browser. Install one, or use Browser session.
+          </p>
+        )
+      ) : (
+        choices.map((provider) => (
+          <WalletRow
+            key={provider.id}
+            icon={provider.icon}
+            name={provider.name}
+            hint="Sign the account message"
+            onClick={() => onPick(provider.provider)}
+          />
+        ))
+      )}
+      {mobile && (choices == null || choices.length === 0) ? null : (
+        <p className="wc-fine">
+          This browser remembers the account key so the next connect can skip the signature. Clear
+          site data to remove it.
+        </p>
+      )}
+      <button type="button" className="btn btn-ghost wc-full" onClick={onBack}>
+        Back
+      </button>
+    </div>
+  );
+}
+
 function isWebWalletChoice(choice) {
   return choice === "web" || extraWalletSources().some((source) => source.choice === choice);
 }
@@ -325,14 +447,38 @@ export function WalletConnectModal({
   beginDiscovery,
   beginSession,
   beginSessionWithKeys,
+  beginEthereumAccount,
   rescanExtensions,
   allowAdminImport = false,
 }) {
   const [importing, setImporting] = useState(false);
+  const [ethereumChoices, setEthereumChoices] = useState(undefined);
+  const [ethereumError, setEthereumError] = useState("");
+  const ethereumLookup = useRef(0);
 
   useEffect(() => {
-    if (phase.kind !== "choosing") setImporting(false);
+    if (phase.kind !== "choosing") {
+      setImporting(false);
+      setEthereumChoices(undefined);
+      setEthereumError("");
+    }
   }, [phase.kind]);
+
+  async function showEthereumWallets() {
+    const lookup = ++ethereumLookup.current;
+    setImporting(false);
+    setEthereumError("");
+    setEthereumChoices(null);
+    try {
+      const found = await discoverEthereumProviders();
+      if (lookup !== ethereumLookup.current) return;
+      setEthereumChoices(found);
+    } catch (error) {
+      if (lookup !== ethereumLookup.current) return;
+      setEthereumChoices([]);
+      setEthereumError(error?.message || "Could not look for Ethereum wallets.");
+    }
+  }
 
   switch (phase.kind) {
     case "idle":
@@ -341,11 +487,28 @@ export function WalletConnectModal({
       return null;
     case "choosing":
       return (
-        <Modal title={importing ? "Import admin keys" : "Connect your wallet"} onClose={reset}>
+        <Modal
+          title={
+            importing ? "Import admin keys" : ethereumChoices !== undefined ? "Ethereum wallet" : "Connect your wallet"
+          }
+          onClose={reset}
+        >
           {importing && allowAdminImport ? (
             <ImportAdminKeysBody
               beginSessionWithKeys={beginSessionWithKeys}
               onBack={() => setImporting(false)}
+            />
+          ) : ethereumChoices !== undefined ? (
+            <EthereumChooserBody
+              choices={ethereumChoices}
+              error={ethereumError}
+              mobile={isMobileBrowser()}
+              onPick={beginEthereumAccount}
+              onBack={() => {
+                ethereumLookup.current += 1;
+                setEthereumChoices(undefined);
+                setEthereumError("");
+              }}
             />
           ) : (
             <ChooseSourceBody
@@ -355,6 +518,7 @@ export function WalletConnectModal({
               pickProvider={pickProvider}
               beginDiscovery={beginDiscovery}
               beginSession={beginSession}
+              beginEthereum={showEthereumWallets}
               allowAdminImport={allowAdminImport}
               onImportKeys={() => setImporting(true)}
               onRescan={rescanExtensions}

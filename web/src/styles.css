@@ -3424,6 +3424,16 @@ body::before {
   word-break: break-all;
 }
 
+.wc-site {
+  width: 100%;
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+}
+
 .wc-emoji-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

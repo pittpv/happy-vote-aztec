@@ -87,6 +87,22 @@ Default ZKPassport scope: **per poll** (`poll:{id}`).
 
 The form offers two author modes. **Public address** stores the account that sent `create_user_poll`. **Private** stores a Poseidon2 commitment (tally tag 205) instead of the address. The secret stays in a note on `HiddenAuthorBook`, which is the only contract allowed to create or finish that poll. End and pool funding prove the secret in a private call on the book. The published caller on HappyVote is the book, not the account. On that path a sponsor contract is the fee payer, so the account is not published as the payer of the create or end transaction. Testnet uses the canonical Sponsored FPC. Mainnet uses `AuthorFeeSponsor` from this source. `HiddenAuthorBook` is deployed on this Testnet. `AuthorFeeSponsor` is not deployed. The sponsor's admin can pause new sponsorships. The pause check does not take the author's address. Fee Juice is bridged to the sponsor and cannot be transferred to the author. A private ballot still hides the voter. ZKPassport is not bound to the author. The catalog signing key is not an account key. A private-author listing omits the account address.
 
+## 5.1 Ethereum wallet account
+
+An Ethereum wallet can open one stable Aztec account. Browser session stays the first choice.
+
+The page asks for one `personal_sign`. The message names the page origin, the Ethereum address, and account version 1, and it says the signature is the account key. HKDF-SHA256 of the canonical signature derives the Aztec secret, the account salt, and the signing key. The account is an initializerless Schnorr account, with no account-deploy transaction. The same wallet, the origin `https://aztec.happyvote.xyz`, and the same message open the same Aztec address. Another origin opens another account. The message wording is fixed. Changing it would open a different account.
+
+The Ethereum address and the signature are not sent to the HappyVote server. They are not stored as a server binding. They are not fields of the ballot, the nullifier, or a ZKPassport attestation. The page sees the Ethereum address while it derives the keys. That stays in the browser. This browser may keep an encrypted copy (`happyvote-ethereum-account-v1` in IndexedDB) so the next connect can skip the signature. Disconnect does not delete it. Clearing site data does. Signing the same message again restores the same account.
+
+The signature is the account key. Anyone who obtains it can derive the same Aztec keys. The line that names the site is a warning in the message. A wallet does not cryptographically bind `personal_sign` to the page origin. Sign only on https://aztec.happyvote.xyz.
+
+The signature must recover the selected address. A contract wallet such as Safe cannot use this sign-in.
+
+A private or sealed ballot still does not publish the voter. An open ballot still publishes the Aztec address and the choice. HappyVote does not publish which Ethereum wallet opened that address. The link exists for someone who has the signature, or who watched the sign-in in this browser.
+
+On a phone, Safari or Chrome cannot complete this signature inside MetaMask or Rabby. The page recommends opening https://aztec.happyvote.xyz/ in the wallet’s own browser and offers a button that copies that address. The account is not in that address. If the wallet’s browser already injects a provider, the user can sign there.
+
 ## 6. What we do not promise
 
 1. Full IP / timing anonymity (no Tor/relayer in MVP).
@@ -99,6 +115,7 @@ Site visit totals are a separate first-party counter (no cookies, no stored IP, 
 
 - **Private:** address hidden; the chosen option still updates the public tally (unless sealed).
 - **Open:** address and choice are public.
+- **Ethereum wallet:** the signature is the account key. HappyVote does not receive the Ethereum address or the signature. Sign only on https://aztec.happyvote.xyz.
 - **ZKPassport:** HappyVote does not receive passport document data.
 - **Author:** public-address mode stores the creator’s Aztec address. Private mode stores a commitment and leaves the address off the poll. A private ballot still hides the voter.
 
@@ -114,4 +131,5 @@ Site visit totals are a separate first-party counter (no cookies, no stored IP, 
 - [x] On-chain identity claim
 - [x] Sealed tallies
 - [x] Site visit aggregates isolated from ballots (no cookies, no stored IP, no poll id)
+- [x] Ethereum sign-in: address and signature stay off the server and off the ballot
 - [ ] Real-device ZKPassport E2E

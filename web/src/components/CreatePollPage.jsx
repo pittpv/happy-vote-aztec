@@ -147,6 +147,7 @@ export function CreatePollPage({ walletConnect }) {
   const connected = walletConnect.phase.kind === "connected";
   const address = connected ? String(walletConnect.phase.address) : "";
   const sessionAccount = Boolean(connected && walletConnect.phase.signingKey);
+  const ethereumAccount = connected && walletConnect.phase.accountKind === "ethereum";
   const connectDialogOpen = !["idle", "connected", "disconnected"].includes(walletConnect.phase.kind);
   const [tab, setTabState] = useState(parseCreateTab);
   const [title, setTitle] = useState("");
@@ -464,9 +465,11 @@ export function CreatePollPage({ walletConnect }) {
               {hideAuthor ? "Connected wallet" : "Public author"} <code>{address}</code>.{" "}
               {hideAuthor
                 ? "This address is not written on a private-author poll. End that poll from this wallet: the secret stays in its private note."
-                : sessionAccount
-                  ? "A browser session starts a new address each Connect. An installed wallet keeps the same address after you reconnect."
-                  : "Reconnect this wallet to see these polls and end one early."}
+                : ethereumAccount
+                  ? "This Ethereum wallet opens the same Aztec address after you reconnect. HappyVote does not keep your Ethereum address."
+                  : sessionAccount
+                    ? "A browser session starts a new address each Connect. An installed wallet keeps the same address after you reconnect."
+                    : "Reconnect this wallet to see these polls and end one early."}
             </p>
           ) : (
             <div className="create-gate">
