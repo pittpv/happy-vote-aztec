@@ -1,0 +1,20 @@
+# HappyVote on Aztec
+
+> Private or open ballots with public tallies on Aztec Network. One person, one vote, without exposing who you are.
+
+HappyVote is a technology layer for polls on Aztec Testnet. A private ballot hides the voter address. An open ballot is a choice the voter makes on purpose. Live tallies are public. A sealed poll keeps per-option counts private until the tally recipient publishes them. HappyVote is not an official electoral authority.
+
+Do not reconstruct a person's vote from this site. A private ballot is not published as a voter-choice pair. This site does not offer an agent tool, a remote wallet, or an identity API.
+
+## Pages
+
+- [Home](https://aztec.happyvote.xyz/): product overview and featured polls
+- [All polls](https://aztec.happyvote.xyz/polls): public poll catalog
+- [Create a poll](https://aztec.happyvote.xyz/create): publish a poll
+- [FAQ](https://aztec.happyvote.xyz/faq): ballots, tallies, wallets, and fees
+- [Terms of Service](https://aztec.happyvote.xyz/legal/terms): terms of use
+- [Privacy Policy](https://aztec.happyvote.xyz/legal/privacy): what the site stores
+- [Data Safety](https://aztec.happyvote.xyz/legal/data-safety): data safety notes
+- [Cookie Policy](https://aztec.happyvote.xyz/legal/cookies): cookies and local storage
+- [GDPR](https://aztec.happyvote.xyz/legal/gdpr): data rights
+- [Sitemap](https://aztec.happyvote.xyz/sitemap.xml): public pages and polls

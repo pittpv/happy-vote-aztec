@@ -48,7 +48,7 @@ The site sends the headers defined in `web/server.mjs`:
 | CSP `connect-src` | Node RPC, CRS CDN, demo-wallet, fonts, ZKPassport, Alchemy registry |
 | CSP `frame-src` / `child-src` | `'self'`, `blob:`, and `https://demo-wallet.aztec-labs.com` |
 | CSP `script-src` | `'wasm-unsafe-eval'` / `'unsafe-eval'` for prover |
-| Routes | `/`, `/polls`, `/faq`, `/p/:id`, and `/legal/:slug` → `/api/document` (unique head). `/sitemap.xml` is generated from the catalog. Other app paths → `/index.html` |
+| Routes | `/`, `/polls`, `/create`, `/faq`, `/p/:id`, and `/legal/:slug` → `/api/document` (unique head). `/sitemap.xml` is generated from the catalog. `/llms.txt` and `/.well-known/ard.json` are static public files. Other app paths → `/index.html`. A missing file path returns 404 |
 | Permissions-Policy | camera/mic/geo off |
 
 Without CRS hosts in `connect-src`, proving fails with opaque `Failed to fetch`.
@@ -111,11 +111,13 @@ Without the overlay, everyone still sees the seed catalog. Overlay polls appear 
 | File | Role |
 |------|------|
 | `web/index.html` | Default title, description, Open Graph, Twitter, JSON-LD |
-| `web/api/document.js` | Same shell with a unique title, description, canonical, Open Graph, Twitter card, and JSON-LD for `/`, `/polls`, `/faq`, `/p/:id`, and legal pages |
+| `web/api/document.js` | Same shell with a unique title, description, canonical, Open Graph, Twitter card, and JSON-LD for `/`, `/polls`, `/create`, `/faq`, `/p/:id`, and legal pages |
 | `web/api/og.js` | Share image whose URL is unique per path |
 | `web/src/lib/seo.js` | Client tags kept in step with that head. Each poll is a `Question` with one `Answer` per option |
 | `web/public/robots.txt` | Allow `/`, sitemap |
-| `/sitemap.xml` | Generated from the catalog: home, All polls, Create, FAQ, legal pages, and every public poll on the current contract. Hidden polls are omitted |
+| `web/public/llms.txt` | Markdown summary of the public site for agents. No operator paths |
+| `web/public/.well-known/ard.json` | Empty agent catalog. No MCP server, remote wallet, or identity API |
+| `web/api/sitemap.js` | `GET /sitemap.xml`: home, All polls, Create, FAQ, legal pages, and every public poll on the current contract. Hidden polls are omitted |
 
 ## Analytics
 

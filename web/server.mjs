@@ -8,6 +8,8 @@ import http from "node:http";
 import { extname, join, normalize, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { documentPage, expectsStaticFile } from "./api/static-route.js";
+
 const root = fileURLToPath(new URL(".", import.meta.url));
 const dist = join(root, "dist");
 const port = Number(process.env.PORT || 4188);
@@ -34,6 +36,7 @@ const HANDLERS = {
   "/api/client-error": "./api/client-error.js",
   "/api/site-stats": "./api/site-stats.js",
   "/api/earlier-networks": "./api/earlier-networks.js",
+  "/sitemap.xml": "./api/sitemap.js",
 };
 
 const MIME = {
@@ -152,22 +155,37 @@ async function fileExists(file) {
   }
 }
 
-function documentTarget(pathname) {
-  const trimmed = pathname.replace(/\/+$/, "") || "/";
-  if (trimmed === "/" || trimmed === "/polls" || trimmed === "/faq") return trimmed;
-  if (/^\/p\/[^/]+$/.test(trimmed)) return trimmed;
-  if (/^\/legal\/[^/]+$/.test(trimmed)) return trimmed;
-  return null;
-}
+const MACHINE_FILES = {
+  "/llms.txt": ["llms.txt"],
+  "/.well-known/ard.json": [".well-known", "ard.json"],
+};
 
-function sendFile(nodeRes, file) {
+const MACHINE_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Cache-Control": "public, max-age=3600",
+};
+
+function sendFile(nodeRes, file, extraHeaders) {
   const type = MIME[extname(file).toLowerCase()] || "application/octet-stream";
   nodeRes.statusCode = 200;
   nodeRes.setHeader("Content-Type", type);
   if (file.includes(`${sep}assets${sep}`)) {
     nodeRes.setHeader("Cross-Origin-Resource-Policy", "same-origin");
   }
+  if (extraHeaders) {
+    for (const [key, value] of Object.entries(extraHeaders)) nodeRes.setHeader(key, value);
+  }
   createReadStream(file).pipe(nodeRes);
+}
+
+async function findMachineFile(pathname) {
+  const parts = MACHINE_FILES[pathname];
+  if (!parts) return null;
+  const candidates = [join(dist, ...parts), join(root, "public", ...parts)];
+  for (const candidate of candidates) {
+    if (await fileExists(candidate)) return candidate;
+  }
+  return null;
 }
 
 async function dispatchApi(req, res, pathname, search) {
@@ -206,7 +224,16 @@ const server = http.createServer(async (nodeReq, nodeRes) => {
       await dispatchApi(nodeReq, res, pathname, url.search);
       return;
     }
-    const page = documentTarget(pathname === "/" ? "/" : pathname);
+    if (pathname === "/sitemap.xml") {
+      await dispatchApi(nodeReq, res, pathname, url.search);
+      return;
+    }
+    const machineFile = await findMachineFile(pathname);
+    if (machineFile) {
+      sendFile(nodeRes, machineFile, MACHINE_HEADERS);
+      return;
+    }
+    const page = documentPage(pathname);
     if (page) {
       nodeReq.body = undefined;
       nodeReq.url = `/api/document?path=${encodeURIComponent(page)}`;
@@ -216,6 +243,10 @@ const server = http.createServer(async (nodeReq, nodeRes) => {
     const file = safeDistFile(pathname);
     if (file && (await fileExists(file))) {
       sendFile(nodeRes, file);
+      return;
+    }
+    if (expectsStaticFile(pathname)) {
+      res.status(404).send("Not found");
       return;
     }
     const indexFile = join(dist, "index.html");

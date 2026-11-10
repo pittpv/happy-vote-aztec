@@ -51,6 +51,25 @@ export function resolvePageSeo(pathname, catalog) {
       }),
     };
   }
+  if (path === "/admin") {
+    const title = pageTitle("Admin");
+    const description = "Operator page for this HappyVote instance.";
+    return {
+      title,
+      description,
+      path,
+      noindex: true,
+      jsonLd: webPageJsonLd({
+        title,
+        description,
+        path,
+        breadcrumbs: [
+          { name: SITE_NAME, path: "/" },
+          { name: "Admin", path },
+        ],
+      }),
+    };
+  }
   if (path === "/create") {
     const title = pageTitle("Create a poll");
     return {

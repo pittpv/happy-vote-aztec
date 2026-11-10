@@ -33,11 +33,13 @@ function wrapLines(text, maxChars) {
   return lines.slice(0, 3);
 }
 
-function kickerFor(path) {
+export function ogKicker(path) {
   if (path.startsWith("/p/")) return "Poll";
   if (path === "/polls") return "All polls";
+  if (path === "/create") return "Create";
   if (path === "/faq") return "FAQ";
   if (path.startsWith("/legal/")) return "Legal";
+  if (path === "/admin") return "Admin";
   return SITE_NAME;
 }
 
@@ -73,7 +75,7 @@ export default async function handler(req, res) {
       : null;
     const seo = resolvePageSeo(path, catalog);
     const title = seo?.title || SITE_NAME;
-    const svg = renderOgSvg({ title, kicker: kickerFor(path) });
+    const svg = renderOgSvg({ title, kicker: ogKicker(path) });
     res.setHeader("Content-Type", "image/svg+xml; charset=utf-8");
     res.setHeader("Cache-Control", "public, s-maxage=86400, stale-while-revalidate=604800");
     res.status(200).send(svg);
