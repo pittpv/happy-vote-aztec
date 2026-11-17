@@ -1470,7 +1470,7 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
 
           {onChainSealed || pollMeta.sealed ? (
             <p className="hint">
-              This ballot stays private. The option is written to a note for the tally recipient, not to the public tally.
+              This ballot stays private. It adds to a hidden sum. The option counts appear in one transaction after the results time.
             </p>
           ) : policy === PRIVACY.VOTER_CHOICE ? (
             <fieldset className="privacy">

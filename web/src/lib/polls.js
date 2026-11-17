@@ -163,7 +163,7 @@ export const POLLS = {
     id: "4",
     title: "Should results stay hidden until voting ends?",
     description:
-      "Sealed-tally demo on Aztec Testnet. The chosen option is a private note. Guests see how many ballots were accepted. Per-option counts appear after the tally recipient publishes them. Open eligibility.",
+      "Sealed-tally demo on Aztec Testnet. Each ballot adds to a hidden sum. Guests see how many ballots were accepted. Per-option counts appear in one transaction after the results time. Open eligibility.",
     topics: ["demo", "sealed"],
     countries: [],
     options: [
@@ -186,6 +186,8 @@ export const POLLS = {
     voteFrequency: VOTE_FREQUENCY.ONCE,
     zkRequirements: null,
     sealed: true,
+    endsAt: "2026-11-24T12:00:00.000Z",
+    publishAt: "2026-11-25T12:00:00.000Z",
     showOnHome: true,
     homeRank: 4,
   },
