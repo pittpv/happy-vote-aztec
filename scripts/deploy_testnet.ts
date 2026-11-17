@@ -11,6 +11,7 @@
  */
 import "dotenv/config";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { spawn } from "node:child_process";
 import { createPrivateKey, createPublicKey, randomBytes } from "node:crypto";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,6 +36,8 @@ const PRIVACY_VOTER_CHOICE = 2;
 const ELIGIBILITY_OPEN = 0;
 const ELIGIBILITY_PERSONHOOD = 1;
 const VOTE_ONCE = 0;
+const DEMO_SEALED_ENDS_AT = 1795521600;
+const DEMO_SEALED_PUBLISH_AT = 1795608000;
 const VOTE_DAILY = 1;
 const OPTIONS_COUNT_SLOT = 2n;
 const SECP256K1_N = 0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141n;
@@ -52,7 +55,7 @@ function limb(buf: Buffer, offset: number) {
   return BigInt(`0x${buf.subarray(offset, offset + 16).toString("hex")}`);
 }
 
-/** Public limbs for set_zk_signer. The private key is written to .env and never logged. */
+/** Public limbs for set_zk_signer. The private key is written to aztec/.env and never logged. */
 function attestationKey() {
   const existing = process.env.ZKPASSPORT_ATTEST_KEY?.trim() ?? "";
   let raw: Buffer;
@@ -71,6 +74,19 @@ function attestationKey() {
   const y = Buffer.from(jwk.y, "base64url");
   if (x.length !== 32 || y.length !== 32) throw new Error("Attestation public key is invalid");
   return { hex: raw.toString("hex"), xHi: limb(x, 0), xLo: limb(x, 16), yHi: limb(y, 0), yLo: limb(y, 16) };
+}
+
+/** Signs sealed public keys. The private key is written to aztec/.env and never logged. */
+function registrarKey() {
+  const saved = process.env.ZKPASSPORT_ATTEST_KEY;
+  if (process.env.SEALED_REGISTRAR_KEY) process.env.ZKPASSPORT_ATTEST_KEY = process.env.SEALED_REGISTRAR_KEY;
+  else delete process.env.ZKPASSPORT_ATTEST_KEY;
+  try {
+    return attestationKey();
+  } finally {
+    if (saved == null) delete process.env.ZKPASSPORT_ATTEST_KEY;
+    else process.env.ZKPASSPORT_ATTEST_KEY = saved;
+  }
 }
 const PUBLIC_RPC = "https://aztec-testnet.drpc.org";
 const PUBLISH_TIMEOUT_MS = 20 * 60 * 1000;
@@ -113,6 +129,63 @@ function txHashToString(value: unknown): string | undefined {
     if (s && s !== "[object Object]") return s;
   }
   return undefined;
+}
+
+function hexToBytes(hex: string) {
+  const raw = hex.replace(/^0x/i, "");
+  if (!/^[0-9a-fA-F]{64}$/.test(raw)) throw new Error("Sealed signature is invalid");
+  const out: number[] = [];
+  for (let i = 0; i < raw.length; i += 2) out.push(Number.parseInt(raw.slice(i, i + 2), 16));
+  return out;
+}
+
+function createDemoSealedKey(registrarHex: string): Promise<{
+  pkX: string;
+  pkY: string;
+  blobHash: string;
+  publishAt: number;
+  r: string;
+  s: string;
+}> {
+  const webRoot = resolve(root, "web");
+  const child = spawn(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      "import { createSealedKey } from './api/sealed-key.js'; const created = await createSealedKey({ pollId: '4', publishAt: Number(process.env.PUBLISH_AT) }); process.stdout.write(JSON.stringify(created));",
+    ],
+    {
+      cwd: webRoot,
+      env: {
+        ...process.env,
+        SEALED_REGISTRAR_KEY: registrarHex,
+        PUBLISH_AT: String(DEMO_SEALED_PUBLISH_AT),
+        HAPPYVOTE_DATA_DIR: resolve(webRoot, "data", "runtime"),
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
+  let stdout = "";
+  let stderr = "";
+  child.stdout.setEncoding("utf8");
+  child.stderr.setEncoding("utf8");
+  child.stdout.on("data", (chunk) => {
+    stdout += chunk;
+  });
+  child.stderr.on("data", (chunk) => {
+    stderr += chunk;
+  });
+  return new Promise((resolvePromise, reject) => {
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(stderr.trim() || `Sealed key creation failed (${code})`));
+        return;
+      }
+      resolvePromise(JSON.parse(stdout));
+    });
+  });
 }
 
 function upsertEnvFile(filePath: string, updates: Record<string, string>) {
@@ -306,25 +379,36 @@ async function main() {
       id: "1",
       options: 2,
       label: "Happy/Sad poll (voter_choice, daily)",
-      args: [{ id: Fr.fromString(process.env.POLL_ID ?? "1") }, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(1), false, 0, 0, VOTE_DAILY],
+      args: [{ id: Fr.fromString(process.env.POLL_ID ?? "1") }, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(1), false, 0, 0, VOTE_DAILY, 0],
     },
     {
       id: "2",
       options: 3,
       label: "Iteration 3 roadmap poll #2 (3 options, open eligibility)",
-      args: [{ id: Fr.fromString("2") }, 3, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(2), false, 0, 0, VOTE_ONCE],
+      args: [{ id: Fr.fromString("2") }, 3, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(2), false, 0, 0, VOTE_ONCE, 0],
     },
     {
       id: "3",
       options: 2,
       label: "poll #3 (ZKPassport personhood)",
-      args: [{ id: Fr.fromString("3") }, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_PERSONHOOD, new Fr(3), false, 0, 0, VOTE_ONCE],
+      args: [{ id: Fr.fromString("3") }, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_PERSONHOOD, new Fr(3), false, 0, 0, VOTE_ONCE, 0],
     },
     {
       id: "4",
       options: 3,
       label: "poll #4 (sealed tallies, 3 options)",
-      args: [{ id: Fr.fromString("4") }, 3, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, new Fr(4), true, 0, 0, VOTE_ONCE],
+      args: [
+        { id: Fr.fromString("4") },
+        3,
+        PRIVACY_VOTER_CHOICE,
+        ELIGIBILITY_OPEN,
+        new Fr(4),
+        true,
+        0,
+        DEMO_SEALED_ENDS_AT,
+        VOTE_ONCE,
+        DEMO_SEALED_PUBLISH_AT,
+      ],
     },
   ];
   for (const poll of polls) {
@@ -344,7 +428,7 @@ async function main() {
   if (typeof contract.methods.set_hidden_author_book !== "function") {
     throw new Error("HappyVote artifact has no set_hidden_author_book. Codegen the contract that was tested.");
   }
-  const bookArtifactPath = resolve(root, "hidden_author_book/target/hidden_author_book-HiddenAuthorBook.json");
+  const bookArtifactPath = resolve(root, "../hidden_author_book/target/hidden_author_book-HiddenAuthorBook.json");
   if (!existsSync(bookArtifactPath)) {
     throw new Error(`HiddenAuthorBook artifact missing: ${bookArtifactPath}`);
   }
@@ -369,7 +453,7 @@ async function main() {
   if (typeof contract.methods.set_sealed_tally_book !== "function") {
     throw new Error("HappyVote artifact has no set_sealed_tally_book. Codegen the contract that was tested.");
   }
-  const sealedArtifactPath = resolve(root, "sealed_tally_book/target/sealed_tally_book-SealedTallyBook.json");
+  const sealedArtifactPath = resolve(root, "../sealed_tally_book/target/sealed_tally_book-SealedTallyBook.json");
   if (!existsSync(sealedArtifactPath)) {
     throw new Error(`SealedTallyBook artifact missing: ${sealedArtifactPath}`);
   }
@@ -397,6 +481,27 @@ async function main() {
     fee,
     wait: txWait,
   });
+  const registrar = registrarKey();
+  upsertEnvFile(resolve(root, ".env"), { SEALED_REGISTRAR_KEY: registrar.hex });
+  logger.info("Setting the sealed-key registrar…");
+  await sealedContract.methods.set_registrar(registrar.xHi, registrar.xLo, registrar.yHi, registrar.yLo).send({
+    from: admin.address,
+    fee,
+    wait: txWait,
+  });
+  const sealedKey = await createDemoSealedKey(registrar.hex);
+  logger.info("Binding the demo sealed key…");
+  await sealedContract.methods
+    .bind_key(
+      new Fr(4),
+      new Fr(BigInt(sealedKey.pkX)),
+      new Fr(BigInt(sealedKey.pkY)),
+      new Fr(BigInt(sealedKey.blobHash)),
+      sealedKey.publishAt,
+      hexToBytes(sealedKey.r),
+      hexToBytes(sealedKey.s),
+    )
+    .send({ from: admin.address, fee, wait: txWait });
 
   const bookAddressStr = bookContract.address.toString();
   const sealedAddressStr = sealedContract.address.toString();
@@ -408,6 +513,7 @@ async function main() {
     HIDDEN_AUTHOR_BOOK_ADDRESS: bookAddressStr,
     SEALED_TALLY_BOOK_ADDRESS: sealedAddressStr,
     ZKPASSPORT_ATTEST_KEY: signer.hex,
+    SEALED_REGISTRAR_KEY: registrar.hex,
     POLL_ID: "1",
   });
   upsertEnvFile(resolve(root, "web/.env.local"), {

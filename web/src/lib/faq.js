@@ -18,7 +18,7 @@ export const FAQ_GROUPS = [
         id: "results",
         question: "Who can see the results?",
         answer:
-          "Guests can read a public tally without a wallet. Counts come from the contract, not from a private HappyVote database. On a sealed poll the chosen option is a private note held by the tally recipient. Guests see how many ballots were accepted. Per-option counts appear after that recipient publishes the notes, which can happen only after voting has closed. The recipient can read the notes before publishing them.",
+          "Guests can read a public tally without a wallet. Counts come from the contract, not from a private HappyVote database. On a sealed poll each ballot adds to a hidden total. Guests see how many ballots were accepted. Per-option counts appear in one transaction at the publish time. Nobody can read the options before that time.",
       },
       {
         id: "how",
@@ -60,7 +60,7 @@ export const FAQ_GROUPS = [
         id: "sealed",
         question: "What is a sealed poll?",
         answer:
-          "The chosen option is a private note held by the tally recipient. Guests see how many ballots were accepted. Per-option counts appear after that recipient publishes the notes, and only after voting has closed. The recipient can read the notes before publishing them. A sealed poll does not offer an open ballot.",
+          "Each ballot adds to a hidden total. Guests see how many ballots were accepted. Per-option counts appear in one transaction at the publish time, which is after voting ends. Nobody can read the options before that time. A sealed poll does not offer an open ballot.",
       },
     ],
   },
@@ -91,7 +91,7 @@ export const FAQ_GROUPS = [
         id: "rules",
         question: "What can I set on a new poll?",
         answer:
-          "Title, an optional description, up to eight topics, and 2 to 32 options. Each option needs a label. A short description under the choice is optional.\n\nBallot privacy is voter choice, private only, or open only. Frequency is once per poll, or once every 24 hours (one ballot per UTC day). Private and open share that limit. You can seal the tally until the poll closes. End is required and must fall within 90 days. Start can stay empty: you may publish before voting opens, and Vote locks at the end. Eligibility is any Aztec account, or ZKPassport personhood with optional age, birthdate, nationality, document, sanctions, and facematch checks. Those checks are signed with the listing.",
+          "Title, an optional description, up to eight topics, and 2 to 32 options. Each option needs a label. A short description under the choice is optional.\n\nBallot privacy is voter choice, private only, or open only. Frequency is once per poll, or once every 24 hours (one ballot per UTC day). Private and open share that limit. You can seal the tally: options stay hidden until a publish time after the end, then one transaction reveals them. A sealed poll has at most 8 options. End is required and must fall within 90 days. Start can stay empty: you may publish before voting opens, and Vote locks at the end. Eligibility is any Aztec account, or ZKPassport personhood with optional age, birthdate, nationality, document, sanctions, and facematch checks. Those checks are signed with the listing.",
       },
       {
         id: "listed",
@@ -140,7 +140,7 @@ export const FAQ_GROUPS = [
         id: "what",
         question: "What is HappyVote on Aztec?",
         answer:
-          "HappyVote is a technology layer for polls on Aztec Network. You cast a private or open ballot. On an unsealed poll the tally is public. On a sealed poll the option stays a private note until the tally recipient publishes the counts. It is not an election authority, a government, or a certified election system.",
+          "HappyVote is a technology layer for polls on Aztec Network. You cast a private or open ballot. On an unsealed poll the tally is public. On a sealed poll the options stay hidden until the publish time, then one transaction reveals the totals. It is not an election authority, a government, or a certified election system.",
       },
       {
         id: "official",

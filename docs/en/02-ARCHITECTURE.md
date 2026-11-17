@@ -75,7 +75,7 @@ Pattern: Aztec private voting — private function claims a nullifier, then enqu
 | `vote_claims` | `Map<Field, Owned<SingleUseClaim>>` | Packed `(poll, period)` → account claim |
 | `open_ballots` | `Map<PollId, Map<AztecAddress, Field>>` | `option_id + 1` (0 = none); latest open choice |
 | `identity_claims` | `Map<Field, bool>` | Poseidon2(`poll`, `period`, ZKPassport UID) |
-| `sealed` | `Map<PollId, PublicImmutable<u8>>` | Slot 13 flags: bit0 sealed option is a private note · bit1 UTC-day frequency |
+| `sealed` | `Map<PollId, PublicImmutable<u8>>` | Slot 13 flags: bit0 sealed tally is an ElGamal sum · bit1 UTC-day frequency |
 | `starts_at` | `Map<PollId, PublicImmutable<u64>>` | Unix seconds; `0` = unset |
 | `ends_at` | `Map<PollId, PublicImmutable<u64>>` | Unix seconds; `0` = unset |
 | `cancelled` | `Map<PollId, bool>` | Cancelled (no votes) |
@@ -145,7 +145,7 @@ Application hashes in Aztec.nr use **Poseidon2**. Catalog `metadata_hash` (and a
 - Private votes with `ends_at != 0` or a daily period set `expiration_timestamp` so a late inclusion cannot burn the nullifier after the window.
 - `starts_at` cannot be fully enforced in private (no inclusion time). The public kernel rejects early votes; do not submit a ballot before start.
 
-Honest limits: personhood and gated polls require a server attestation. The contract checks that signature in private and checks the stored public key and expiry in public. Open polls do not. A sealed option lives in a `SealedTallyBook` note owned by the tally recipient; the public HappyVote call does not receive it. The recipient can read those notes. Guests see the accepted-ballot count. Unsealed `option_id` is still public in the enqueue. Pause/`end_poll` after a private proof can still consume the nullifier (those flags are `PublicMutable`).
+Honest limits: personhood and gated polls require a server attestation. The contract checks that signature in private and checks the stored public key and expiry in public. Open polls do not. A sealed ballot adds an ElGamal ciphertext to every option on `SealedTallyBook`. The public HappyVote call records acceptance and does not receive the option. Guests see the accepted-ballot count. Any wallet publishes the totals in one transaction after the results time. Unsealed `option_id` is still public in the enqueue. Pause/`end_poll` after a private proof can still consume the nullifier (those flags are `PublicMutable`).
 
 ## 3. Off-chain
 

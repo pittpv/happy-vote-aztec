@@ -26,6 +26,7 @@ pub unconstrained fn create_poll(
     starts_at: u64,
     ends_at: u64,
     vote_frequency: u8,
+    publish_at: u64,
 ) {
     env.call_public(
         admin,
@@ -39,6 +40,7 @@ pub unconstrained fn create_poll(
             starts_at,
             ends_at,
             vote_frequency,
+            publish_at,
         ),
     );
 }
@@ -50,7 +52,7 @@ pub unconstrained fn create_happy_sad_poll(
     admin: AztecAddress,
     poll_id: HappyVote::PollId,
 ) {
-    create_poll(env, contract_address, admin, poll_id, 2, 2, 0, 1, false, 0, 0, 0);
+    create_poll(env, contract_address, admin, poll_id, 2, 2, 0, 1, false, 0, 0, 0, 0);
 }
 
 /// Same as Happy/Sad but one ballot per UTC day.
@@ -60,5 +62,5 @@ pub unconstrained fn create_daily_poll(
     admin: AztecAddress,
     poll_id: HappyVote::PollId,
 ) {
-    create_poll(env, contract_address, admin, poll_id, 2, 2, 0, 1, false, 0, 0, 1);
+    create_poll(env, contract_address, admin, poll_id, 2, 2, 0, 1, false, 0, 0, 1, 0);
 }

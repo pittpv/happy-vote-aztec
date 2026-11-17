@@ -1,4 +1,4 @@
-import { Component, lazy, Suspense, useEffect, useState } from "react";
+import { Component, lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
   PRIVACY,
   readPublicPollState,
@@ -18,6 +18,7 @@ import {
   createAccountFromKeys,
   importAccount,
   pollIdFromRaw,
+  asFieldBigInt,
   Fr,
   AztecAddress,
 } from "./lib/aztecClient.js";
@@ -63,6 +64,8 @@ import {
   saveZkSession,
   zeroAttestationBytes,
 } from "./lib/zkIdentity.js";
+import { fieldList, openSealedKey, sealedRandomness } from "./lib/sealedBallot.js";
+import { tallyFromCiphertext } from "./lib/grumpkin.js";
 import { ELIGIBILITY_MODE } from "./lib/zkRequirements.js";
 import {
   POLL_PHASE,
@@ -218,42 +221,83 @@ export default function App() {
   );
 }
 
+async function stopCancelledWallet(wallet) {
+  if (typeof wallet?.stop !== "function") return;
+  try {
+    await wallet.stop();
+  } catch (error) {
+    console.error(error);
+  }
+}
+
 function AppWalletModal({ walletConnect, allowAdminImport }) {
+  const setupAttempt = useRef(0);
+
+  function cancelSetup() {
+    setupAttempt.current += 1;
+    walletConnect.reset();
+  }
+
   async function connectSession(importedKeys) {
+    const attempt = ++setupAttempt.current;
     // Same in-page prover the ballot will use. Does not run for an external wallet.
     warmBrowserProver();
     walletConnect.setProgress("Creating browser wallet…");
-    const onProgress = (text) => walletConnect.setProgress(text);
+    const onProgress = (text) => {
+      if (attempt === setupAttempt.current) walletConnect.setProgress(text);
+    };
     try {
       const proverEnabled = import.meta.env.VITE_PROVER_ENABLED === "true";
       const nextWallet = await createWallet({ proverEnabled, onProgress });
+      if (attempt !== setupAttempt.current) {
+        await stopCancelledWallet(nextWallet);
+        return;
+      }
       const created = importedKeys
         ? await importAccount(nextWallet, importedKeys, { onProgress })
         : await createSessionAccount(nextWallet, { onProgress });
+      if (attempt !== setupAttempt.current) {
+        await stopCancelledWallet(nextWallet);
+        return;
+      }
       walletConnect.adoptSession(
         nextWallet,
         created.account.address.toString(),
         importedKeys ? null : created.keys?.signingKey,
       );
     } catch (error) {
+      if (attempt !== setupAttempt.current) return;
       console.error(error);
       walletConnect.fail(error);
     }
   }
 
   async function connectEthereum(provider) {
+    const attempt = ++setupAttempt.current;
     warmBrowserProver();
-    const onProgress = (text) => walletConnect.setProgress(text);
+    const onProgress = (text) => {
+      if (attempt === setupAttempt.current) walletConnect.setProgress(text);
+    };
     try {
       const { keys } = await connectEthereumProvider(provider, {
         origin: window.location.origin,
         onProgress,
       });
+      if (attempt !== setupAttempt.current) return;
       const proverEnabled = import.meta.env.VITE_PROVER_ENABLED === "true";
       const nextWallet = await createWallet({ proverEnabled, onProgress });
+      if (attempt !== setupAttempt.current) {
+        await stopCancelledWallet(nextWallet);
+        return;
+      }
       const created = await createAccountFromKeys(nextWallet, keys, { onProgress });
+      if (attempt !== setupAttempt.current) {
+        await stopCancelledWallet(nextWallet);
+        return;
+      }
       walletConnect.adoptSession(nextWallet, created.account.address.toString(), null, "ethereum");
     } catch (error) {
+      if (attempt !== setupAttempt.current) return;
       console.error(error);
       walletConnect.fail(error);
     }
@@ -265,7 +309,7 @@ function AppWalletModal({ walletConnect, allowAdminImport }) {
       pickProvider={walletConnect.pickProvider}
       confirm={walletConnect.confirm}
       reject={walletConnect.reject}
-      reset={walletConnect.reset}
+      reset={cancelSetup}
       pickAccount={walletConnect.pickAccount}
       beginDiscovery={walletConnect.beginDiscovery}
       beginSession={() => connectSession()}
@@ -441,6 +485,7 @@ function AdminRoute({ walletConnect }) {
             <AdminCreatePollForm
               contract={contract}
               accountAddress={accountAddress}
+              wallet={walletConnect.phase.wallet}
               paymentMethod={paymentMethod}
               busy={busy}
               setBusy={setBusy}
@@ -901,11 +946,11 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
 
   async function publishSealed() {
     const wallet = walletConnect.phase.wallet;
-    if (!wallet || !accountAddress || !recipientHere) return;
+    if (!wallet || !accountAddress) return;
     setBusy(true);
     setVoteActivity("Publishing sealed results…");
     setStatus({
-      text: "Publishing one page of sealed ballots. Repeat until every accepted ballot is included.",
+      text: "Opening the time-locked tally and proving the totals.",
       tone: "neutral",
     });
     try {
@@ -913,7 +958,32 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
       const txOpts = paymentMethod
         ? await sponsoredTxOptions(paymentMethod)
         : await senderFeeTxOptions();
-      await submitProvenBallot(book.methods.reveal(pollId.id), {
+      let publishCall = book.methods.reveal(pollId.id);
+      if (typeof book.methods.publish === "function") {
+        if (!tallyRecipient) throw new Error("This sealed poll has no tally recipient yet");
+        const opened = await openSealedKey(routePollId);
+        const points = fieldList(
+          await book.methods.get_ciphertext(pollId.id).simulate({ from: accountAddress }),
+        );
+        const counts = tallyFromCiphertext(points, BigInt(opened.sk), optionLabels.length);
+        const wide = Array.from({ length: 8 }, (_, index) => new Fr(counts[index] ?? 0n));
+        const pkX = asFieldBigInt(
+          await book.methods.get_key_x(pollId.id).simulate({ from: accountAddress }),
+        );
+        const pkY = asFieldBigInt(
+          await book.methods.get_key_y(pollId.id).simulate({ from: accountAddress }),
+        );
+        publishCall = book.methods.publish(
+          pollId.id,
+          new Fr(BigInt(opened.sk)),
+          wide,
+          points.map((value) => new Fr(value)),
+          AztecAddress.fromStringUnsafe(tallyRecipient),
+          new Fr(pkX),
+          new Fr(pkY),
+        );
+      }
+      await submitProvenBallot(publishCall, {
         from: accountAddress,
         txOptions: txOpts,
         onStep: ({ button, text }) => {
@@ -923,8 +993,8 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
       });
       await reloadPublic({ fresh: true });
       setStatus({
-        title: "Sealed page published",
-        text: "If ballots remain, publish the next page.",
+        title: "Sealed results published",
+        text: "The option totals are now public.",
         tone: "ok",
       });
     } catch (error) {
@@ -1029,7 +1099,7 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
           throw new Error("This sealed poll has no tally recipient yet");
         }
         const book = await registerSealedTallyBook(wallet);
-        method = book.methods.cast(
+        const castArgs = [
           pollId.id,
           new Fr(selected),
           identityCommitment,
@@ -1044,7 +1114,25 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
           eligibility,
           optionLabels.length,
           AztecAddress.fromStringUnsafe(tallyRecipient),
-        );
+        ];
+        if (typeof book.methods.publish === "function") {
+          const current = fieldList(
+            await book.methods.get_ciphertext(pollId.id).simulate({ from: accountAddress }),
+          );
+          const pkX = asFieldBigInt(
+            await book.methods.get_key_x(pollId.id).simulate({ from: accountAddress }),
+          );
+          const pkY = asFieldBigInt(
+            await book.methods.get_key_y(pollId.id).simulate({ from: accountAddress }),
+          );
+          castArgs.push(
+            sealedRandomness(optionLabels.length).map((value) => new Fr(value)),
+            current.map((value) => new Fr(value)),
+            new Fr(pkX),
+            new Fr(pkY),
+          );
+        }
+        method = book.methods.cast(...castArgs);
       } else if (attestation) {
         method =
           privacyMode === "private"
@@ -1566,11 +1654,16 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
             <div className="vote-results-note">
               <p>
                 {Number(sealedBallots) > 0
-                  ? `${sealedBallots} sealed ${Number(sealedBallots) === 1 ? "ballot" : "ballots"} accepted. Per-option counts stay hidden until the tally recipient publishes them.`
-                  : "This poll is sealed. Results will be available after voting ends."}
+                  ? `${sealedBallots} sealed ${Number(sealedBallots) === 1 ? "ballot" : "ballots"} accepted. Per-option counts stay hidden until the publish time.`
+                  : "This poll is sealed. Results stay hidden until the publish time."}
               </p>
-              {recipientHere && !votingOpen ? (
-                <button type="button" className="chip" disabled={busy} onClick={publishSealed}>
+              {accountAddress && !votingOpen && (pollMeta.publishAt || recipientHere) ? (
+                <button
+                  type="button"
+                  className="chip"
+                  disabled={busy || (pollMeta.publishAt && Date.parse(pollMeta.publishAt) > now)}
+                  onClick={publishSealed}
+                >
                   {voteActivity || "Publish sealed results"}
                 </button>
               ) : null}
@@ -1616,7 +1709,7 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
             </li>
             <li>
               Click <strong>Connect Aztec wallet</strong>. Choose <em>Browser session</em>, an Ethereum
-              wallet, or an installed wallet that appears by name. On a phone, open this site in the
+              wallet, or an installed Aztec wallet that appears by name. On a phone, open this site in the
               Ethereum wallet’s browser before that sign-in.
             </li>
             <li>Choose an option, pick Private or Open, then vote. Proving the ballot can take several minutes.</li>

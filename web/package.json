@@ -29,7 +29,8 @@
     "i18n-iso-countries": "^7.14.0",
     "process": "^0.11.10",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "tlock-js": "^0.9.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.7.0",

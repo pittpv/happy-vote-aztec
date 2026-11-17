@@ -9,7 +9,7 @@ import { EthAddress } from '@aztec-labs/aztec.js/addresses';
 import { Fr, Point } from '@aztec-labs/aztec.js/fields';
 import { type PublicKey, PublicKeys } from '@aztec-labs/aztec.js/keys';
 import type { Wallet } from '@aztec-labs/aztec.js/wallet';
-import HappyVoteContractArtifactJson from './happy_vote_aztec-HappyVote.json' with { type: 'json' };
+import HappyVoteContractArtifactJson from '../../../../hidden_author_book/target/happy_vote_aztec-HappyVote.json' with { type: 'json' };
 export const HappyVoteContractArtifact = loadContractArtifact(HappyVoteContractArtifactJson as NoirCompiledContract);
 
 
@@ -161,6 +161,9 @@ hidden_author_book: {
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public declare methods: {
     
+    /** attach_sealed_key(poll_id: struct, claimed: field) */
+    attach_sealed_key: ((poll_id: { id: FieldLike }, claimed: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** cancel_poll(poll_id: struct) */
     cancel_poll: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
@@ -182,11 +185,11 @@ hidden_author_book: {
     /** constructor(admin: struct) */
     constructor: ((admin: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** create_poll(poll_id: struct, options_count: integer, privacy_policy: integer, eligibility_mode: integer, metadata_hash: field, sealed: boolean, starts_at: integer, ends_at: integer, vote_frequency: integer) */
-    create_poll: ((poll_id: { id: FieldLike }, options_count: (bigint | number), privacy_policy: (bigint | number), eligibility_mode: (bigint | number), metadata_hash: FieldLike, sealed: boolean, starts_at: (bigint | number), ends_at: (bigint | number), vote_frequency: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** create_poll(poll_id: struct, options_count: integer, privacy_policy: integer, eligibility_mode: integer, metadata_hash: field, sealed: boolean, starts_at: integer, ends_at: integer, vote_frequency: integer, publish_at: integer) */
+    create_poll: ((poll_id: { id: FieldLike }, options_count: (bigint | number), privacy_policy: (bigint | number), eligibility_mode: (bigint | number), metadata_hash: FieldLike, sealed: boolean, starts_at: (bigint | number), ends_at: (bigint | number), vote_frequency: (bigint | number), publish_at: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** create_user_poll(options_count: integer, privacy_policy: integer, eligibility_mode: integer, metadata_hash: field, sealed: boolean, starts_at: integer, ends_at: integer, vote_frequency: integer, fee_mode: integer, fee_fallback: integer, signing_pubkey_x: field, signing_pubkey_y: field) */
-    create_user_poll: ((options_count: (bigint | number), privacy_policy: (bigint | number), eligibility_mode: (bigint | number), metadata_hash: FieldLike, sealed: boolean, starts_at: (bigint | number), ends_at: (bigint | number), vote_frequency: (bigint | number), fee_mode: (bigint | number), fee_fallback: (bigint | number), signing_pubkey_x: FieldLike, signing_pubkey_y: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** create_user_poll(options_count: integer, privacy_policy: integer, eligibility_mode: integer, metadata_hash: field, sealed: boolean, starts_at: integer, ends_at: integer, vote_frequency: integer, fee_mode: integer, fee_fallback: integer, signing_pubkey_x: field, signing_pubkey_y: field, publish_at: integer) */
+    create_user_poll: ((options_count: (bigint | number), privacy_policy: (bigint | number), eligibility_mode: (bigint | number), metadata_hash: FieldLike, sealed: boolean, starts_at: (bigint | number), ends_at: (bigint | number), vote_frequency: (bigint | number), fee_mode: (bigint | number), fee_fallback: (bigint | number), signing_pubkey_x: FieldLike, signing_pubkey_y: FieldLike, publish_at: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** end_poll(poll_id: struct) */
     end_poll: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -245,6 +248,9 @@ hidden_author_book: {
     /** get_privacy_policy(poll_id: struct) */
     get_privacy_policy: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** get_publish_at(poll_id: struct) */
+    get_publish_at: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** get_sealed(poll_id: struct) */
     get_sealed: ((poll_id: { id: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
@@ -290,8 +296,8 @@ hidden_author_book: {
     /** has_identity_voted(poll_id: struct, identity_commitment: field) */
     has_identity_voted: ((poll_id: { id: FieldLike }, identity_commitment: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** init_hidden_user_poll(options_count: integer, privacy_policy: integer, eligibility_mode: integer, metadata_hash: field, sealed: boolean, starts_at: integer, ends_at: integer, vote_frequency: integer, fee_mode: integer, fee_fallback: integer, signing_pubkey_x: field, signing_pubkey_y: field, expected_id: field, claimed_day: field, commitment: field) */
-    init_hidden_user_poll: ((options_count: (bigint | number), privacy_policy: (bigint | number), eligibility_mode: (bigint | number), metadata_hash: FieldLike, sealed: boolean, starts_at: (bigint | number), ends_at: (bigint | number), vote_frequency: (bigint | number), fee_mode: (bigint | number), fee_fallback: (bigint | number), signing_pubkey_x: FieldLike, signing_pubkey_y: FieldLike, expected_id: FieldLike, claimed_day: FieldLike, commitment: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** init_hidden_user_poll(options_count: integer, privacy_policy: integer, eligibility_mode: integer, metadata_hash: field, sealed: boolean, starts_at: integer, ends_at: integer, vote_frequency: integer, fee_mode: integer, fee_fallback: integer, signing_pubkey_x: field, signing_pubkey_y: field, expected_id: field, claimed_day: field, commitment: field, publish_at: integer) */
+    init_hidden_user_poll: ((options_count: (bigint | number), privacy_policy: (bigint | number), eligibility_mode: (bigint | number), metadata_hash: FieldLike, sealed: boolean, starts_at: (bigint | number), ends_at: (bigint | number), vote_frequency: (bigint | number), fee_mode: (bigint | number), fee_fallback: (bigint | number), signing_pubkey_x: FieldLike, signing_pubkey_y: FieldLike, expected_id: FieldLike, claimed_day: FieldLike, commitment: FieldLike, publish_at: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** is_authoritative(account: struct) */
     is_authoritative: ((account: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;

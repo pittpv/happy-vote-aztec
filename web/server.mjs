@@ -31,6 +31,7 @@ const HANDLERS = {
   "/api/polls": "./api/polls.js",
   "/api/poll-state": "./api/poll-state.js",
   "/api/zkpassport-verify": "./api/zkpassport-verify.js",
+  "/api/sealed-key": "./api/sealed-key.js",
   "/api/document": "./api/document.js",
   "/api/og": "./api/og.js",
   "/api/client-error": "./api/client-error.js",

@@ -43,7 +43,7 @@ created → (optional wait until startsAt) → open → ended
 - Optional `starts_at` / `ends_at` (unix seconds on-chain). The catalog stores the same instants as ISO-8601 for display. Omit both → the poll stays open until `end_poll` or `cancel_poll`.
 - A poll can be **published before `starts_at`**. Guests can read the question; Connect and Vote unlock automatically at start, then lock at `ends_at`. Direct `cast_vote_*` calls are rejected on-chain outside the window.
 - After close, votes are rejected; tallies stay readable (unless sealed and still open).
-- **Sealed tally:** the option is a private note on `SealedTallyBook`. `get_tally` / `get_total_votes` stay `0` until the tally recipient publishes every accepted ballot after voting has closed. The UI hides per-option counts until then and shows the accepted-ballot count.
+- **Sealed tally:** each ballot adds to an ElGamal sum on `SealedTallyBook`. `get_tally` / `get_total_votes` stay `0` until any wallet publishes the totals in one transaction after the results time. The UI hides per-option counts until then and shows the accepted-ballot count. A sealed poll needs an end time, a later publish time, and at most 8 options.
 
 `end_poll` still closes immediately. Scheduled `ends_at` auto-closes without an extra admin tx. `cancel_poll` is allowed only while `total_votes == 0`.
 
@@ -146,4 +146,4 @@ Open poll → ZKPassport QR → server re-verify → compact **Identity verified
 
 ### Sealed tally (`/p/4`)
 
-Home → Featured polls → sealed demo. Option buttons show labels only. Per-option counts stay hidden until the tally recipient publishes them after voting closes. Open eligibility; the ballot stays private.
+Home → Featured polls → sealed demo. Option buttons show labels only. Per-option counts stay hidden until the results time, when any wallet can publish them in one transaction. Open eligibility; the ballot stays private.

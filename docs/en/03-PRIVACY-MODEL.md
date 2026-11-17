@@ -15,7 +15,7 @@ On EVM HappyVote, a vote is public (address ↔ choice). Aztec lets the product 
 Identity disclosure     Ballot disclosure     Tally visibility
 ─────────────────       ─────────────────     ────────────────
 anonymous               private               live
-pseudonymous            public                private note, then published
+pseudonymous            public                encrypted sum, then one publish
 verified personhood     (option still         final only
 (public address)         updates live tally)
 ```
@@ -54,15 +54,17 @@ UI: **Private** (default) / **Open**. Both increment the same tally map.
 
 ## 4. Sealed polls
 
-A sealed ballot does not call `cast_vote_private`. It calls `SealedTallyBook.cast`. The option is a private note owned by the poll's tally recipient. The public call records that a ballot was accepted and does not receive the option.
+A sealed ballot does not call `cast_vote_private`. It calls `SealedTallyBook.cast`. The ballot adds an exponential ElGamal ciphertext to every option under the poll public key. The chain stores that sum and the accepted-ballot counter. It does not store the individual choice.
 
-- `get_tally` and `get_total_votes` stay at zero until `sealed_ballots == sealed_counted`. Closing the poll does not publish the options.
-- After close, the tally recipient publishes notes in pages of at most 16. Views stay at zero until every accepted ballot is included.
-- Guests can read the accepted-ballot counter. They cannot read the notes. The recipient can read the notes before publishing them.
-- A hidden-author sealed poll uses the contract admin as the recipient, so that admin can read those notes.
-- An open ballot cannot be sealed. A sealed poll does not offer an open ballot.
+A sealed poll requires an end time and a later results time, both inside the 90-day window. It has 2 to 8 options. An open ballot is not offered.
 
-This is a private note held by a known recipient, not an encrypted tally that nobody can read.
+- `get_tally` and `get_total_votes` stay at zero until one successful `publish`. Closing the poll does not publish the options.
+- After the results time, any wallet can submit that one transaction. It checks the decrypted counts against the stored sum and writes every option at once.
+- The decryption key is time-locked to that results time. The contract does not store it. Before the time, the site does not return it.
+- A second publish is rejected. An empty poll already shows zeros, because no ballots were accepted.
+- Guests can read the accepted-ballot counter while the options stay hidden.
+
+The sum does not reveal which account chose which option. Opening the key reveals only the totals.
 
 ## 5. Eligibility without doxxing
 

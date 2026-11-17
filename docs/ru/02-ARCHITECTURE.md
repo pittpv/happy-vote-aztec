@@ -75,7 +75,7 @@ flowchart TB
 | `vote_claims` | `Map<Field, Owned<SingleUseClaim>>` | Упакованный `(poll, period)` → аккаунт |
 | `open_ballots` | `Map<PollId, Map<AztecAddress, Field>>` | `option_id + 1` (0 = нет); последний open-выбор |
 | `identity_claims` | `Map<Field, bool>` | Poseidon2(`poll`, `period`, ZKPassport UID) |
-| `sealed` | `Map<PollId, PublicImmutable<u8>>` | Слот 13: bit0 вариант — приватная заметка · bit1 сутки UTC |
+| `sealed` | `Map<PollId, PublicImmutable<u8>>` | Слот 13: bit0 итог — сумма ElGamal · bit1 сутки UTC |
 | `starts_at` | `Map<PollId, PublicImmutable<u64>>` | Unix-секунды; `0` = не задано |
 | `ends_at` | `Map<PollId, PublicImmutable<u64>>` | Unix-секунды; `0` = не задано |
 | `cancelled` | `Map<PollId, bool>` | Отмена (без голосов) |
@@ -142,7 +142,7 @@ sequenceDiagram
 - При `ends_at != 0` private ставит `expiration_timestamp = ends_at - 1`, чтобы поздняя inclusion не сожгла nullifier.
 - `starts_at` в private полностью не проверить (нет времени включения). Публичный kernel отклоняет ранние голоса; не отправляйте бюллетень до старта.
 
-Честные ограничения: personhood и gated требуют свидетельство сервера. Контракт проверяет подпись в приватной функции и хранимый публичный ключ со сроком в публичной. Open-опросы этого не делают. Вариант sealed лежит в заметке `SealedTallyBook` у получателя итога; публичный вызов HappyVote его не получает. Получатель может прочитать заметки. Гость видит число принятых бюллетеней. У незакрытого итога `option_id` по-прежнему публичен в enqueue. Pause/`end_poll` после private proof могут всё равно потратить nullifier (`PublicMutable`).
+Честные ограничения: personhood и gated требуют свидетельство сервера. Контракт проверяет подпись в приватной функции и хранимый публичный ключ со сроком в публичной. Open-опросы этого не делают. Бюллетень sealed прибавляет шифротекст ElGamal к каждому варианту в `SealedTallyBook`. Публичный вызов HappyVote фиксирует принятие и не получает вариант. Гость видит число принятых бюллетеней. После даты публикации любой кошелёк публикует итоги одной транзакцией. У незакрытого итога `option_id` по-прежнему публичен в enqueue. Pause/`end_poll` после private proof могут всё равно потратить nullifier (`PublicMutable`).
 
 ## 3. Off-chain
 

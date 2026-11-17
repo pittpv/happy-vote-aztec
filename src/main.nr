@@ -21,9 +21,9 @@
 // - Personhood and gated polls accept an identity only with a secp256k1 attestation
 //   over poll, identity, period, and expiry. The site signs that after it re-verifies
 //   the ZKPassport proof. An arbitrary Field is rejected.
-// - Sealed polls do not publish the chosen option. SealedTallyBook stores it in a
-//   private note for the tally recipient. Public per-option totals stay zero until
-//   that recipient publishes them after the poll closes.
+// - Sealed polls do not publish the chosen option. Each ballot adds an exponential
+//   ElGamal ciphertext on SealedTallyBook. Per-option totals stay zero until one
+//   publication after publish_at. The decryption key is not stored on the poll.
 // - fund_pool is an accounting credit. Only the admin or the configured pool payer
 //   can raise it. A poll creator cannot inflate the balance the payer spends.
 
@@ -194,6 +194,8 @@ pub contract HappyVote {
     global MAX_OPEN_USER_POLLS: u32 = 3;
     /// ends_at may be at most this far after starts_at, or after the block time when starts_at is 0.
     global MAX_WINDOW_SECONDS: u64 = 7776000;
+    /// A sealed poll rewrites every option ciphertext on each ballot. One public call holds 63 writes.
+    global MAX_SEALED_OPTIONS: u32 = 8;
     /// Iteration 2 records live in the existing tally map, above any option index.
     global TAG_CREATOR: Field = 200;
     global TAG_FEE: Field = 201;
@@ -210,6 +212,8 @@ pub contract HappyVote {
     global TAG_RECIPIENT: Field = 206;
     global TAG_SEALED_BALLOTS: Field = 207;
     global TAG_SEALED_COUNTED: Field = 208;
+    /// Unix seconds. 0 unless the poll is sealed.
+    global TAG_PUBLISH_AT: Field = 209;
     global TAG_ZK_X_HI: Field = 221;
     global TAG_ZK_X_LO: Field = 222;
     global TAG_ZK_Y_HI: Field = 223;
@@ -383,6 +387,7 @@ pub contract HappyVote {
         starts_at: u64,
         ends_at: u64,
         vote_frequency: u8,
+        publish_at: u64,
     ) -> Field {
         self.internal.assert_admin();
         self.internal.assert_not_paused();
@@ -391,6 +396,12 @@ pub contract HappyVote {
         assert(privacy_policy <= PRIVACY_VOTER_CHOICE, "Invalid privacy policy");
         if sealed {
             assert(privacy_policy != PRIVACY_PUBLIC_ONLY, "Sealed poll cannot be open-only");
+            assert(options_count <= MAX_SEALED_OPTIONS, "Sealed poll allows 8 options");
+            assert(ends_at != (0 as u64), "End is required");
+            assert(publish_at != (0 as u64), "Publish time required");
+            assert(publish_at >= ends_at, "Publish before end");
+        } else {
+            assert(publish_at == (0 as u64), "Publish time is for sealed polls");
         }
         assert(eligibility_mode <= ELIGIBILITY_GATED, "Unsupported eligibility mode");
         assert(vote_frequency <= VOTE_DAILY, "Unsupported vote frequency");
@@ -414,6 +425,15 @@ pub contract HappyVote {
         if ends_at != (0 as u64) {
             assert(ends_at > self.context.timestamp(), "End must be in the future");
         }
+        if sealed {
+            let start_base = if starts_at == (0 as u64) {
+                self.context.timestamp()
+            } else {
+                starts_at
+            };
+            assert(publish_at > self.context.timestamp(), "Publish time must be in the future");
+            assert(publish_at - start_base <= MAX_WINDOW_SECONDS, "Window exceeds 90 days");
+        }
 
         self.storage.options_count.at(resolved).initialize(options_count);
         self.storage.privacy_policy.at(resolved).initialize(privacy_policy);
@@ -429,6 +449,7 @@ pub contract HappyVote {
             flags = flags + FLAG_DAILY;
         }
         self.storage.sealed.at(resolved).initialize(flags);
+        self.storage.tally.at(resolved).at(TAG_PUBLISH_AT).write(publish_at as Field);
         self.storage.tally.at(resolved).at(TAG_RECIPIENT).write(self.msg_sender().to_field());
         self.storage.tally.at(resolved).at(TAG_SEALED_BALLOTS).write(0);
         self.storage.tally.at(resolved).at(TAG_SEALED_COUNTED).write(0);
@@ -1058,6 +1079,7 @@ pub contract HappyVote {
         fee_fallback: u8,
         signing_pubkey_x: Field,
         signing_pubkey_y: Field,
+        publish_at: u64,
     ) -> Field {
         self.internal.assert_not_paused();
         assert(options_count >= 2, "Need at least 2 options");
@@ -1065,6 +1087,10 @@ pub contract HappyVote {
         assert(privacy_policy <= PRIVACY_VOTER_CHOICE, "Invalid privacy policy");
         if sealed {
             assert(privacy_policy != PRIVACY_PUBLIC_ONLY, "Sealed poll cannot be open-only");
+            assert(options_count <= MAX_SEALED_OPTIONS, "Sealed poll allows 8 options");
+            assert(publish_at != (0 as u64), "Publish time required");
+        } else {
+            assert(publish_at == (0 as u64), "Publish time is for sealed polls");
         }
         assert(eligibility_mode <= ELIGIBILITY_GATED, "Unsupported eligibility mode");
         assert(vote_frequency <= VOTE_DAILY, "Unsupported vote frequency");
@@ -1087,6 +1113,10 @@ pub contract HappyVote {
         };
         assert(ends_at > start_base, "End must be after start");
         assert(ends_at - start_base <= MAX_WINDOW_SECONDS, "Window exceeds 90 days");
+        if sealed {
+            assert(publish_at >= ends_at, "Publish before end");
+            assert(publish_at - start_base <= MAX_WINDOW_SECONDS, "Window exceeds 90 days");
+        }
 
         let creator = self.msg_sender();
         assert(creator.eq(AztecAddress::zero()) == false, "Creator required");
@@ -1156,6 +1186,7 @@ pub contract HappyVote {
             flags = flags + FLAG_DAILY;
         }
         self.storage.sealed.at(resolved).initialize(flags);
+        self.storage.tally.at(resolved).at(TAG_PUBLISH_AT).write(publish_at as Field);
         self.storage.tally.at(resolved).at(TAG_RECIPIENT).write(creator.to_field());
         self.storage.tally.at(resolved).at(TAG_SEALED_BALLOTS).write(0);
         self.storage.tally.at(resolved).at(TAG_SEALED_COUNTED).write(0);
@@ -1181,7 +1212,23 @@ pub contract HappyVote {
         self.storage.hidden_author_book.initialize(book);
     }
 
-    /// Admin sets the sealed-tally book once. That contract holds the private ballot notes.
+    /// The tally book binds a key. The claimed creator must be the poll's public creator, or its hidden-author commitment.
+    #[external("public")]
+    fn attach_sealed_key(poll_id: PollId, claimed: Field) {
+        let book = AztecAddress::from_field(self.storage.tally.at(PollId::new(0)).at(TAG_SEALED_BOOK).read());
+        assert(self.msg_sender().eq(book), "Only sealed tally book");
+        self.internal.assert_poll_exists(poll_id);
+        let creator = self.storage.tally.at(poll_id).at(TAG_CREATOR).read();
+        let author = self.storage.tally.at(poll_id).at(TAG_AUTHOR).read();
+        if creator != 0 {
+            assert(creator == claimed, "Only creator");
+        } else {
+            assert(author != 0, "Only creator");
+            assert(author == claimed, "Only creator");
+        }
+    }
+
+    /// Admin sets the sealed-tally book once. That contract holds sealed ballot ciphertexts.
     #[external("public")]
     fn set_sealed_tally_book(book: AztecAddress) {
         self.internal.assert_admin();
@@ -1265,7 +1312,11 @@ pub contract HappyVote {
             (self.storage.sealed.at(poll_id).read() & FLAG_SEALED) != (0 as u8),
             "Poll is not sealed",
         );
+        let publish_at = self.storage.tally.at(poll_id).at(TAG_PUBLISH_AT).read() as u64;
+        assert(publish_at != (0 as u64), "Publish time required");
+        assert(self.context.timestamp() >= publish_at, "Results are not published yet");
         assert(batch != 0, "Sealed ballots missing");
+        assert(self.storage.tally.at(poll_id).at(TAG_SEALED_COUNTED).read() == 0, "Results already published");
         assert(
             recipient.to_field() == self.storage.tally.at(poll_id).at(TAG_RECIPIENT).read(),
             "Only tally recipient",
@@ -1283,12 +1334,17 @@ pub contract HappyVote {
         assert(summed == (batch as Field), "Sealed tally overcounted");
         let counted = self.storage.tally.at(poll_id).at(TAG_SEALED_COUNTED).read() + (batch as Field);
         let accepted = self.storage.tally.at(poll_id).at(TAG_SEALED_BALLOTS).read();
+        assert(counted == accepted, "Sealed tally incomplete");
         let counted_n = counted as u64;
-        let accepted_n = accepted as u64;
         assert((counted_n as Field) == counted, "Sealed tally overcounted");
-        assert(counted_n <= accepted_n, "Sealed tally overcounted");
         self.storage.tally.at(poll_id).at(TAG_SEALED_COUNTED).write(counted);
         self.storage.total_votes.at(poll_id).write(counted);
+    }
+
+    #[external("public")]
+    #[view]
+    fn get_publish_at(poll_id: PollId) -> u64 {
+        self.storage.tally.at(poll_id).at(TAG_PUBLISH_AT).read() as u64
     }
 
     #[external("public")]
@@ -1352,6 +1408,7 @@ pub contract HappyVote {
         expected_id: Field,
         claimed_day: Field,
         commitment: Field,
+        publish_at: u64,
     ) -> Field {
         assert(self.msg_sender().eq(self.storage.hidden_author_book.read()), "Only hidden author book");
         self.internal.assert_not_paused();
@@ -1360,6 +1417,10 @@ pub contract HappyVote {
         assert(privacy_policy <= PRIVACY_VOTER_CHOICE, "Invalid privacy policy");
         if sealed {
             assert(privacy_policy != PRIVACY_PUBLIC_ONLY, "Sealed poll cannot be open-only");
+            assert(options_count <= MAX_SEALED_OPTIONS, "Sealed poll allows 8 options");
+            assert(publish_at != (0 as u64), "Publish time required");
+        } else {
+            assert(publish_at == (0 as u64), "Publish time is for sealed polls");
         }
         assert(eligibility_mode <= ELIGIBILITY_GATED, "Unsupported eligibility mode");
         assert(vote_frequency <= VOTE_DAILY, "Unsupported vote frequency");
@@ -1383,6 +1444,10 @@ pub contract HappyVote {
         };
         assert(ends_at > start_base, "End must be after start");
         assert(ends_at - start_base <= MAX_WINDOW_SECONDS, "Window exceeds 90 days");
+        if sealed {
+            assert(publish_at >= ends_at, "Publish before end");
+            assert(publish_at - start_base <= MAX_WINDOW_SECONDS, "Window exceeds 90 days");
+        }
         let day = self.context.timestamp() / SECONDS_PER_DAY;
         assert(claimed_day == (day as Field), "Wrong create day");
 
@@ -1409,6 +1474,7 @@ pub contract HappyVote {
             flags = flags + FLAG_DAILY;
         }
         self.storage.sealed.at(resolved).initialize(flags);
+        self.storage.tally.at(resolved).at(TAG_PUBLISH_AT).write(publish_at as Field);
         self.storage.tally.at(resolved).at(TAG_RECIPIENT).write(self.storage.admin.read().to_field());
         self.storage.tally.at(resolved).at(TAG_SEALED_BALLOTS).write(0);
         self.storage.tally.at(resolved).at(TAG_SEALED_COUNTED).write(0);

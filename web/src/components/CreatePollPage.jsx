@@ -12,6 +12,7 @@ import {
   readChainDay,
   registerHappyVote,
   registerHiddenAuthorBook,
+  registerSealedTallyBook,
   registerStandardContracts,
   submitProvenBallot,
 } from "../lib/aztecClient.js";
@@ -33,6 +34,8 @@ import {
 } from "../lib/catalogMeta.js";
 import { publishAccountPoll } from "../lib/polls.js";
 import { datetimeLocalToIso, isoToUnixSeconds } from "../lib/pollSchedule.js";
+import { requestSealedKey } from "../lib/sealedBallot.js";
+import { attestationBytes } from "../lib/zkIdentity.js";
 import { networkPlace } from "../lib/networkLabel.js";
 import { FEE_FALLBACK, FEE_MODE } from "../lib/feeMode.js";
 import { VOTE_FREQUENCY } from "../lib/voteFrequency.js";
@@ -63,7 +66,7 @@ const VOTE_FREQUENCY_OPTIONS = [
 
 function privacyHint(policy, sealed) {
   if (sealed) {
-    return "Sealed: the option is a private note held by you. Guests see how many ballots were accepted. Per-option counts appear after you publish them, and only after voting has closed. An open ballot is not offered.";
+    return "Sealed: each ballot adds to a hidden total. Nobody, including you, can read the options before the publish time. One transaction then publishes every option. An open ballot is not offered.";
   }
   if (policy === PRIVACY.PRIVATE_ONLY) {
     return "Private only: voters cannot publish their address. The chosen option updates the public tally.";
@@ -194,6 +197,7 @@ export function CreatePollPage({ walletConnect }) {
   const [feeFallback, setFeeFallback] = useState(FEE_FALLBACK.STOP);
   const [startsAt, setStartsAt] = useState("");
   const [endsAt, setEndsAt] = useState("");
+  const [publishAt, setPublishAt] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
@@ -242,6 +246,27 @@ export function CreatePollPage({ walletConnect }) {
       setError("The poll must end within 90 days of its start.");
       return;
     }
+    let publishIso = null;
+    if (sealed) {
+      if (text.labels.length > 8) {
+        setError("A sealed poll has at most 8 options.");
+        return;
+      }
+      publishIso = datetimeLocalToIso(publishAt);
+      if (!publishIso) {
+        setError("A sealed poll needs a results publish time.");
+        return;
+      }
+      const publishMs = Date.parse(publishIso);
+      if (publishMs < endMs) {
+        setError("Results publish after voting ends.");
+        return;
+      }
+      if (publishMs - startMs > MAX_WINDOW_MS) {
+        setError("Results must publish within 90 days of the start.");
+        return;
+      }
+    }
     if (mainnet && feeMode === FEE_MODE.SPONSORED) {
       setError("Mainnet does not offer the Sponsored FPC for a new poll.");
       return;
@@ -274,6 +299,11 @@ export function CreatePollPage({ walletConnect }) {
       setStatus("Registering the contract…");
       await registerStandardContracts(wallet);
       const contract = await registerHappyVote(wallet);
+      if (sealed && typeof contract.methods.get_publish_at !== "function") {
+        throw new Error(
+          "This site's contract cannot publish sealed results by time yet. Deploy the updated HappyVote contract first.",
+        );
+      }
       if (typeof contract.methods.create_user_poll !== "function") {
         throw new Error(
           "This HappyVote artifact has no create_user_poll entry. Compile with aztec compile, run codegen, and deploy that contract before a new listing can be published.",
@@ -318,6 +348,7 @@ export function CreatePollPage({ walletConnect }) {
         voteFrequency,
         startsAt: startIso,
         endsAt: endIso,
+        ...(publishIso ? { publishAt: publishIso } : {}),
       };
       if (hideAuthor) pollBody.hiddenAuthor = true;
       else pollBody.creator = creator;
@@ -344,18 +375,22 @@ export function CreatePollPage({ walletConnect }) {
         new Fr(BigInt(catalogKey.publicKey.x)),
         new Fr(BigInt(catalogKey.publicKey.y)),
       ];
+      if (typeof contract.methods.get_publish_at === "function") {
+        createArgs.push(publishIso ? isoToUnixSeconds(publishIso) : 0);
+      }
       let createCall;
       let hiddenFee = null;
+      let hiddenSecret = null;
       if (hideAuthor) {
         const book = await registerHiddenAuthorBook(wallet);
-        const secret = Fr.random();
+        hiddenSecret = Fr.random();
         const day = await readChainDay();
         hiddenFee = await hiddenAuthorFeeOptions(wallet);
         createCall = book.methods.create_user_poll_private(
           ...createArgs,
           new Fr(before),
           new Fr(day),
-          secret,
+          hiddenSecret,
         );
       } else {
         createCall = contract.methods.create_user_poll(...createArgs);
@@ -397,6 +432,44 @@ export function CreatePollPage({ walletConnect }) {
           );
         }
         pollId = owned[0].toString();
+      }
+      if (sealed) {
+        setStatus("Locking the sealed key…");
+        const key = await requestSealedKey({
+          pollId,
+          publishAt: isoToUnixSeconds(publishIso),
+        });
+        const tallyBook = await registerSealedTallyBook(wallet);
+        const keyArgs = [
+          new Fr(BigInt(pollId)),
+          new Fr(BigInt(key.pkX)),
+          new Fr(BigInt(key.pkY)),
+          new Fr(BigInt(key.blobHash)),
+          key.publishAt,
+          attestationBytes(key.r),
+          attestationBytes(key.s),
+        ];
+        const bind = hideAuthor
+          ? tallyBook.methods.bind_hidden_key(
+              new Fr(BigInt(pollId)),
+              hiddenSecret,
+              new Fr(BigInt(key.pkX)),
+              new Fr(BigInt(key.pkY)),
+              new Fr(BigInt(key.blobHash)),
+              key.publishAt,
+              attestationBytes(key.r),
+              attestationBytes(key.s),
+            )
+          : tallyBook.methods.bind_key(...keyArgs);
+        await submitProvenBallot(bind, {
+          from,
+          txOptions: feeOpts,
+          onStep: ({ button }) => setStatus(button),
+          waiting: {
+            button: "Locking the sealed key…",
+            text: "The key is on the network. Waiting until it is in a proposed block.",
+          },
+        });
       }
       writeCatalogDraft({
         hiddenAuthor: hideAuthor,
@@ -653,7 +726,7 @@ export function CreatePollPage({ walletConnect }) {
               <button
                 type="button"
                 className="btn btn-ghost"
-                disabled={busy || optionRows.length >= 32}
+                disabled={busy || optionRows.length >= (sealed ? 8 : 32)}
                 onClick={() => setOptionRows([...optionRows, { label: "", description: "" }])}
               >
                 Add option
@@ -714,15 +787,16 @@ export function CreatePollPage({ walletConnect }) {
                     if (next && privacy === PRIVACY.PUBLIC_ONLY) setPrivacy(PRIVACY.PRIVATE_ONLY);
                   }}
                 />
-                Sealed tallies — keep each option in a private note until you publish the counts
+                Sealed tallies — hide every option until the publish time, then reveal them in one transaction
               </label>
             </fieldset>
 
             <fieldset className="zk-req">
               <legend>Schedule</legend>
               <p className="meta">
-                End is required and must be within 90 days. Start can stay empty. You can publish
-                before the start — connect and vote unlock automatically, then lock at the end.
+                {sealed
+                  ? "End and results publish times are required, within 90 days. Options stay hidden until the publish time."
+                  : "End is required and must be within 90 days. Start can stay empty. You can publish before the start — connect and vote unlock automatically, then lock at the end."}
               </p>
               <div className="schedule-grid">
                 <ScheduleDateField
@@ -731,6 +805,15 @@ export function CreatePollPage({ walletConnect }) {
                   disabled={busy}
                   onChange={setStartsAt}
                 />
+                {sealed ? (
+                  <ScheduleDateField
+                    label="Publish results at"
+                    value={publishAt}
+                    disabled={busy}
+                    onChange={setPublishAt}
+                    required
+                  />
+                ) : null}
                 <ScheduleDateField
                   label="Ends at"
                   value={endsAt}

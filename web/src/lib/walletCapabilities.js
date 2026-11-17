@@ -63,6 +63,7 @@ export function happyVoteCapabilities() {
         { contract: happyVote, function: "get_privacy_policy" },
         { contract: happyVote, function: "get_admin" },
         { contract: happyVote, function: "get_sealed" },
+        { contract: happyVote, function: "get_publish_at" },
         { contract: happyVote, function: "get_starts_at" },
         { contract: happyVote, function: "get_ends_at" },
         { contract: happyVote, function: "get_cancelled" },
@@ -91,6 +92,12 @@ export function happyVoteCapabilities() {
     ? [
         { contract: sealedBook.toString(), function: "cast" },
         { contract: sealedBook.toString(), function: "reveal" },
+        { contract: sealedBook.toString(), function: "publish" },
+        { contract: sealedBook.toString(), function: "bind_key" },
+        { contract: sealedBook.toString(), function: "bind_hidden_key" },
+        { contract: sealedBook.toString(), function: "get_ciphertext" },
+        { contract: sealedBook.toString(), function: "get_key_x" },
+        { contract: sealedBook.toString(), function: "get_key_y" },
       ]
     : [];
   const hiddenScope = book && happyVote
@@ -105,9 +112,15 @@ export function happyVoteCapabilities() {
   // get_hidden_author_note is an unconstrained utility. Wallets check it
   // against simulation.utilities, not the transaction list. An empty utility
   // scope rejects Your polls with "outside the permissions you gave this app".
-  const utilityScope = book
-    ? [{ contract: book.toString(), function: "get_hidden_author_note" }]
-    : [];
+  const utilityScope = [
+    ...(book ? [{ contract: book.toString(), function: "get_hidden_author_note" }] : []),
+    ...(sealedBook
+      ? ["get_ciphertext", "get_key_x", "get_key_y", "get_blob_hash"].map((fn) => ({
+          contract: sealedBook.toString(),
+          function: fn,
+        }))
+      : []),
+  ];
   const authorSponsorScope = authorSponsor
     ? [{ contract: authorSponsor.toString(), function: "sponsor_unconditionally" }]
     : [];

@@ -9,7 +9,9 @@ import {
   ELIGIBILITY_MODE,
 } from "../lib/zkRequirements.js";
 import { DOCUMENT_TYPE_OPTIONS } from "../lib/countries.js";
-import { PRIVACY, Fr, asFieldBigInt } from "../lib/aztecClient.js";
+import { PRIVACY, Fr, asFieldBigInt, registerSealedTallyBook } from "../lib/aztecClient.js";
+import { requestSealedKey } from "../lib/sealedBallot.js";
+import { attestationBytes } from "../lib/zkIdentity.js";
 import { savePollMeta, publishPollMeta, normalizePollOptions, catalogCountriesForPublish } from "../lib/polls.js";
 import { datetimeLocalToIso, isoToUnixSeconds, normalizePollWindow } from "../lib/pollSchedule.js";
 import { CountryPicker } from "./CountryPicker.jsx";
@@ -24,6 +26,7 @@ export function AdminCreatePollForm({
   contract,
   accountAddress,
   paymentMethod,
+  wallet,
   busy,
   setBusy,
   setStatus,
@@ -45,6 +48,7 @@ export function AdminCreatePollForm({
   const [showOnHome, setShowOnHome] = useState(false);
   const [startsAtLocal, setStartsAtLocal] = useState("");
   const [endsAtLocal, setEndsAtLocal] = useState("");
+  const [publishAtLocal, setPublishAtLocal] = useState("");
   const [publishToken, setPublishToken] = useState(
     () =>
       (typeof sessionStorage !== "undefined" && sessionStorage.getItem("happyvote.publishToken")) ||
@@ -219,8 +223,19 @@ export function AdminCreatePollForm({
       setStatus({ text: "Need at least two options with labels.", tone: "error" });
       return;
     }
-    if (options.length > 32) {
-      setStatus({ text: "At most 32 options.", tone: "error" });
+    if (options.length > (sealed ? 8 : 32)) {
+      setStatus({ text: sealed ? "A sealed poll has at most 8 options." : "At most 32 options.", tone: "error" });
+      return;
+    }
+    if (sealed && typeof contract.methods.get_publish_at !== "function") {
+      setStatus({
+        text: "This site's contract cannot publish sealed results by time yet.",
+        tone: "error",
+      });
+      return;
+    }
+    if (sealed && (!endsAtLocal || !publishAtLocal)) {
+      setStatus({ text: "A sealed poll needs an end time and a results publish time.", tone: "error" });
       return;
     }
     if (!title.trim()) {
@@ -290,11 +305,47 @@ export function AdminCreatePollForm({
       if (typeof contract.methods.get_vote_frequency === "function") {
         createArgs.push(voteFrequency);
       }
+      let publishUnix = 0;
+      if (sealed) {
+        const publishIso = datetimeLocalToIso(publishAtLocal);
+        const publishMs = Date.parse(publishIso);
+        const endMs = Date.parse(scheduleWindow.endsAt);
+        if (!Number.isFinite(publishMs) || publishMs < endMs) {
+          setStatus({ text: "Results publish after voting ends.", tone: "error" });
+          setBusy(false);
+          return;
+        }
+        publishUnix = isoToUnixSeconds(publishIso);
+      }
+      if (typeof contract.methods.get_publish_at === "function") {
+        createArgs.push(publishUnix);
+      }
       await contract.methods.create_poll(...createArgs).send({
           from: accountAddress,
           fee: { paymentMethod },
           wait: { timeout: 600 },
         });
+      if (sealed) {
+        if (!wallet) throw new Error("Connect a wallet before locking the sealed key");
+        setStatus({ text: "Locking the sealed key…", tone: "neutral" });
+        const key = await requestSealedKey({ pollId: pollIdNum, publishAt: publishUnix });
+        const book = await registerSealedTallyBook(wallet);
+        await book.methods
+          .bind_key(
+            new Fr(BigInt(pollIdNum)),
+            new Fr(BigInt(key.pkX)),
+            new Fr(BigInt(key.pkY)),
+            new Fr(BigInt(key.blobHash)),
+            key.publishAt,
+            attestationBytes(key.r),
+            attestationBytes(key.s),
+          )
+          .send({
+            from: accountAddress,
+            fee: { paymentMethod },
+            wait: { timeout: 600 },
+          });
+      }
 
       const meta = {
         id: String(pollIdNum),
@@ -314,6 +365,7 @@ export function AdminCreatePollForm({
         voteFrequency,
         startsAt: scheduleWindow.startsAt,
         endsAt: scheduleWindow.endsAt,
+        ...(sealed ? { publishAt: datetimeLocalToIso(publishAtLocal) } : {}),
         metadataHash: metadataHash.toString(),
       };
       savePollMeta(meta);
@@ -522,7 +574,7 @@ export function AdminCreatePollForm({
               if (next && privacyPolicy === PRIVACY.PUBLIC_ONLY) setPrivacyPolicy(PRIVACY.PRIVATE_ONLY);
             }}
           />
-          Sealed tallies — keep each option in a private note until you publish the counts
+          Sealed tallies — hide every option until the publish time, then reveal them in one transaction
         </label>
         <label className="check-row">
           <input
@@ -560,6 +612,18 @@ export function AdminCreatePollForm({
               onChange={(e) => setEndsAtLocal(e.target.value)}
             />
           </label>
+          {sealed ? (
+            <label>
+              Publish results at
+              <input
+                type="datetime-local"
+                value={publishAtLocal}
+                disabled={busy}
+                required
+                onChange={(e) => setPublishAtLocal(e.target.value)}
+              />
+            </label>
+          ) : null}
         </div>
         <button
           type="button"

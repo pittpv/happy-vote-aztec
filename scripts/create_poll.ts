@@ -81,6 +81,16 @@ async function main() {
   if (voteFrequency > 1) {
     throw new Error(`VOTE_FREQUENCY must be 0 (once) or 1 (daily), got ${voteFrequency}`);
   }
+  const publishAt = asU32("PUBLISH_AT", process.env.PUBLISH_AT, 0);
+  if (sealed && (endsAt === 0 || publishAt < endsAt)) {
+    throw new Error("A sealed poll needs ENDS_AT and PUBLISH_AT at or after that end");
+  }
+  if (!sealed && publishAt !== 0) {
+    throw new Error("PUBLISH_AT is only for a sealed poll");
+  }
+  if (sealed && optionsCount > 8) {
+    throw new Error("A sealed poll allows at most 8 options");
+  }
   const timeouts = getTimeouts();
 
   const wallet = await setupWallet();
@@ -115,6 +125,7 @@ async function main() {
       startsAt,
       endsAt,
       voteFrequency,
+      publishAt,
     )
     .send({
       from,

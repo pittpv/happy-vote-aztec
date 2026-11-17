@@ -48,6 +48,7 @@ unconstrained fn user_create_hidden(
             expected as Field,
             day,
             secret,
+            0,
         ),
     );
 }
@@ -81,7 +82,7 @@ unconstrained fn test_public_and_hidden_author_same_day() {
     let start = env.last_block_timestamp();
     env.call_public(
         alice,
-        HappyVote::at(happy_vote).create_user_poll(2, 2, 0, 7, false, 0, start + 86400, 0, 0, 0, 3, 4),
+        HappyVote::at(happy_vote).create_user_poll(2, 2, 0, 7, false, 0, start + 86400, 0, 0, 0, 3, 4, 0),
     );
     user_create_hidden(&mut env, happy_vote, book, alice, start + 86400, Field::from(9), 0);
     assert(env.view_public(HappyVote::at(happy_vote).get_creator(PollId::new(Field::from(1)))).eq(alice));
@@ -222,6 +223,7 @@ unconstrained fn test_fail_hidden_create_stale_id() {
             99,
             day,
             5,
+            0,
         ),
     );
 }

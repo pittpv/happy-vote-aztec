@@ -55,7 +55,7 @@ describe("HappyVote e2e", () => {
         const metadataHash = new Fr(1);
 
         await contract.methods
-            .create_poll(pollId, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, metadataHash, false, 0, 0, 0)
+            .create_poll(pollId, 2, PRIVACY_VOTER_CHOICE, ELIGIBILITY_OPEN, metadataHash, false, 0, 0, 0, 0)
             .send({
                 from: adminAddress,
                 fee: { paymentMethod: sponsoredPaymentMethod },

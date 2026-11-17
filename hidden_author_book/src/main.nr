@@ -69,6 +69,7 @@ pub contract HiddenAuthorBook {
         expected_id: Field,
         claimed_day: Field,
         creator_secret: Field,
+        publish_at: u64,
     ) {
         assert(creator_secret != 0, "Creator secret required");
         assert(expected_id != 0, "Poll id required");
@@ -106,6 +107,7 @@ pub contract HiddenAuthorBook {
             expected_id,
             claimed_day,
             commitment,
+            publish_at,
         ));
     }
 

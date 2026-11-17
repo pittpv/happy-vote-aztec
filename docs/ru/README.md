@@ -20,13 +20,13 @@
 | [11-USER-GUIDE.md](./11-USER-GUIDE.md) | Как подключить аккаунт и проголосовать |
 | [12-UI-UX.md](./12-UI-UX.md) | Landing, страница голосования, ZKPassport, SEO |
 | [13-LEGAL.md](./13-LEGAL.md) | Terms, Privacy, Cookies, Data Safety, GDPR |
-| [../../AGENTS.md](../../AGENTS.md) | Правила для AI/разработки ([AI Tooling](https://docs.aztec.network/developers/ai_tooling)) |
+| [../../AGENTS.md](../../../AGENTS.md) | Правила для AI/разработки ([AI Tooling](https://docs.aztec.network/developers/ai_tooling)) |
 
 ## Краткое видение
 
 Минималистичная платформа для голосований **любой тематики**: от Happy/Sad до выборов и референдумов.
 
-1. **Programmable privacy** Aztec — голос может скрывать избирателя. Незакрытый итог публичен. Вариант sealed — приватная заметка, пока получатель итога не опубликует счётчики.
+1. **Programmable privacy** Aztec — голос может скрывать избирателя. Незакрытый итог публичен. Итог sealed — скрытая сумма до даты публикации, затем одна транзакция публикует все варианты.
 2. **Выбор голосующего** — закрытый (по умолчанию) или открытый голос, если политика опроса это разрешает.
 3. **ZKPassport** — personhood, возраст, гражданство без передачи паспортных данных платформе.
 4. **Два пути создания:** HappyVote публикует опросы главной. Подключённый аккаунт публикует опрос с одним вариантом на `/create` тем же диалогом Connect, что и голосование. Автор может быть публичным адресом или приватным. Приватное создание идёт через развёрнутый `HiddenAuthorBook`. В Testnet создание и досрочное завершение приватного автора платит Sponsored FPC. В Mainnet плательщик — контракт AuthorFeeSponsor из этого исходника. AuthorFeeSponsor не развёрнут, поэтому на сайте Mainnet Private выключен, пока этот адрес не задан. **Your polls** сначала показывает публичные опросы этого адреса, затем приватные опросы этого кошелька, и может завершить опрос досрочно. Публикация — один sponsored `send()`, той же формы, что и бюллетень. После смены разрешения отключите кошелёк и подключите снова.
@@ -35,14 +35,14 @@
 
 - **Минимализм UI** — вопрос, варианты, одно CTA.
 - **Privacy by design** — приватный голос по умолчанию; публичность только явно.
-- **Честный копирайт** — private скрывает **адрес**. Счётчик незакрытого варианта публичен. Вариант sealed — приватная заметка.
+- **Честный копирайт** — private скрывает **адрес**. Счётчик незакрытого варианта публичен. Итог sealed скрыт до своей даты публикации.
 - **Доказуемость** — итоги on-chain; правила опроса в контракте.
 - **Совместимость с Aztec** — только `aztec` CLI, Poseidon2, версия SDK = версия сети.
 - **Без custody identity** — данные документа не покидают устройство.
 
 ## Статус (2026-11-06)
 
-`HappyVote` на **Aztec Testnet 6.0.0**: [`0x256692c1a2f24fe72c4351db82a72d0591225c132886c190d03a0069151f9f78`](https://testnet.aztecscan.xyz/address/0x256692c1a2f24fe72c4351db82a72d0591225c132886c190d03a0069151f9f78). Приватный автор использует [`HiddenAuthorBook`](https://testnet.aztecscan.xyz/address/0x0db4e58ff03bd09d758c4e3aee0fb042b21e61aa410aad2f6a0b8f7537fefeec) `0x0db4e58ff03bd09d758c4e3aee0fb042b21e61aa410aad2f6a0b8f7537fefeec`. Закрытый итог использует [`SealedTallyBook`](https://testnet.aztecscan.xyz/address/0x11b4482fff1547eed30cb860cd9e017e1b84890539641ab3831d9c98b35d3b3d) `0x11b4482fff1547eed30cb860cd9e017e1b84890539641ab3831d9c98b35d3b3d`. Тот же стабильный образ **6.0.0** стоит на Aztec Mainnet. Этот сайт голосует в Testnet. Стабильный 6.0.0 — новый genesis: транзакции Testnet 6.0.0-rc.3 на этой сети недействительны. Опросы `/p/1` Happy/Sad, `/p/2` single-choice, `/p/3` ZKPassport personhood, `/p/4` sealed tallies начинаются на этом адресе. Тесты Noir: HappyVote 70, HiddenAuthorBook 14, SealedTallyBook 5, AuthorFeeSponsor 6. Create записывает опрос пользователя в этот контракт. В **Earlier networks** остаются более ранний контракт Testnet 6.0.0 [`0x20053869edad8edf92f0b7144bfc6344e0534866f26b0f330cee87431ebd9e14`](https://testnet.aztecscan.xyz/address/0x20053869edad8edf92f0b7144bfc6344e0534866f26b0f330cee87431ebd9e14) и Testnet 5.1.0 [`0x2e10858cf6750c003489a62f570535966fb940bb10d18a0c146a36cac64713b6`](https://testnet.aztecscan.xyz/address/0x2e10858cf6750c003489a62f570535966fb940bb10d18a0c146a36cac64713b6). Контракта от 4 ноября `0x08cc6d5b022900717c01af9b2800a83177aeab263cfd920416b33b56f6bc5881` в этом архиве нет, и это развёртывание не архивирует `0x2ee5a78e59b3f79d175d32f777ad1fbc221fffa868f7feddc707809770da00f1` и `0x12b946b72a45a75719bd4af4f1697d99e02acf45d79876b8cbce1df115783fb0`. Эти строки не ведут на `/p/:id`. Фронтенд: https://aztec.happyvote.xyz.
+`HappyVote` на **Aztec Testnet 6.0.0**: [`0x00e30a477cfd54d6a5d8372ab955b5e5197099164f11f9bb5b192c5892b96bf3`](https://testnet.aztecscan.xyz/address/0x00e30a477cfd54d6a5d8372ab955b5e5197099164f11f9bb5b192c5892b96bf3). Приватный автор использует [`HiddenAuthorBook`](https://testnet.aztecscan.xyz/address/0x02c54586f55c07ea3faaf5f764cb86fb4d2e696b0b9ce9d81fbe5dc7f7703d29) `0x02c54586f55c07ea3faaf5f764cb86fb4d2e696b0b9ce9d81fbe5dc7f7703d29`. Закрытый итог использует [`SealedTallyBook`](https://testnet.aztecscan.xyz/address/0x0be7a7a9372daf7303e4545ebc3e62273a4a4ba039ea4fa9e9a10b626ef1237d) `0x0be7a7a9372daf7303e4545ebc3e62273a4a4ba039ea4fa9e9a10b626ef1237d`. Тот же стабильный образ **6.0.0** стоит на Aztec Mainnet. Этот сайт голосует в Testnet. Стабильный 6.0.0 — новый genesis: транзакции Testnet 6.0.0-rc.3 на этой сети недействительны. Опросы `/p/1` Happy/Sad, `/p/2` single-choice, `/p/3` ZKPassport personhood, `/p/4` sealed tallies начинаются на этом адресе. Тесты Noir: HappyVote 70, HiddenAuthorBook 14, SealedTallyBook 5, AuthorFeeSponsor 6. Create записывает опрос пользователя в этот контракт. В **Earlier networks** остаются более ранний контракт Testnet 6.0.0 [`0x20053869edad8edf92f0b7144bfc6344e0534866f26b0f330cee87431ebd9e14`](https://testnet.aztecscan.xyz/address/0x20053869edad8edf92f0b7144bfc6344e0534866f26b0f330cee87431ebd9e14) и Testnet 5.1.0 [`0x2e10858cf6750c003489a62f570535966fb940bb10d18a0c146a36cac64713b6`](https://testnet.aztecscan.xyz/address/0x2e10858cf6750c003489a62f570535966fb940bb10d18a0c146a36cac64713b6). Контракта от 4 ноября `0x08cc6d5b022900717c01af9b2800a83177aeab263cfd920416b33b56f6bc5881` в этом архиве нет, и это развёртывание не архивирует `0x2ee5a78e59b3f79d175d32f777ad1fbc221fffa868f7feddc707809770da00f1` и `0x12b946b72a45a75719bd4af4f1697d99e02acf45d79876b8cbce1df115783fb0`. Эти строки не ведут на `/p/:id`. Фронтенд: https://aztec.happyvote.xyz.
 
 ## Источники истины
 

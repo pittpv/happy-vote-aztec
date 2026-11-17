@@ -6,5 +6,6 @@ compiler_version = ">=0.25.0"
 
 [dependencies]
 aztec = { git = "https://github.com/aztec-labs-eng/aztec-nr/", tag = "v6.0.0", directory = "aztec" }
+sha256 = { tag = "v0.3.0", git = "https://github.com/noir-lang/sha256" }
 protocol_types = { git = "https://github.com/AztecProtocol/aztec-packages", tag = "v6.0.0", directory = "noir-projects/fnd/noir-protocol-circuits/crates/types" }
-happy_vote_aztec = { path = "../aztec" }
+happy_vote_aztec = { path = ".." }
