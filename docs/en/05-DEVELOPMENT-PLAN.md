@@ -188,13 +188,13 @@ A public create page, linked from the header when this iteration ships:
 
 - Title, description, 2–32 options, topics.
 - Privacy: voter choice (default), private only, or open only.
-- Eligibility: open, or ZKPassport personhood with optional age, birthdate, nationality, document, sanctions, and facematch checks.
+- Eligibility: open, or ZKPassport personhood with optional checks. Age is an integer 1–99. Birthdate and document expiry are calendar days. Nationality and issuing country are ISO alpha-3. One document type. Sanctions and strict FaceMatch are optional.
 - Sealed tally.
 - Start, and a required end inside the 90-day bound.
 - Once per poll, or once per UTC day.
 - Fee mode. Testnet defaults to the Sponsored FPC. Mainnet defaults to the voter’s Fee Juice. A poll pool is optional. The page shows the mode and the fallback before publish.
 - Connect, prove, then the catalog signature.
-- The form blocks are author, details, options, voting type, schedule, eligibility, and ballot fee. Homepage placement and a Dashboard policy id are not on this form. Age, birthdate, nationality, document, sanctions, and facematch are signed with the listing.
+- The form blocks are author, details, options, voting type, schedule, eligibility, and ballot fee. Homepage placement and a Dashboard policy id are not on this form. The optional identity checks are signed with the listing, and the voter proof must include each one.
 - Copy says that private hides the address, and that the tally is public unless the poll is sealed.
 
 This flow is not the operator screen.

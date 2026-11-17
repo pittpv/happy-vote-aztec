@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { DOCUMENT_TYPE_OPTIONS } from "../lib/countries.js";
-import { describeZkRequirements } from "../lib/zkRequirements.js";
+import { clampZkAgeInput, describeZkRequirements } from "../lib/zkRequirements.js";
 import { CountryPicker } from "./CountryPicker.jsx";
 
 /**
@@ -136,11 +136,11 @@ export function ZkRequirementsFields({ disabled, onChange }) {
           </label>
 
           <PolicySection title="Age & Birthdate" open={openAge} onToggle={() => setOpenAge((v) => !v)} disabled={disabled}>
-            <RuleRow enabled={useMinAge} onEnabled={setUseMinAge} title="Minimum Age" hint="User must be at least this old" disabled={disabled}>
-              <input type="number" min={1} max={99} value={minAge} disabled={disabled || !useMinAge} onChange={(event) => setMinAge(event.target.value)} />
+            <RuleRow enabled={useMinAge} onEnabled={setUseMinAge} title="Minimum Age" hint="Whole years, 1–99" disabled={disabled}>
+              <input type="number" min={1} max={99} value={minAge} disabled={disabled || !useMinAge} onChange={(event) => setMinAge(clampZkAgeInput(event.target.value))} />
             </RuleRow>
-            <RuleRow enabled={useMaxAge} onEnabled={setUseMaxAge} title="Maximum Age" hint="User must be no older than this" disabled={disabled}>
-              <input type="number" min={1} max={99} value={maxAge} disabled={disabled || !useMaxAge} onChange={(event) => setMaxAge(event.target.value)} />
+            <RuleRow enabled={useMaxAge} onEnabled={setUseMaxAge} title="Maximum Age" hint="Whole years, 1–99" disabled={disabled}>
+              <input type="number" min={1} max={99} value={maxAge} disabled={disabled || !useMaxAge} onChange={(event) => setMaxAge(clampZkAgeInput(event.target.value))} />
             </RuleRow>
             <RuleRow enabled={useBornAfter} onEnabled={setUseBornAfter} title="Born After" hint="User must be born on or after this date" disabled={disabled}>
               <input type="date" value={bornAfter} disabled={disabled || !useBornAfter} onChange={(event) => setBornAfter(event.target.value)} />

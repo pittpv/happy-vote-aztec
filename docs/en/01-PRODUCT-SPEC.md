@@ -73,7 +73,7 @@ Private mode **does not** hide the option from the live board: `option_id` is en
 |-------|----------------------------|-----------|
 | Open | 0 | Any Aztec account; one vote via `SingleUseClaim` (or once per UTC day) |
 | Personhood | 1 | ZKPassport `uniqueIdentifier` → `identity_commitment` |
-| Gated | 2 | Personhood + age / nationality / sanctions / FaceMatch / Dashboard policy (predicates off-chain + server re-verify) |
+| Gated | 2 | Personhood plus optional checks (age 1–99, calendar dates, nationality, one document type, sanctions, FaceMatch) or a Dashboard policy. Predicates stay off-chain. The server rejects a weaker proof request |
 
 Important polls should require at least personhood. Details live in catalog JSON; hash is on-chain.
 

@@ -64,3 +64,33 @@ test("gated rules change the signed payload and reject a weaker query", () => {
 test("a user poll cannot carry a Dashboard policy id", () => {
   assert.throws(() => normalizeAccountZkRules({ policyId: "pol_demo" }), /Dashboard policy id/);
 });
+
+test("age stays inside 1–99 and a UTC date string still meets the calendar day", () => {
+  assert.throws(() => normalizeAccountZkRules({ maxAge: 120 }), /1–99/);
+  assert.throws(() => normalizeAccountZkRules({ minAge: 100 }), /1–99/);
+  const rules = normalizeAccountZkRules({
+    bornAfter: "1990-01-01",
+    expiresBefore: "2030-06-01",
+    documentTypes: ["passport"],
+  });
+  querySatisfiesAccountRules(
+    {
+      birthdate: { gte: "1990-01-01T00:00:00.000Z" },
+      expiry_date: { lte: "2030-06-01T00:00:00.000Z" },
+      document_type: { eq: "passport" },
+    },
+    rules,
+  );
+  assert.throws(
+    () =>
+      querySatisfiesAccountRules(
+        {
+          birthdate: { gte: "1989-12-31T00:00:00.000Z" },
+          expiry_date: { lte: "2030-06-01T00:00:00.000Z" },
+          document_type: { eq: "passport" },
+        },
+        rules,
+      ),
+    /Birthdate/,
+  );
+});

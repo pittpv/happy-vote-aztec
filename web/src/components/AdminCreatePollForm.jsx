@@ -2,9 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import {
   defaultZkRequirements,
   describeZkRequirements,
+  clampZkAgeInput,
   eligibilityModeFromRequirements,
   hashZkRequirementsToField,
-  isGatedRequirements,
   normalizeZkRequirements,
   ELIGIBILITY_MODE,
 } from "../lib/zkRequirements.js";
@@ -61,7 +61,7 @@ export function AdminCreatePollForm({
   const [useMinAge, setUseMinAge] = useState(false);
   const [minAge, setMinAge] = useState("18");
   const [useMaxAge, setUseMaxAge] = useState(false);
-  const [maxAge, setMaxAge] = useState("120");
+  const [maxAge, setMaxAge] = useState("99");
   const [useBornAfter, setUseBornAfter] = useState(false);
   const [bornAfter, setBornAfter] = useState("");
   const [useBornBefore, setUseBornBefore] = useState(false);
@@ -179,9 +179,20 @@ export function AdminCreatePollForm({
     }
   }, [important, draftRequirements]);
 
-  const eligibilityMode = important
-    ? eligibilityModeFromRequirements(draftRequirements ?? defaultZkRequirements())
-    : ELIGIBILITY_MODE.OPEN;
+  const normalizedDraft = useMemo(() => {
+    if (!important) return null;
+    try {
+      return normalizeZkRequirements(draftRequirements ?? defaultZkRequirements());
+    } catch {
+      return null;
+    }
+  }, [important, draftRequirements]);
+
+  const eligibilityMode = !important
+    ? ELIGIBILITY_MODE.OPEN
+    : normalizedDraft
+      ? eligibilityModeFromRequirements(normalizedDraft)
+      : null;
 
   function toggleDoc(id) {
     setDocumentTypes((prev) => {
@@ -602,32 +613,32 @@ export function AdminCreatePollForm({
                 enabled={useMinAge}
                 onEnabled={setUseMinAge}
                 title="Minimum Age"
-                hint="User must be at least this old"
+                hint="Whole years, 1–99"
                 disabled={busy || policyLocks}
               >
                 <input
                   type="number"
                   min={1}
-                  max={120}
+                  max={99}
                   value={minAge}
                   disabled={busy || policyLocks || !useMinAge}
-                  onChange={(e) => setMinAge(e.target.value)}
+                  onChange={(e) => setMinAge(clampZkAgeInput(e.target.value))}
                 />
               </RuleRow>
               <RuleRow
                 enabled={useMaxAge}
                 onEnabled={setUseMaxAge}
                 title="Maximum Age"
-                hint="User must be no older than this"
+                hint="Whole years, 1–99"
                 disabled={busy || policyLocks}
               >
                 <input
                   type="number"
                   min={1}
-                  max={120}
+                  max={99}
                   value={maxAge}
                   disabled={busy || policyLocks || !useMaxAge}
-                  onChange={(e) => setMaxAge(e.target.value)}
+                  onChange={(e) => setMaxAge(clampZkAgeInput(e.target.value))}
                 />
               </RuleRow>
               <RuleRow
@@ -848,10 +859,11 @@ export function AdminCreatePollForm({
             <p className="meta">
               Mode on-chain:{" "}
               <strong>
-                {eligibilityMode === ELIGIBILITY_MODE.GATED ? "gated" : "personhood"}
-                {draftRequirements && isGatedRequirements(draftRequirements)
-                  ? " (predicates set)"
-                  : ""}
+                {eligibilityMode == null
+                  ? "fix the checks above"
+                  : eligibilityMode === ELIGIBILITY_MODE.GATED
+                    ? "gated"
+                    : "personhood"}
               </strong>
             </p>
           </>

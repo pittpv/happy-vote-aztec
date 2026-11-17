@@ -49,7 +49,8 @@ export function ZkPassportGate({
     () => resolveEffectiveZkRequirements(requirements),
     [requirements],
   );
-  const scope = effective.policyId ? undefined : `poll:${pollId}`;
+  // A Dashboard policy's scope is the policy id (SDK 0.17+). Self-served polls stay poll-scoped.
+  const scope = effective.policyId || `poll:${pollId}`;
   const lines = describeZkRequirements(effective, policyQuery);
 
   useEffect(() => {
@@ -264,58 +265,59 @@ export function ZkPassportGate({
               queryRef.current = doneQuery.query;
               return doneQuery;
             }}
-            onResult={async ({ verified, uniqueIdentifier, proofs, result, queryResultErrors }) => {
-              setError(null);
-              if (!verified) {
-                setError({
-                  title: "Identity check failed",
-                  text: formatZkVerifyFailure(queryResultErrors),
-                });
-                return;
-              }
-              if (!uniqueIdentifier) {
-                setError({
-                  title: "Identity check failed",
-                  text: "ZKPassport did not return an identifier. Scan again.",
-                });
-                return;
-              }
-
-              if (!serverReverify) {
-                finishVerified({
-                  uniqueIdentifier,
-                  mock: false,
-                  serverVerified: false,
-                });
-                return;
-              }
-
-              setBusy(true);
-              setPhase("rechecking");
-              try {
-                const server = await reverifyZkPassport({
-                  proofs,
-                  originalQuery: queryRef.current,
-                  queryResult: result,
-                  scope,
-                  domain,
-                  devMode,
-                  pollId,
-                });
-                finishVerified({
-                  uniqueIdentifier: server.uniqueIdentifier,
-                  mock: false,
-                  serverVerified: true,
-                  attestation: server.attestation,
-                });
-              } catch (err) {
-                console.error(err);
-                setError(explainError(err, "generic"));
-                setPhase("scan");
-              } finally {
-                setBusy(false);
-              }
-            }}
+            onSuccess={
+              serverReverify
+                ? async ({ proofs, result }) => {
+                    setError(null);
+                    setBusy(true);
+                    setPhase("rechecking");
+                    try {
+                      const server = await reverifyZkPassport({
+                        proofs,
+                        originalQuery: queryRef.current,
+                        queryResult: result,
+                        scope,
+                        domain,
+                        devMode,
+                        pollId,
+                      });
+                      finishVerified({
+                        uniqueIdentifier: server.uniqueIdentifier,
+                        mock: false,
+                        serverVerified: true,
+                        attestation: server.attestation,
+                      });
+                      return true;
+                    } catch (err) {
+                      console.error(err);
+                      setError(explainError(err, "generic"));
+                      setPhase("scan");
+                      return false;
+                    } finally {
+                      setBusy(false);
+                    }
+                  }
+                : undefined
+            }
+            onResult={
+              serverReverify
+                ? undefined
+                : async ({ verified, uniqueIdentifier, queryResultErrors }) => {
+                    setError(null);
+                    if (!verified || !uniqueIdentifier) {
+                      setError({
+                        title: "Identity check failed",
+                        text: formatZkVerifyFailure(queryResultErrors),
+                      });
+                      return;
+                    }
+                    finishVerified({
+                      uniqueIdentifier,
+                      mock: false,
+                      serverVerified: false,
+                    });
+                  }
+            }
             onError={(err) => {
               console.error(err);
               setError(formatZkNetworkError(err));

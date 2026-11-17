@@ -73,7 +73,7 @@ Private **не** скрывает вариант с live-табло: `option_id`
 |---------|-------------------|----------|
 | Open | 0 | Любой аккаунт; один голос через `SingleUseClaim` (или раз в сутки UTC) |
 | Personhood | 1 | ZKPassport `uniqueIdentifier` → `identity_commitment` |
-| Gated | 2 | Personhood + возраст / гражданство / sanctions / FaceMatch / Dashboard policy |
+| Gated | 2 | Personhood и необязательные проверки (возраст 1–99, календарные даты, гражданство, один тип документа, sanctions, FaceMatch) или Dashboard policy. Предикаты остаются вне цепи. Сервер отклоняет более слабый запрос доказательства |
 
 Важные опросы — минимум personhood. Детали в JSON каталога; hash on-chain.
 

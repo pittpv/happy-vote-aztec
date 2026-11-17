@@ -14,6 +14,20 @@ export const ELIGIBILITY_MODE = {
   GATED: 2,
 };
 
+/** ZKPassport `gte("age")` accepts 1–99. A higher value never reaches a voter proof. */
+export const ZK_AGE_MIN = 1;
+export const ZK_AGE_MAX = 99;
+
+/** Keep an age field inside the range the passport app and the voter check both accept. */
+export function clampZkAgeInput(raw) {
+  const digits = String(raw ?? "").replace(/\D/g, "");
+  if (!digits) return "";
+  const value = Number(digits);
+  if (!Number.isInteger(value) || value < ZK_AGE_MIN) return "";
+  if (value > ZK_AGE_MAX) return String(ZK_AGE_MAX);
+  return String(value);
+}
+
 /** @deprecated prefer ALL_COUNTRIES — kept for older presets */
 export const NATIONALITY_PRESETS = [
   { code: "USA", label: "United States" },
@@ -109,8 +123,8 @@ function normalizeOptionalDate(raw, label) {
 function parseOptionalAge(raw, label) {
   if (raw == null || raw === "" || Number(raw) === 0) return null;
   const n = Number(raw);
-  if (!Number.isInteger(n) || n < 1 || n > 120) {
-    throw new Error(`${label} must be an integer 1–120`);
+  if (!Number.isInteger(n) || n < ZK_AGE_MIN || n > ZK_AGE_MAX) {
+    throw new Error(`${label} must be an integer ${ZK_AGE_MIN}–${ZK_AGE_MAX}`);
   }
   return n;
 }

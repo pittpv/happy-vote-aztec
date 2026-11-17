@@ -20,14 +20,34 @@
 
 Production: SDK + QR, домен зарегистрирован, default policy `vote-identity-verification`.
 
-Если в каталоге задан `policyId`, query в виджете только `.policy(id)`, а query `scope` не передаётся — self-served предикаты из JSON каталога не уходят в ZKPassport. Фильтр стран на All polls всё равно нужен: при пустых `countries` / `nationalityIn` / `issuedBy` UI читает публичный Dashboard-проект `aztec.happyvote.xyz` и берёт `nationality` и `issuing_country` (`eq` / `in`). Виджет использует актуальный каталожный `policyId`; on-chain `metadata_hash` задаётся в `create_poll` и не меняется, если id в каталоге позже заменят.
+Если в каталоге задан `policyId`, query в виджете только `.policy(id)`, а scope запроса — этот policy id. Self-served опросы используют `poll:{id}`. Предикаты из JSON каталога вместе с policy не отправляются. Сервер вызывает `verify()` с тем же scope, а для policy берёт query из Dashboard, а не query из браузера. Фильтр стран на All polls всё равно нужен: при пустых `countries` / `nationalityIn` / `issuedBy` UI читает публичный Dashboard-проект `aztec.happyvote.xyz` и берёт `nationality` и `issuing_country` (`eq` / `in`). Виджет использует актуальный каталожный `policyId`; on-chain `metadata_hash` задаётся в `create_poll` и не меняется, если id в каталоге позже заменят.
+
+### Настройки создателя
+
+Опрос со страницы **Create** не задаёт Dashboard policy id. Personhood обязателен. Необязательные проверки входят в подписанное объявление:
+
+| Проверка | Граница |
+|----------|---------|
+| Возраст | Целое 1–99. Минимум — `age.gte`, максимум — `age.lte`. |
+| Дата рождения и срок документа | Календарный день `YYYY-MM-DD`, в запросе это тот же день UTC |
+| Национальность и страна выдачи | ISO alpha-3, включить (`in`) или исключить (`out`). Один код не может быть и там, и там |
+| Тип документа | Один: паспорт, национальное ID или вид на жительство |
+| Sanctions, FaceMatch | Список sanctions или FaceMatch `strict` |
+
+Опрос с Dashboard policy id доказывает эту политику. Строки возраста, страны и документа в объявлении не становятся запросом. Scope — этот policy id.
+
+### Проверка голосующего
+
+QR-запрос строится из объявления. После proof на телефоне `onSuccess` отправляет proofs, результат query, исходный query и scope на `/api/zkpassport-verify`. Для self-served опроса сервер принимает query, только если в нём есть каждое сохранённое правило. Более узкий query принимается. Пропущенная или более широкая проверка отклоняется. `verify()` сверяет proofs с этим query и scope. Бюллетень использует `uniqueIdentifier` из этого ответа.
+
+Для опроса с policy сервер загружает текущий query Dashboard по policy id из каталога и передаёт его в `verify()` с тем же scope. Query из браузера не проверяется.
 
 ## 3. Пример query
 
 Personhood: `query={(q) => q.done()}`, `scope={poll:${pollId}}`.  
 Gated: только нужные поля, например `q.gte("age", 18)`.
 
-После `onResult` — `POST /api/zkpassport-verify`, затем hash `uniqueIdentifier`.
+После `onSuccess` — `POST /api/zkpassport-verify` (`proofs`, `result`, исходный query и scope). Сервер вызывает `verify()` и возвращает `uniqueIdentifier`.
 
 ## 4. Связка с голосом
 
@@ -43,9 +63,9 @@ sequenceDiagram
   U->>UI: Важный опрос
   UI->>Z: query + scope poll:id
   U->>Z: NFC + prove
-  Z->>UI: verified + uniqueIdentifier + proofs
+  Z->>UI: proofs + результат query
   UI->>API: re-verify
-  API-->>UI: OK
+  API-->>UI: OK + uniqueIdentifier
   UI->>UI: Свернуть gate — Identity verified
   U->>PXE: cast_vote_*_attested(identity, expiry, signature)
   PXE->>C: claim identity + tally
@@ -55,7 +75,7 @@ On-chain: `identity_commitment ≠ 0` для eligibility 1/2; `identity_claims` 
 
 ## 5. Домен
 
-Зарегистрировать `aztec.happyvote.xyz` в Dashboard. `uniqueIdentifier` привязан к домену. Не логировать proofs с PII.
+Зарегистрировать `aztec.happyvote.xyz` в Dashboard. `uniqueIdentifier` привязан к домену и scope (`poll:{id}` или policy id). Смена домена или scope меняет id. Не логировать proofs с PII.
 
 ## 6. Proofs
 
@@ -71,7 +91,7 @@ Fun / Happy/Sad — open. Community — personhood желателен. Поли�
 
 ## 9. Off-chain JSON требований
 
-В каталоге. При `create_poll` SHA-256 канонического JSON сводится в Field → on-chain `metadata_hash` (в браузере digest сначала в Node `Buffer`, затем `fromBufferReduce`). Хеш — `PublicImmutable`. Поздняя смена каталожного `policyId` меняет query виджета, но не это on-chain поле. `eligibility_mode`: `1` только personhood · `2` если есть age / nationality / sanctions / FaceMatch / `policyId`.
+В каталоге. При `create_poll` SHA-256 канонического JSON сводится в Field → on-chain `metadata_hash` (в браузере digest сначала в Node `Buffer`, затем `fromBufferReduce`). Хеш — `PublicImmutable`. Поздняя смена каталожного `policyId` меняет query виджета, но не это on-chain поле. `eligibility_mode`: `1` только personhood · `2` если есть возраст / дата рождения / национальность / документ / sanctions / FaceMatch / `policyId`. Возраст вне 1–99 отклоняется до публикации опроса.
 
 ```json
 {

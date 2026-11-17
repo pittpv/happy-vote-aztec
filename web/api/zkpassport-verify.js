@@ -4,9 +4,10 @@
  *
  * @see https://docs.zkpassport.id/examples/client-server
  *
- * ESM `@zkpassport/sdk` is loaded after postinstall rewrites its JSON import
+ * ESM `@zkpassport/sdk` 0.21 is loaded after postinstall rewrites its JSON import
  * (`with { type: "json" }`), `buffer/` directory import, and CJS named import
  * of i18n-iso-countries. See scripts/patch-zkpassport-json-import.mjs.
+ * `verify()` must receive the request scope: `poll:{id}`, or the policy id.
  *
  * bb-crs-env must be imported first so Barretenberg can write CRS under /tmp.
  */
@@ -50,14 +51,18 @@ export default async function handler(req, res) {
     }
 
     let poll;
+    let queryForVerify;
+    let requiredScope;
     try {
-      poll = await bindQueryToPoll(pollId, originalQuery);
+      ({ poll, originalQuery: queryForVerify, scope: requiredScope } = await bindQueryToPoll(
+        pollId,
+        originalQuery,
+      ));
     } catch (error) {
       const status = error?.code === "NO_CATALOG" ? 503 : error?.status || 400;
       return res.status(status).json({ ok: false, error: error?.message || String(error) });
     }
-    const requiredScope = poll.zkRequirements?.policyId ? "" : `poll:${poll.id}`;
-    if (requiredScope && String(scope || "").trim() !== requiredScope) {
+    if (String(scope || "").trim() !== requiredScope) {
       return res.status(400).json({ ok: false, error: "Identity scope does not match this poll" });
     }
 
@@ -75,13 +80,11 @@ export default async function handler(req, res) {
 
     const verifyArgs = {
       proofs,
-      originalQuery,
+      originalQuery: queryForVerify,
       queryResult,
+      scope: requiredScope,
       devMode: allowDev,
     };
-    if (scope != null && String(scope).trim() !== "") {
-      verifyArgs.scope = String(scope);
-    }
 
     const capturedLogs = [];
     const originalError = console.error;
@@ -171,10 +174,60 @@ async function bindQueryToPoll(pollId, originalQuery) {
     throw error;
   }
   const mode = Number(poll.eligibilityMode ?? 0);
-  if (mode === 0 && !poll.zkRequirements) return poll;
+  const policyId = String(poll.zkRequirements?.policyId || "").trim();
+  if (mode === 0 && !poll.zkRequirements) {
+    return { poll, originalQuery, scope: `poll:${poll.id}` };
+  }
   if (!poll.zkRequirements) throw new Error("Identity rules for this poll are missing");
+  if (policyId) {
+    return {
+      poll,
+      originalQuery: await dashboardPolicyQuery(policyId),
+      scope: policyId,
+    };
+  }
   querySatisfiesAccountRules(originalQuery, poll.zkRequirements);
-  return poll;
+  return { poll, originalQuery, scope: `poll:${poll.id}` };
+}
+
+async function dashboardPolicyQuery(policyId) {
+  const url = `https://dashboard-api.zkpassport.id/public/project?domain=${encodeURIComponent(SITE_DOMAIN)}`;
+  let response;
+  try {
+    response = await fetch(url, { signal: AbortSignal.timeout(8000) });
+  } catch (cause) {
+    const error = new Error("ZKPassport Dashboard is unavailable");
+    error.status = 503;
+    error.cause = cause;
+    throw error;
+  }
+  if (!response.ok) {
+    const error = new Error("ZKPassport Dashboard is unavailable");
+    error.status = 503;
+    throw error;
+  }
+  const data = await response.json();
+  const policies = data?.policies;
+  if (!Array.isArray(policies)) {
+    const error = new Error("ZKPassport Dashboard config is invalid");
+    error.status = 502;
+    throw error;
+  }
+  const policy = policies.find((item) => item && item.id === policyId);
+  if (!policy) {
+    const error = new Error("This poll's ZKPassport policy is not on the dashboard");
+    error.status = 400;
+    throw error;
+  }
+  const source = policy.query;
+  if (!source || typeof source !== "object" || Array.isArray(source)) {
+    const error = new Error("Dashboard policy query is missing");
+    error.status = 502;
+    throw error;
+  }
+  const { bind, ...rest } = source;
+  void bind;
+  return rest;
 }
 
 function stringifyLogArg(value) {

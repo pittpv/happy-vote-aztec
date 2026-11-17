@@ -24,7 +24,27 @@ Open-eligibility polls do **not** use ZKPassport. They only bind one vote per Az
 
 Production: SDK + QR (`ZKPassportQRCode`), domain registered, default Dashboard policy id `vote-identity-verification` (RU elections template) when `policyId` is set for important polls.
 
-When catalog `policyId` is set, the widget query is Dashboard-locked (`.policy(id)` only) and query `scope` is omitted. Self-served predicates in catalog JSON are not sent. The All polls **country** filter still needs those countries: if catalog `countries` / `nationalityIn` / `issuedBy` are empty, the UI loads the public Dashboard project for `aztec.happyvote.xyz` and uses `nationality` and `issuing_country` (`eq` / `in`). The live catalog `policyId` is what the widget uses; on-chain `metadata_hash` is set at `create_poll` and does not change if the catalog id is later replaced.
+When catalog `policyId` is set, the widget query is Dashboard-locked (`.policy(id)` only) and the request scope is that policy id. Self-served polls use `poll:{id}`. Self-served predicates in catalog JSON are not sent with a policy. The server calls `verify()` with the same scope, and for a policy it uses the Dashboard query rather than the query posted by the browser. The All polls **country** filter still needs those countries: if catalog `countries` / `nationalityIn` / `issuedBy` are empty, the UI loads the public Dashboard project for `aztec.happyvote.xyz` and uses `nationality` and `issuing_country` (`eq` / `in`). The live catalog `policyId` is what the widget uses; on-chain `metadata_hash` is set at `create_poll` and does not change if the catalog id is later replaced.
+
+### Creator settings
+
+A poll created on **Create** does not set a Dashboard policy id. Personhood is required. Optional checks, stored with the signed listing:
+
+| Check | Bound |
+|-------|--------|
+| Age | Integer 1–99. Minimum is `age.gte`, maximum is `age.lte`. |
+| Birthdate and document expiry | Calendar day `YYYY-MM-DD`, committed as that UTC day |
+| Nationality and issuing country | ISO alpha-3, include (`in`) or exclude (`out`). One code cannot be both |
+| Document type | One of passport, national ID, residence permit |
+| Sanctions, FaceMatch | Sanctions list, or FaceMatch `strict` |
+
+A poll that names a Dashboard policy id proves that policy. Age, country, and document rows on the listing are not the request. The scope is the policy id.
+
+### Voter check
+
+The QR request is built from the listing. After the phone proves, `onSuccess` posts the proofs, the query result, the original query, and the scope to `/api/zkpassport-verify`. For a self-served poll the server accepts that query only when every stored rule is present. A tighter query is accepted. A missing or wider check is rejected. `verify()` checks the proofs against that query and scope. The ballot uses the `uniqueIdentifier` from that response.
+
+For a policy poll the server loads the current Dashboard query for the catalog policy id and passes that query to `verify()` with the same scope. The query posted by the browser is not the one that is verified.
 
 ## 3. Query examples
 
@@ -36,9 +56,9 @@ Personhood only:
   purpose="Prove you are a unique person to vote"
   scope={`poll:${pollId}`}
   query={(q) => q.done()}
-  onResult={async ({ verified, uniqueIdentifier, proofs }) => {
-    if (!verified) throw new Error("ZKPassport verification failed");
-    // POST /api/zkpassport-verify then hash uniqueIdentifier
+  onSuccess={async ({ proofs, result }) => {
+    // POST proofs, result, originalQuery, and scope to /api/zkpassport-verify.
+    // The server calls verify() and returns uniqueIdentifier.
   }}
 />
 ```
@@ -59,9 +79,9 @@ sequenceDiagram
   U->>UI: Open important poll
   UI->>Z: query + scope poll:id
   U->>Z: NFC scan + prove
-  Z->>UI: verified + uniqueIdentifier + proofs
-  UI->>API: re-verify original query
-  API-->>UI: OK + short-lived attestation
+  Z->>UI: proofs + query result
+  UI->>API: re-verify
+  API-->>UI: OK + uniqueIdentifier + short-lived attestation
   UI->>UI: Collapse gate — Identity verified
   U->>PXE: cast_vote_*_attested(identity, expiry, signature)
   PXE->>C: private signature check, then public key and expiry check
@@ -72,7 +92,7 @@ On-chain: `identity_commitment ≠ 0` for eligibility 1/2; `identity_claims` rej
 ## 5. Domain rules
 
 1. Register `aztec.happyvote.xyz` in the ZKPassport Dashboard.
-2. `uniqueIdentifier` is scoped to domain (+ query scope). Changing domain changes IDs.
+2. `uniqueIdentifier` is scoped to the domain and the request scope (`poll:{id}`, or the policy id when a Dashboard policy is set). Changing the domain or that scope changes IDs. A policy request's scope is the policy id, so personhood ids for those polls differ from builds that omitted the scope.
 3. Do not log proofs with PII.
 
 ## 6. Proofs
@@ -112,7 +132,7 @@ Stored in catalog / `localStorage`. At `create_poll`, SHA-256 of canonical JSON 
 }
 ```
 
-`eligibility_mode`: `1` personhood-only · `2` if age / nationality / sanctions / FaceMatch / `policyId` is set.
+`eligibility_mode`: `1` personhood-only · `2` if age / birthdate / nationality / document / sanctions / FaceMatch / `policyId` is set. Age outside 1–99 is rejected before the poll is published.
 
 ## 10. UI (2026-09-18)
 
