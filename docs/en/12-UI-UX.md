@@ -68,7 +68,7 @@ flowchart LR
 
 ## ZKPassport gate
 
-Portal chrome (teal / amber / Sora) wraps `@zkpassport/ui`. Duplicate widget title is hidden. **Try again** after a failed scan stays readable (opaque card `--zkp-bg`; the widget uses that variable as the retry label color). After success:
+Portal chrome (teal / amber / Sora) wraps `@zkpassport/ui`. Duplicate widget title is hidden. After a failed scan or a cancellation, **Try again** sits under the error text. The click clears that message and starts a new QR request. The widget's own retry control stays hidden. `--zkp-bg` on the card stays an opaque ink color: the widget still paints **Open in app** with that variable. After success:
 
 - QR is removed;
 - compact **Identity verified** banner;

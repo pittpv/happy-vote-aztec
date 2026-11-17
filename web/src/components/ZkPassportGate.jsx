@@ -33,6 +33,7 @@ export function ZkPassportGate({
       : null,
   );
   const queryRef = useRef(null);
+  const qrHostRef = useRef(null);
   const sdkEnabled = import.meta.env.VITE_ZKPASSPORT_ENABLED === "true";
   const allowMock =
     import.meta.env.DEV || import.meta.env.VITE_ALLOW_ZKPASSPORT_MOCK === "true";
@@ -97,6 +98,11 @@ export function ZkPassportGate({
       serverVerified: Boolean(serverVerified),
       mock: false,
     });
+  }
+
+  function retryScan() {
+    setError(null);
+    qrHostRef.current?.querySelector("button.zkp-retry")?.click();
   }
 
   function mockVerify() {
@@ -242,15 +248,20 @@ export function ZkPassportGate({
           </div>
 
           {error ? (
-            <Notice tone="error" title={error.title}>
-              {error.text}
-            </Notice>
+            <div className="zk-gate-error">
+              <Notice tone="error" title={error.title}>
+                {error.text}
+              </Notice>
+              <button type="button" className="zk-retry" onClick={retryScan}>
+                Try again
+              </button>
+            </div>
           ) : null}
         </div>
       </div>
 
       {sdkEnabled && phase === "scan" ? (
-        <div className="zk-qr">
+        <div className="zk-qr" ref={qrHostRef}>
           <ZKPassportQRCode
             domain={domain}
             name="HappyVote on Aztec"
@@ -318,6 +329,7 @@ export function ZkPassportGate({
                     });
                   }
             }
+            onRetryClicked={() => setError(null)}
             onError={(err) => {
               console.error(err);
               setError(formatZkNetworkError(err));

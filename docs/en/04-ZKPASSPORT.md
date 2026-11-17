@@ -138,7 +138,9 @@ Stored in catalog / `localStorage`. At `create_poll`, SHA-256 of canonical JSON 
 
 The QR widget is drop-in `@zkpassport/ui`. HappyVote wraps it in portal chrome (teal / amber / Sora). SDK `display` hides the duplicate widget title.
 
-`--zkp-bg` on the card must stay an **opaque** ink color: the widget paints **Try again** (and Open in app) with that variable. Transparent `--zkp-bg` made the retry label invisible after a failed scan.
+After a failed scan or a cancellation, **Try again** sits under the error text. The click clears that message and starts a new QR request. The widget's own retry button is not shown.
+
+`--zkp-bg` on the card must stay an **opaque** ink color: the widget paints **Open in app** with that variable. Transparent `--zkp-bg` made that label invisible.
 
 After success:
 

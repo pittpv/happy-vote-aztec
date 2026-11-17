@@ -2572,6 +2572,34 @@ body::before {
   min-width: 0;
 }
 
+.zk-gate-error {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+}
+
+.zk-retry {
+  margin: 0;
+  padding: 0.65rem 1.25rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--amber);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.zk-retry:hover {
+  background: var(--amber-deep);
+}
+
+.zk-retry:active {
+  transform: translateY(1px);
+}
+
 @media (min-width: 800px) {
   .zk-gate:not(.zk-gate--verified) {
     grid-template-columns: minmax(0, 1fr) minmax(16rem, 22.5rem);
@@ -3130,6 +3158,10 @@ body::before {
 
 /* Same layer as @zkpassport/ui so these !important rules actually win. */
 @layer zkpassport {
+  .zk-qr .zkp-result-actions {
+    display: none !important;
+  }
+
   .zk-qr .zkp-retry {
     margin-top: 0 !important;
     background: var(--amber) !important;
