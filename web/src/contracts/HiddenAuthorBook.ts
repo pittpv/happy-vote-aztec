@@ -9,7 +9,7 @@ import { EthAddress } from '@aztec-labs/aztec.js/addresses';
 import { Fr, Point } from '@aztec-labs/aztec.js/fields';
 import { type PublicKey, PublicKeys } from '@aztec-labs/aztec.js/keys';
 import type { Wallet } from '@aztec-labs/aztec.js/wallet';
-import HiddenAuthorBookContractArtifactJson from '../../../../hidden_author_book/target/hidden_author_book-HiddenAuthorBook.json' with { type: 'json' };
+import HiddenAuthorBookContractArtifactJson from './hidden_author_book-HiddenAuthorBook.json' with { type: 'json' };
 export const HiddenAuthorBookContractArtifact = loadContractArtifact(HiddenAuthorBookContractArtifactJson as NoirCompiledContract);
 
 

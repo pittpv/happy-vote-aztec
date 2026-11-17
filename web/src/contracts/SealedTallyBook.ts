@@ -9,7 +9,7 @@ import { EthAddress } from '@aztec-labs/aztec.js/addresses';
 import { Fr, Point } from '@aztec-labs/aztec.js/fields';
 import { type PublicKey, PublicKeys } from '@aztec-labs/aztec.js/keys';
 import type { Wallet } from '@aztec-labs/aztec.js/wallet';
-import SealedTallyBookContractArtifactJson from '../../../../sealed_tally_book/target/sealed_tally_book-SealedTallyBook.json' with { type: 'json' };
+import SealedTallyBookContractArtifactJson from './sealed_tally_book-SealedTallyBook.json' with { type: 'json' };
 export const SealedTallyBookContractArtifact = loadContractArtifact(SealedTallyBookContractArtifactJson as NoirCompiledContract);
 
 

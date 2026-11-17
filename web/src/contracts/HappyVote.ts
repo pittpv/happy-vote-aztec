@@ -9,7 +9,7 @@ import { EthAddress } from '@aztec-labs/aztec.js/addresses';
 import { Fr, Point } from '@aztec-labs/aztec.js/fields';
 import { type PublicKey, PublicKeys } from '@aztec-labs/aztec.js/keys';
 import type { Wallet } from '@aztec-labs/aztec.js/wallet';
-import HappyVoteContractArtifactJson from '../../../../hidden_author_book/target/happy_vote_aztec-HappyVote.json' with { type: 'json' };
+import HappyVoteContractArtifactJson from './happy_vote_aztec-HappyVote.json' with { type: 'json' };
 export const HappyVoteContractArtifact = loadContractArtifact(HappyVoteContractArtifactJson as NoirCompiledContract);
 
 
