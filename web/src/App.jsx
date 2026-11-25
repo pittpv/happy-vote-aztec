@@ -958,31 +958,31 @@ function PollVoteRoute({ pollId: routePollId, walletConnect }) {
       const txOpts = paymentMethod
         ? await sponsoredTxOptions(paymentMethod)
         : await senderFeeTxOptions();
-      let publishCall = book.methods.reveal(pollId.id);
-      if (typeof book.methods.publish === "function") {
-        if (!tallyRecipient) throw new Error("This sealed poll has no tally recipient yet");
-        const opened = await openSealedKey(routePollId);
-        const points = fieldList(
-          await book.methods.get_ciphertext(pollId.id).simulate({ from: accountAddress }),
-        );
-        const counts = tallyFromCiphertext(points, BigInt(opened.sk), optionLabels.length);
-        const wide = Array.from({ length: 8 }, (_, index) => new Fr(counts[index] ?? 0n));
-        const pkX = asFieldBigInt(
-          await book.methods.get_key_x(pollId.id).simulate({ from: accountAddress }),
-        );
-        const pkY = asFieldBigInt(
-          await book.methods.get_key_y(pollId.id).simulate({ from: accountAddress }),
-        );
-        publishCall = book.methods.publish(
-          pollId.id,
-          new Fr(BigInt(opened.sk)),
-          wide,
-          points.map((value) => new Fr(value)),
-          AztecAddress.fromStringUnsafe(tallyRecipient),
-          new Fr(pkX),
-          new Fr(pkY),
-        );
+      if (typeof book.methods.publish !== "function") {
+        throw new Error("This sealed tally contract does not expose publish()");
       }
+      if (!tallyRecipient) throw new Error("This sealed poll has no tally recipient yet");
+      const opened = await openSealedKey(routePollId);
+      const points = fieldList(
+        await book.methods.get_ciphertext(pollId.id).simulate({ from: accountAddress }),
+      );
+      const counts = tallyFromCiphertext(points, BigInt(opened.sk), optionLabels.length);
+      const wide = Array.from({ length: 8 }, (_, index) => new Fr(counts[index] ?? 0n));
+      const pkX = asFieldBigInt(
+        await book.methods.get_key_x(pollId.id).simulate({ from: accountAddress }),
+      );
+      const pkY = asFieldBigInt(
+        await book.methods.get_key_y(pollId.id).simulate({ from: accountAddress }),
+      );
+      const publishCall = book.methods.publish(
+        pollId.id,
+        new Fr(BigInt(opened.sk)),
+        wide,
+        points.map((value) => new Fr(value)),
+        AztecAddress.fromStringUnsafe(tallyRecipient),
+        new Fr(pkX),
+        new Fr(pkY),
+      );
       await submitProvenBallot(publishCall, {
         from: accountAddress,
         txOptions: txOpts,
